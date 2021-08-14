@@ -1,0 +1,27 @@
+{
+  "name": "sparkar-volts",
+  "version": "0.0.1",
+  "description": "An extensive non-reactive Typescript framework that eases the development experience in Spark AR",
+  "main": "volts.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tomaspietravallo/sparkar-volts.git"
+  },
+  "keywords": [
+    "Typescript",
+    "Spark",
+    "AR",
+    "Augmented Reality",
+    "Instagram",
+    "Facebook"
+  ],
+  "author": "Tomás Pietravallo <hello@tomaspietravallo.com> (https://tomaspietravallo.com/)",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/tomaspietravallo/sparkar-volts/issues"
+  },
+  "homepage": "https://github.com/tomaspietravallo/sparkar-volts#readme"
+}
