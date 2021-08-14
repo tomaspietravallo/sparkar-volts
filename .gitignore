@@ -1,0 +1,6 @@
+*.DS_STORE
+*.arproj
+*.arprojbk
+tsconfig.json
+/node_modules
+/.vscode
