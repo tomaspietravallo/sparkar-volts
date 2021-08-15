@@ -5,6 +5,8 @@ import Time from 'Time';
 import CamInfo from 'CameraInfo';
 
 //#region types & interfaces
+export type PublicOnly<T> = Pick<T, keyof T>;
+
 type Snapshot = { [key: string]: ScalarSignal | Vec2Signal | VectorSignal | Vec4Signal | StringSignal | BoolSignal };
 
 type getDimsOfSignal<S> = S extends Vec4Signal
@@ -121,6 +123,8 @@ export class World<
     valuesToSnapshot: SnapshotObjType;
     formattedValuesToSnapshot: ObjectToSnapshot_able<SnapshotObjType>;
     userFriendlySnapshot: SnapshotToVanilla<SnapshotObjType>;
+    onLoad: (snapshot?, data?: onFramePerformanceData) => void;
+    onFrame: (snapshot?, data?: onFramePerformanceData) => void;
   };
 
   constructor({
@@ -164,8 +168,9 @@ export class World<
     // @ts-ignore
     this.assets = assets || {};
     // @ts-ignore
-    this.__sensitive = Object.defineProperties(
-      {},
+    // prettier-ignore
+    // eslint-disable-line no-alert
+    this.__sensitive = Object.defineProperties({},
       {
         initPromise: { value: this.init.bind(this, [this.assets]), writable: false, configurable: false },
         running: { value: false, writable: true, configurable: false },
@@ -177,12 +182,10 @@ export class World<
         timeMSSubscription: { value: null, writable: true, configurable: false },
         frameCount: { value: 0, writable: true, configurable: false },
         valuesToSnapshot: { value: snapshot, writable: true, configurable: false },
-        formattedValuesToSnapshot: {
-          value: this.signalsToSnapshot_able(snapshot),
-          writable: false,
-          configurable: false,
-        },
+        formattedValuesToSnapshot: { value: this.signalsToSnapshot_able(snapshot), writable: false, configurable: false, },
         userFriendlySnapshot: { value: {}, writable: true, configurable: false },
+        onLoad: { value: null, writable: true, configurable: false },
+        onFrame: { value: null, writable: true, configurable: false },
       },
     );
 
@@ -214,7 +217,9 @@ export class World<
     }
 
     this.__sensitive.loaded = true;
-    this.onLoad && this.MODE !== PRODUCTION_MODES.NO_AUTO && this.onLoad();
+    this.__sensitive.onLoad &&
+      this.MODE !== PRODUCTION_MODES.NO_AUTO &&
+      this.__sensitive.onLoad.apply(this, this.__sensitive.userFriendlySnapshot);
     if (this.MODE !== PRODUCTION_MODES.NO_AUTO) this.run();
   }
 
@@ -235,7 +240,8 @@ export class World<
         this.__sensitive.frameCount;
         const onFramePerformanceData = { fps, delta, frameCount: this.__sensitive.frameCount };
         this.runTimedEvents(onFramePerformanceData);
-        this.onFrame && this.onFrame(snapshot, onFramePerformanceData);
+        this.__sensitive.onFrame &&
+          this.__sensitive.onFrame.apply(this, [this.__sensitive.userFriendlySnapshot, onFramePerformanceData]);
         this.__sensitive.frameCount++;
       });
   }
@@ -366,21 +372,23 @@ export class World<
     }
   }
 
-  // this: InstanceType<typeof VOLTS.World>
+  // this: InstanceType<typeof World>
   // Technically, the onFrame function can have access to the private & protected properties,
-  // as long as it's declared as an arrow function, but typing it out that way would mean
-  // users would be presented to the raw/non abstracted code, which might be confusing.
+  // but typing it out that way would mean users would be presented to the raw/non abstracted code,
+  // which might be confusing.
   // I do not personally think completely isolating the onFrame/onLoad function calls is a good idea,
   // since this way, an arrow function would allow more advanced users access to the private/protected fields,
   // while the type makes it unlikely that anyone not familiar with the code base might accidentally change something.
   // To get the type of the context an arrow function would have, the line below can be changed to
-  // this: typeof VOLTS.World.prototype
+  // this: typeof World.prototype
+  // Please open an issue if you disagree, and state your point of view
   /**
    * @description A function to be called every frame
    */
-  public set onFrame(f: (this: InstanceType<typeof World>, snapshot?, data?: onFramePerformanceData) => void) {
+  // prettier-ignore
+  public set onFrame(f: ( this: InstanceType<typeof World>, snapshot?: SnapshotToVanilla<SnapshotObjType>, data?: onFramePerformanceData, ) => void ) {
     if (typeof f == 'function') {
-      this.onFrame = f;
+      this.__sensitive.onFrame = f;
     } else {
       throw new Error(`@ VOLTS.World.onFrame (set). The value provided is not a function`);
     }
@@ -389,9 +397,9 @@ export class World<
   /**
    * @description A function to be called after the class has fully loaded all it's data. `VOLTS.World.init` has executed successfully
    */
-  public set onLoad(f: (this: InstanceType<typeof World>, snapshot?) => void) {
+  public set onLoad(f: (this: InstanceType<typeof World>, snapshot?: SnapshotToVanilla<SnapshotObjType>) => void) {
     if (typeof f == 'function') {
-      this.onLoad = f;
+      this.__sensitive.onLoad = f;
     } else {
       throw new Error(`@ VOLTS.World.onLoad (set). The value provided is not a function`);
     }
@@ -408,8 +416,8 @@ export class World<
     // @ts-ignore
     const tmp: ObjectToSnapshot_able<SnapshotObjType> = {};
     const keys = Object.keys(values);
-    for (let involts = 0; involts < keys.length; involts++) {
-      const key = keys[involts];
+    for (let i = 0; i < keys.length; i++) {
+      const key = keys[i];
       const signal: any = values[key]; // any used instead of 14 separate @ts-ignore s
       if (!signal) throw new Error(`@ (static) signalsToSnapshot_able: value[key] is not defined. Key: "${key}"`);
       if (signal.w) {
@@ -449,8 +457,8 @@ export class World<
   ): SnapshotToVanilla<SnapshotObjType> {
     let keys = Object.keys(snapshot);
     const signals: { [key: string]: [number, string] } = {}; // name, dimension
-    for (let involts = 0; involts < keys.length; involts++) {
-      const key = keys[involts];
+    for (let i = 0; i < keys.length; i++) {
+      const key = keys[i];
       const parts: string[] = key.split('::');
       if (parts.length !== 4 || parts[0] !== 'CONVERTED')
         throw new Error(
@@ -464,8 +472,8 @@ export class World<
     }
     keys = Object.keys(signals);
     const result = {};
-    for (let involts = 0; involts < keys.length; involts++) {
-      const name = keys[involts];
+    for (let i = 0; i < keys.length; i++) {
+      const name = keys[i];
       const [dim, uuid] = signals[name];
       if (dim == 4) {
         result[name] = [

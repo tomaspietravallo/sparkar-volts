@@ -4,8 +4,7 @@
   "description": "An extensive non-reactive Typescript framework that eases the development experience in Spark AR",
   "main": "volts.ts",
   "scripts": {
-    "lint": "npx eslint . --ext .ts",
-    "prepublishOnly": "npx prettier -w . ; npx eslint . --ext .ts;"
+    "lint": "npx prettier -w . ; npx eslint . --ext .ts;"
   },
   "repository": {
     "type": "git",
