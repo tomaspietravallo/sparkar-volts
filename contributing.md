@@ -1,7 +1,7 @@
 # Contributing
 
 When contributing to this repository, please first discuss the change you wish to make via github issue,
-email, or any other method with the owners of this repository before making a change. 
+email, or any other method with the owners of this repository before making a change.
 
 Please note that this project is released with a [Contributor Code of Conduct](code-of-conduct.md). By participating in this project you agree to abide by its terms.
 
@@ -10,5 +10,6 @@ Please note that this project is released with a [Contributor Code of Conduct](c
 ## Pull Request Process
 
 Please ensure your pull request adheres to the following:
+
 - Search previous suggestions before making a new one to ensure yours is not a duplicate.
 - Explain why every change is needed, make detailed descriptions.

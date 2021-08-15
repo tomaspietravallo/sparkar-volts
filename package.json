@@ -4,6 +4,7 @@
   "description": "An extensive non-reactive Typescript framework that eases the development experience in Spark AR",
   "main": "volts.ts",
   "scripts": {
+    "lint": "npx prettier ./ -w",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
