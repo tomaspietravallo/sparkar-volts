@@ -1,6 +1,6 @@
 {
   "name": "sparkar-volts",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "An extensive non-reactive Typescript framework that eases the development experience in Spark AR",
   "main": "volts.ts",
   "scripts": {
