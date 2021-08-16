@@ -66,7 +66,7 @@ interface TimedEvent {
   count: number;
 }
 
-type VectorArgRest = [number] | [number[]] | number[][] | Vector[];
+type VectorArgRest = [number] | [number[]] | number[] | [Vector];
 
 //#endregion
 
@@ -125,6 +125,7 @@ export class World<
     userFriendlySnapshot: SnapshotToVanilla<SnapshotObjType>;
     onLoad: (snapshot?, data?: onFramePerformanceData) => void;
     onFrame: (snapshot?, data?: onFramePerformanceData) => void;
+    screenBBMax: Vec2Signal;
   };
 
   constructor({
@@ -182,10 +183,24 @@ export class World<
         timeMSSubscription: { value: null, writable: true, configurable: false },
         frameCount: { value: 0, writable: true, configurable: false },
         valuesToSnapshot: { value: snapshot, writable: true, configurable: false },
-        formattedValuesToSnapshot: { value: this.signalsToSnapshot_able(snapshot), writable: false, configurable: false, },
+
+        // Some extra signals for internal use. Eg. Unprojected screen size
+        // Prepend the signal name with '__volts__internal__' to prevent collisions with user generated ones
+
+        formattedValuesToSnapshot: {
+          value: this.signalsToSnapshot_able(
+            Object.assign({
+              __volts__internal__screen: Scene.unprojectToFocalPlane(Reactive.point2d(0,0))
+            }, snapshot)
+          ),
+          writable: false,
+          configurable: false,
+        },
+
         userFriendlySnapshot: { value: {}, writable: true, configurable: false },
         onLoad: { value: null, writable: true, configurable: false },
         onFrame: { value: null, writable: true, configurable: false },
+        // screenBBMax: { value: Scene.unprojectToFocalPlane(Reactive.point2d(1,1)), writable: false, configurable: false },
       },
     );
 
@@ -217,9 +232,6 @@ export class World<
     }
 
     this.__sensitive.loaded = true;
-    this.__sensitive.onLoad &&
-      this.MODE !== PRODUCTION_MODES.NO_AUTO &&
-      this.__sensitive.onLoad.apply(this, this.__sensitive.userFriendlySnapshot);
     if (this.MODE !== PRODUCTION_MODES.NO_AUTO) this.run();
   }
 
@@ -232,18 +244,37 @@ export class World<
       .monitor({ fireOnInitialValue: true })
       // @ts-ignore
       .subscribeWithSnapshot(this.__sensitive.formattedValuesToSnapshot, (ms, snapshot) => {
+        // Capture data & analytics
         const delta = ms.newValue - ms.oldValue;
         const fps = Math.round((1000 / delta) * 10) / 10;
         this.__sensitive.elapsedTime += delta || 0;
         this.__sensitive.timeMSSignalValue = ms.newValue;
         this.__sensitive.userFriendlySnapshot = this.formattedSnapshotToUserFriendly(snapshot);
-        this.__sensitive.frameCount;
+
+        // onLoad function
+        this.__sensitive.onLoad &&
+          this.MODE !== PRODUCTION_MODES.NO_AUTO &&
+          this.__sensitive.frameCount === 0 &&
+          this.__sensitive.onLoad.apply(this, this.__sensitive.userFriendlySnapshot);
+
+        // onRun
         const onFramePerformanceData = { fps, delta, frameCount: this.__sensitive.frameCount };
         this.runTimedEvents(onFramePerformanceData);
         this.__sensitive.onFrame &&
           this.__sensitive.onFrame.apply(this, [this.__sensitive.userFriendlySnapshot, onFramePerformanceData]);
         this.__sensitive.frameCount++;
       });
+  }
+
+  /**
+   * @description This method forces the instance to reload all data loaded during the `VOLTS.World.init` function. This will override and replace any existing assets. lazyAssets are not reloaded nor deleted
+   *
+   * Note, this might break if not used properly. It is not a function meant to be called multiple times -- or even at all -- it is just a utility that allows reloading data in case it got lost.
+   *
+   * This function is bound in the constructor `value: this.init.bind(this, [this.assets])`, meaning it cannot be used to load **new** assets. lazyAssets are preferred for that
+   */
+  public forceAssetReload(): Promise<void> {
+    return this.__sensitive.initPromise();
   }
 
   /**
@@ -374,19 +405,23 @@ export class World<
 
   // this: InstanceType<typeof World>
   // Technically, the onFrame function can have access to the private & protected properties,
-  // but typing it out that way would mean users would be presented to the raw/non abstracted code,
-  // which might be confusing.
+  // as long as it's declared as an arrow function, but typing it out that way would mean
+  // users would be presented to the raw/non abstracted code, which might be confusing.
   // I do not personally think completely isolating the onFrame/onLoad function calls is a good idea,
   // since this way, an arrow function would allow more advanced users access to the private/protected fields,
   // while the type makes it unlikely that anyone not familiar with the code base might accidentally change something.
   // To get the type of the context an arrow function would have, the line below can be changed to
-  // this: typeof World.prototype
-  // Please open an issue if you disagree, and state your point of view
+  // this: typeof VOLTS.World.prototype
   /**
    * @description A function to be called every frame
    */
-  // prettier-ignore
-  public set onFrame(f: ( this: InstanceType<typeof World>, snapshot?: SnapshotToVanilla<SnapshotObjType>, data?: onFramePerformanceData, ) => void ) {
+  public set onFrame(
+    f: (
+      this: InstanceType<typeof World>,
+      snapshot?: SnapshotToVanilla<SnapshotObjType>,
+      data?: onFramePerformanceData,
+    ) => void,
+  ) {
     if (typeof f == 'function') {
       this.__sensitive.onFrame = f;
     } else {
@@ -506,6 +541,26 @@ export class World<
   }
 
   /**
+   * @description Returns a 2D Vector representing the bottom right of the screen, in world space coordinates
+   */
+  public getWorldSpaceScreenBounds(): Vector {
+    const sv = (this.__sensitive.userFriendlySnapshot.__volts__internal__screen as number[]).slice(0, 2);
+    // ask the spark team about this :D, at the time of writing (v119), this didn't output consistent results
+    sv[0] = Math.abs(sv[0]);
+    sv[1] = -Math.abs(sv[1]);
+    return new Vector(sv);
+  }
+
+  // /**
+  //  * @description Returns the focal distance of the camera
+  //  */
+  // public get focalDistance(): number {
+  //   const d = (this.__sensitive.userFriendlySnapshot.__volts__internal__screen as number[])[2];
+  //   if (d < 0.001) Diagnostics.log('Warning! Using the focal distance during onLoad ')
+  //   return d;
+  // };
+
+  /**
    * @description Get the total amount of ms elapsed since the instance started running. Note, stopping and resuming the instance means the value won't be in sync with the TimeModule.ms signal value
    */
   public get elapsedTime(): number {
@@ -517,16 +572,6 @@ export class World<
    */
   public get loaded(): boolean {
     return this.__sensitive.loaded;
-  }
-  /**
-   * @description This method forces the instance to reload all data loaded during the `VOLTS.World.init` function. This will override and replace any existing assets. lazyAssets are not reloaded nor deleted
-   *
-   * Note, this might break if not used properly. It is not a function meant to be called multiple times -- or even at all -- it is just a utility that allows reloading data in case it got lost.
-   *
-   * This function is bound in the constructor `value: this.init.bind(this, [this.assets])`, meaning it cannot be used to load **new** assets. lazyAssets are preferred for that
-   */
-  public forceAssetReload(): Promise<void> {
-    return this.__sensitive.initPromise();
   }
   /**
    * @description A boolean representing whether the instance is actively running
@@ -588,10 +633,12 @@ export class Vector {
   dimension: number;
   constructor(...args: number[] | number[][]) {
     // @ts-ignore
-    this.values = Array.isArray(args[0]) ? args[0] : args;
+    this.values = (Array.isArray(args[0]) ? args[0] : args) || [0, 0, 0];
     this.dimension = this.values.length;
   }
+
   public static convertToSameDimVector(v: Vector, ...args: VectorArgRest): Vector {
+    if (!args) throw new Error('@ Vector.convertToSameDimVector: No values provided');
     if (args.length == 1) {
       if (args[0] instanceof Vector) {
         if (args[0].dimension == v.dimension) return args[0]; // returns the same vector that was provided
@@ -617,9 +664,23 @@ export class Vector {
         throw new Error(
           `@ Vector.convertToVector: values provided are not valid. v.values: ${v.values}.Value(s): ${args}`,
         );
-      return new Vector(...(args as unknown as number[]));
+      return new Vector(args as unknown as number[]);
     }
   }
+
+  public static screenToWorld2D(x: number, y: number): Vector {
+    if (!(__globalVoltsWorldInstance && __globalVoltsWorldInstance.running)) {
+      throw new Error(`Vector.screenToWorld can only be called when there's a VOLTS.World instance running`);
+    }
+    if (!(typeof x == 'number' && typeof y == 'number')) {
+      throw new Error(`@ Vector.screenToWorld: values provided are not valid. Values: x: ${x}, y: ${y}`);
+    }
+    x = (x - 0.5) * 2;
+    y = (y - 0.5) * 2;
+    const bounds = __globalVoltsWorldInstance.getWorldSpaceScreenBounds();
+    return bounds.mul(x, y);
+  }
+
   add(...args: VectorArgRest): Vector {
     const b = Vector.convertToSameDimVector(this, ...args).values;
     this.values = this.values.map((v, i) => v + b[i]);
