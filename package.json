@@ -1,11 +1,11 @@
 {
   "name": "sparkar-volts",
-  "version": "0.0.1",
+  "version": "0.0.6",
   "description": "An extensive non-reactive Typescript framework that eases the development experience in Spark AR",
   "main": "volts.ts",
   "scripts": {
     "lint": "npx prettier ./ -w",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"No test specified\""
   },
   "repository": {
     "type": "git",
