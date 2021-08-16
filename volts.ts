@@ -125,7 +125,7 @@ export class World<
     userFriendlySnapshot: SnapshotToVanilla<SnapshotObjType>;
     onLoad: (snapshot?, data?: onFramePerformanceData) => void;
     onFrame: (snapshot?, data?: onFramePerformanceData) => void;
-    screenBBMax: Vec2Signal;
+    Camera: Camera;
   };
 
   constructor({
@@ -190,17 +190,17 @@ export class World<
         formattedValuesToSnapshot: {
           value: this.signalsToSnapshot_able(
             Object.assign({
-              __volts__internal__screen: Scene.unprojectToFocalPlane(Reactive.point2d(0,0))
+              __volts__internal__screen: Scene.unprojectToFocalPlane(Reactive.point2d(0,0)),
             }, snapshot)
           ),
-          writable: false,
+          writable: true,
           configurable: false,
         },
 
         userFriendlySnapshot: { value: {}, writable: true, configurable: false },
         onLoad: { value: null, writable: true, configurable: false },
         onFrame: { value: null, writable: true, configurable: false },
-        // screenBBMax: { value: Scene.unprojectToFocalPlane(Reactive.point2d(1,1)), writable: false, configurable: false },
+        Camera: { value: null, writable: true, configurable: false }
       },
     );
 
@@ -211,7 +211,14 @@ export class World<
    * @description Initializes the class with any data required. Called as part of the constructor, to load/fetch async data
    */
   private async init(assets): Promise<void> {
-    // const allAssets: any[] = [];
+    // Camera & focal distance 👇
+    this.__sensitive.Camera = (await Scene.root.findFirst('Camera')) as Camera;
+    this.__sensitive.formattedValuesToSnapshot = Object.assign(
+      // @ts-ignore
+      this.signalsToSnapshot_able({ __volts__internal__focalDistance: this.__sensitive.Camera.focalPlane.distance }),
+      this.__sensitive.formattedValuesToSnapshot,
+    );
+
     const keys = Object.keys(assets);
     /**
      * @todo Add support for loading a SceneObject with it's material(s)
@@ -551,14 +558,14 @@ export class World<
     return new Vector(sv);
   }
 
-  // /**
-  //  * @description Returns the focal distance of the camera
-  //  */
-  // public get focalDistance(): number {
-  //   const d = (this.__sensitive.userFriendlySnapshot.__volts__internal__screen as number[])[2];
-  //   if (d < 0.001) Diagnostics.log('Warning! Using the focal distance during onLoad ')
-  //   return d;
-  // };
+  /**
+   * @description Returns the focal distance of the camera
+   */
+  public get focalDistance(): number {
+    const d = (this.__sensitive.Camera as Camera).focalPlane.distance;
+    if (d < 0.001) Diagnostics.log('Warning! Using the focal distance during onLoad ');
+    return d;
+  }
 
   /**
    * @description Get the total amount of ms elapsed since the instance started running. Note, stopping and resuming the instance means the value won't be in sync with the TimeModule.ms signal value
@@ -668,7 +675,7 @@ export class Vector {
     }
   }
 
-  public static screenToWorld2D(x: number, y: number): Vector {
+  public static screenToWorld2D(x: number, y: number, focalPlane = true): Vector {
     if (!(__globalVoltsWorldInstance && __globalVoltsWorldInstance.running)) {
       throw new Error(`Vector.screenToWorld can only be called when there's a VOLTS.World instance running`);
     }
@@ -678,7 +685,11 @@ export class Vector {
     x = (x - 0.5) * 2;
     y = (y - 0.5) * 2;
     const bounds = __globalVoltsWorldInstance.getWorldSpaceScreenBounds();
-    return bounds.mul(x, y);
+    return new Vector(
+      bounds.values[0] * x,
+      bounds.values[1] * y,
+      focalPlane ? __globalVoltsWorldInstance.snapshot.__volts__internal__focalDistance : 0,
+    );
   }
 
   add(...args: VectorArgRest): Vector {
