@@ -16,6 +16,20 @@ npm install sparkar-volts@beta
 
 Or clone this branch
 
+## CI / NPM package publishing
+There's no CI workflow set up yet, so npm publishing will be carried out manually.
+
+If you feel an update is required, please, do not hesitate to request that a major/minor/patch be released. Include as part of your commit/pr message, and tag @tomaspietravallo.
+
+```sh
+npm version major|minor|patch -m "Optional message"
+```
+```sh
+npm publish --access public --tag latest|beta
+```
+
+> An NPM token `NPM_TOKEN` is already set up as part of the repo env, to be used by future actions
+
 # Notes
 
 - Behavior in blocks:
