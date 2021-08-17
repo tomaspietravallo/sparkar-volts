@@ -616,6 +616,14 @@ export class World<
     return result;
   }
 
+  public addToSnapshot(obj: Snapshot): void {
+    this.__sensitive.formattedValuesToSnapshot = Object.assign(
+      this.__sensitive.formattedValuesToSnapshot,
+      // @ts-ignore
+      this.signalsToSnapshot_able(obj)
+    );
+  }
+
   /**
    * @description Returns a 2D Vector representing the bottom right of the screen, in world space coordinates
    */
