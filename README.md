@@ -1,6 +1,10 @@
 # VOLTS ⚡️
 
+> Work in progress 🚧 🚧 🚧
+
 An extensive non-reactive Typescript framework that eases the development experience in Spark AR
+
+> Please make sure to read this list of reasons why you should prefer the ReactiveAPI over vanilla js: [Reactive programming, SparkAR](https://sparkar.facebook.com/ar-studio/learn/scripting/reactive/), before using VOLTS, as it might not be the right thing for every project
 
 ## Installation 📦️
 
@@ -9,39 +13,47 @@ An extensive non-reactive Typescript framework that eases the development experi
 
 ### NPM
 
-Install the full package
+Install the full package. Aimed at workspaces using [webpack](https://webpack.js.org)/ [rollup.js](https://rollupjs.org/)
 
-```sh
+```bash
 npm install sparkar-volts
 ```
 
-Install the beta package
+Just install the volts.ts script into the current folder. Aimed at day-to-day use/ projects with less set up
 
-```sh
-npm install sparkar-volts@beta
-```
-
-<!-- Just install the volts.ts script into the current folder
-```shell
+```bash
+# NOTE: @minimal hasn't been published yet
 npm install sparkar-volts@minimal
-``` -->
+```
 
 ### Download link
 
-Use this \[\[link\]\] to download the latest version of the script
+Use this \[\[link\]\] to download the latest version of the script as a traditional download
 
-## WIP 🚧
+### Importing in Spark AR
 
-Hi there!
+Import the entire module
 
-This is very much a work in progress. Most of the development will be carried out in another branch.
+```ts
+import VOLTS from "./sparkar-volts";
+```
 
-> **If you're seeing this note, it probably means you shouldn't try to use this on client projects** 😬.
+Use ES6 tree-shakable imports
+
+```ts
+import { Vector } from "./sparkar-volts";
+```
+
+## How to use
+
+You can read [this Wiki](https://github.com/tomaspietravallo/sparkar-volts/wiki) explaining each part of VOLTS
 
 ## Contributing ❤️
 
 ![](https://img.shields.io/github/issues-raw/tomaspietravallo/sparkar-volts?color=green)
 ![](https://img.shields.io/github/issues-pr-raw/tomaspietravallo/sparkar-volts?color=green)
+
+You can contribute to the development of VOLTS. 
 
 PRs & Issues welcomed!
 
