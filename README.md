@@ -4,9 +4,7 @@
 
 An extensive non-reactive Typescript framework that eases the development experience in Spark AR
 
-> Please make sure to read this list of reasons why you should prefer the ReactiveAPI over vanilla js: [Reactive programming, SparkAR](https://sparkar.facebook.com/ar-studio/learn/scripting/reactive/), before using VOLTS, as it might not be the right thing for every project
-
-## Installation 📦️
+<!-- ## Installation 📦️
 
 ![](https://img.shields.io/npm/v/sparkar-volts/latest?color=informational&label=latest%20version%20%28npm%29)
 ![](https://img.shields.io/npm/v/sparkar-volts/beta?color=informational&label=beta%20version%20%28npm%29)
@@ -42,11 +40,23 @@ Use ES6 tree-shakable imports
 
 ```ts
 import { Vector } from "./sparkar-volts";
-```
+``` -->
 
-## How to use
+### Highlights
 
-You can read [this Wiki](https://github.com/tomaspietravallo/sparkar-volts/wiki) explaining each part of VOLTS
+* Non-reactive: This framework takes an imperative approach, and tries to abstract away the SparkAR Reactive API as much as possible
+
+* Typescript: You'll have a smoother and richer experience while developing. [Use VSC to take full advantage, with autocompletions and intellisense](https://sparkar.facebook.com/ar-studio/learn/scripting/scripting-basics/#scripting-fundamentals)
+
+> Please make sure to read this list of reasons why you should prefer the ReactiveAPI over vanilla js: [Reactive programming, SparkAR](https://sparkar.facebook.com/ar-studio/learn/scripting/reactive/), before using VOLTS, as it might not be the right thing for every project
+
+---
+
+## How to add VOLTS to your project
+[[Read this installation guide]]
+
+## How to use?
+[[Read this guide on getting started with VOLTS]]
 
 ## Contributing ❤️
 
