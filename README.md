@@ -10,13 +10,22 @@ Install the beta package
 
 ![](https://img.shields.io/npm/v/sparkar-volts/beta?color=informational&label=beta%20version%20%28npm%29)
 
-```sh
+```bash
 npm install sparkar-volts@beta
 ```
 
-Or clone this branch
+Or checkout into this branch
+
+```bash
+git clone https://github.com/tomaspietravallo/sparkar-volts.git
+```
+
+```bash
+git checkout beta
+```
 
 ## CI / NPM package publishing
+
 There's no CI workflow set up yet, so npm publishing will be carried out manually.
 
 If you feel an update is required, please, do not hesitate to request that a major/minor/patch be released. Include as part of your commit/pr message, and tag @tomaspietravallo.
@@ -24,6 +33,7 @@ If you feel an update is required, please, do not hesitate to request that a maj
 ```sh
 npm version major|minor|patch -m "Optional message"
 ```
+
 ```sh
 npm publish --access public --tag latest|beta
 ```

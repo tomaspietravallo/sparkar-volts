@@ -117,8 +117,8 @@ export class World<
     events: {};
     timedEvents: TimedEvent[];
     elapsedTime: number;
-    timeMSSignalValue: number;
-    timeMSSubscription: Subscription;
+    // timeMSSignalValue: number;
+    timeoutStopFlag: boolean;
     frameCount: number;
     valuesToSnapshot: SnapshotObjType;
     formattedValuesToSnapshot: ObjectToSnapshot_able<SnapshotObjType>;
@@ -179,7 +179,7 @@ export class World<
         events: { value: {}, writable: true, configurable: false },
         timedEvents: { value: [], writable: true, configurable: false },
         elapsedTime: { value: 0, writable: true, configurable: false },
-        timeMSSignalValue: { value: 0, writable: true, configurable: false },
+        // timeMSSignalValue: { value: 0, writable: true, configurable: false },
         timeMSSubscription: { value: null, writable: true, configurable: false },
         frameCount: { value: 0, writable: true, configurable: false },
         valuesToSnapshot: { value: snapshot, writable: true, configurable: false },
@@ -190,6 +190,7 @@ export class World<
         formattedValuesToSnapshot: {
           value: this.signalsToSnapshot_able(
             Object.assign({
+              __volts__internal__time: Time.ms,
               __volts__internal__screen: Scene.unprojectToFocalPlane(Reactive.point2d(0,0)),
             }, snapshot)
           ),
@@ -247,30 +248,64 @@ export class World<
    */
   public run(): void {
     this.__sensitive.running = true;
-    this.__sensitive.timeMSSubscription = Time.ms
-      .monitor({ fireOnInitialValue: true })
-      // @ts-ignore
-      .subscribeWithSnapshot(this.__sensitive.formattedValuesToSnapshot, (ms, snapshot) => {
-        // Capture data & analytics
-        const delta = ms.newValue - ms.oldValue;
-        const fps = Math.round((1000 / delta) * 10) / 10;
-        this.__sensitive.elapsedTime += delta || 0;
-        this.__sensitive.timeMSSignalValue = ms.newValue;
-        this.__sensitive.userFriendlySnapshot = this.formattedSnapshotToUserFriendly(snapshot);
+    this.__sensitive.timeoutStopFlag = false;
+    // Fun fact: Time.setTimeoutWithSnapshot will run even if the Studio is paused
+    // Meaning this would keep executing, along with any onFrame function
+    // For DEV purposes, the function will not execute if it detects the studio is on pause
+    // This won't be the case when the mode is set to PROD, in case some device has undoc.b. within the margin of error (3 frames)
+    const lastThreeFrames: number[] = [];
 
-        // onLoad function
-        this.__sensitive.onLoad &&
-          this.MODE !== PRODUCTION_MODES.NO_AUTO &&
-          this.__sensitive.frameCount === 0 &&
-          this.__sensitive.onLoad.apply(this, this.__sensitive.userFriendlySnapshot);
+    function Rec() {
+      Time.setTimeoutWithSnapshot(
+        this.__sensitive.formattedValuesToSnapshot,
+        (_, snapshot) => {
+          // Snapshot
+          this.__sensitive.userFriendlySnapshot = this.formattedSnapshotToUserFriendly(snapshot);
+          snapshot = this.__sensitive.userFriendlySnapshot;
 
-        // onRun
-        const onFramePerformanceData = { fps, delta, frameCount: this.__sensitive.frameCount };
-        this.runTimedEvents(onFramePerformanceData);
-        this.__sensitive.onFrame &&
-          this.__sensitive.onFrame.apply(this, [this.__sensitive.userFriendlySnapshot, onFramePerformanceData]);
-        this.__sensitive.frameCount++;
-      });
+          // Capture data & analytics
+          const delta =
+            (this.__sensitive.userFriendlySnapshot.__volts__internal__time || 0) - this.__sensitive.elapsedTime;
+          const fps = Math.round((1000 / delta) * 10) / 10;
+          this.__sensitive.elapsedTime += delta;
+
+          if (lastThreeFrames.length > 2) {
+            lastThreeFrames[0] = lastThreeFrames[1];
+            lastThreeFrames[1] = lastThreeFrames[2];
+            lastThreeFrames[2] = this.__sensitive.userFriendlySnapshot.__volts__internal__time;
+          } else {
+            lastThreeFrames.push(this.__sensitive.userFriendlySnapshot.__volts__internal__time);
+          }
+
+          // For DEV purposes, the function will not execute if it detects the studio is on pause
+          if (
+            lastThreeFrames[0] === lastThreeFrames[1] &&
+            lastThreeFrames[1] === lastThreeFrames[2] &&
+            !this.__sensitive.timeoutStopFlag &&
+            this.MODE == PRODUCTION_MODES.DEV
+          )
+            Rec.apply(this);
+
+          // onLoad function
+          this.__sensitive.onLoad &&
+            this.MODE !== PRODUCTION_MODES.NO_AUTO &&
+            this.__sensitive.frameCount === 0 &&
+            this.__sensitive.onLoad.apply(this, this.__sensitive.userFriendlySnapshot);
+
+          // onRun
+          const onFramePerformanceData = { fps, delta, frameCount: this.__sensitive.frameCount };
+          this.runTimedEvents(onFramePerformanceData);
+          this.__sensitive.onFrame &&
+            this.__sensitive.onFrame.apply(this, [this.__sensitive.userFriendlySnapshot, onFramePerformanceData]);
+          this.__sensitive.frameCount++;
+
+          // till the end of time
+          if (!this.__sensitive.timeoutStopFlag) Rec.apply(this);
+        },
+        0,
+      );
+    }
+    Rec.apply(this);
   }
 
   /**
@@ -292,7 +327,7 @@ export class World<
   public stop({ clearTimedEvents = false } = { clearTimedEvents: false }): void {
     this.__sensitive.running = false;
     if (clearTimedEvents) this.__sensitive.timedEvents = [];
-    this.__sensitive.timeMSSubscription && this.__sensitive.timeMSSubscription.unsubscribe();
+    this.__sensitive.timeoutStopFlag = true;
   }
 
   /**
@@ -498,6 +533,7 @@ export class World<
     snapshot: ObjectToSnapshot_able<SnapshotObjType>,
   ): SnapshotToVanilla<SnapshotObjType> {
     let keys = Object.keys(snapshot);
+    // Diagnostics.log(keys);
     const signals: { [key: string]: [number, string] } = {}; // name, dimension
     for (let i = 0; i < keys.length; i++) {
       const key = keys[i];
@@ -562,7 +598,7 @@ export class World<
    * @description Returns the focal distance of the camera
    */
   public get focalDistance(): number {
-    const d = (this.__sensitive.Camera as Camera).focalPlane.distance;
+    const d = this.snapshot.__volts__internal__focalDistance as number;
     if (d < 0.001) Diagnostics.log('Warning! Using the focal distance during onLoad ');
     return d;
   }
@@ -588,10 +624,6 @@ export class World<
   }
 
   public get frameCount(): number {
-    return this.__sensitive.frameCount;
-  }
-
-  public get fps(): number {
     return this.__sensitive.frameCount;
   }
 
@@ -688,7 +720,7 @@ export class Vector {
     return new Vector(
       bounds.values[0] * x,
       bounds.values[1] * y,
-      focalPlane ? __globalVoltsWorldInstance.snapshot.__volts__internal__focalDistance : 0,
+      focalPlane ? (__globalVoltsWorldInstance.snapshot.__volts__internal__focalDistance as number) : 0,
     );
   }
 
