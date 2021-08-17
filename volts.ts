@@ -71,13 +71,46 @@ type VectorArgRest = [number] | [number[]] | number[] | [Vector];
 //#endregion
 
 //#region utils
-// https://stackoverflow.com/a/2117523/14899497
+/**
+ * @see https://stackoverflow.com/a/2117523/14899497
+ */
 function getUUIDv4() {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
     const r = (Math.random() * 16) | 0,
       v = c == 'x' ? r : (r & 0x3) | 0x8;
     return v.toString(16);
   });
+}
+
+/**
+ * @param vec The 3D VectorSignal to be transformed
+ * @param vecSpace The parent space in which `vec` is located
+ * @param targetSpace The parent space into which `vec` should be transformed into
+ * @returns A signal in the `targetSpace`, which in the absolute frame of reference, is equivalent to `vec` in it's `vecSpace`
+ *
+ * @example ```ts
+ * let firstObj: SceneObjectBase, secondarySceneObj: SceneObjectBase;
+ * secondarySceneObj.transform.position =
+ *              transformAcrossSpaces(
+ *                      firstObj.transform.position,
+ *                      firstObj.parentWorldTransform,
+ *                      secondarySceneObj.parentWorldTransform
+ *              )
+ * ```
+ */
+export function transformAcrossSpaces(
+  vec: VectorSignal,
+  vecParentSpace: TransformSignal,
+  targetParentSpace: TransformSignal,
+): VectorSignal {
+  if (!(vec && vec.z && vec.pinLastValue))
+    throw new Error(`@ transformAcrossSpaces: Argument vec is not defined, or is not a VectorSignal`);
+  if (!(vecParentSpace && vecParentSpace.inverse && vecParentSpace.pinLastValue))
+    throw new Error(`@ transformAcrossSpaces: Argument vecParentSpace is not defined, or is not a TransformSignal`);
+  if (!(targetParentSpace && targetParentSpace.inverse && targetParentSpace.pinLastValue))
+    throw new Error(`@ transformAcrossSpaces: Argument targetParentSpace is not defined, or is not a TransformSignal`);
+
+  return targetParentSpace.inverse().applyToPoint(vecParentSpace.applyToPoint(vec));
 }
 //#endregion
 
