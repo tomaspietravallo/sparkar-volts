@@ -317,7 +317,7 @@ export class World<
             !this.__sensitive.timeoutStopFlag &&
             this.MODE == PRODUCTION_MODES.DEV
           )
-            Rec.apply(this);
+            return Rec.apply(this);
 
           // onLoad function
           this.__sensitive.onLoad &&
