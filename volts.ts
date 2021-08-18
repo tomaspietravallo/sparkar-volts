@@ -720,11 +720,18 @@ export function STOP(): void {
  */
 export class Vector {
   values: number[];
-  dimension: number;
-  constructor(...args: number[] | number[][]) {
-    // @ts-ignore
-    this.values = (Array.isArray(args[0]) ? args[0] : args) || [0, 0, 0];
-    if (!this.values.every((v) => typeof v == 'number'))
+  readonly dimension: number;
+  constructor(...args: [number[]] | [Vector] | number[]) {
+    if (args[0] instanceof Vector){
+      return args[0].copy();
+    } else if (Array.isArray(args[0])){
+      this.values = args[0];
+    } else if (!args[0]){
+      this.values = [0,0,0];
+    } else {
+      this.values = args as number[];
+    }
+    if (!this.values.every((v) => typeof v == 'number') || this.values.length === 0)
       throw new Error(`@ Vector.constructor: Values provided are not valid`);
     this.dimension = this.values.length;
   }
@@ -846,8 +853,12 @@ export class Vector {
     this.values[0] = Math.cos(newHeading) * mag;
     this.values[1] = Math.sin(newHeading) * mag;
     return this;
-  }
+  };
+  /** @description Test whether two Vectors are equal to each other */
+  equals(b: Vector): boolean {
+    return (b) && (this.values + '') === (b.values + '');
+  };
   toString(): string {
     return 'vec' + this.dimension + ':[' + this.values.toString() + ']';
-  }
+  };
 }
