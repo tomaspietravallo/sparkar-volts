@@ -722,12 +722,12 @@ export class Vector {
   values: number[];
   readonly dimension: number;
   constructor(...args: [number[]] | [Vector] | number[]) {
-    if (args[0] instanceof Vector){
+    if (args[0] instanceof Vector) {
       return args[0].copy();
-    } else if (Array.isArray(args[0])){
+    } else if (Array.isArray(args[0])) {
       this.values = args[0];
-    } else if (!args[0]){
-      this.values = [0,0,0];
+    } else if (!args[0]) {
+      this.values = [0, 0, 0];
     } else {
       this.values = args as number[];
     }
@@ -853,12 +853,12 @@ export class Vector {
     this.values[0] = Math.cos(newHeading) * mag;
     this.values[1] = Math.sin(newHeading) * mag;
     return this;
-  };
+  }
   /** @description Test whether two Vectors are equal to each other */
   equals(b: Vector): boolean {
-    return (b) && (this.values + '') === (b.values + '');
-  };
+    return b && this.values + '' === b.values + '';
+  }
   toString(): string {
     return 'vec' + this.dimension + ':[' + this.values.toString() + ']';
-  };
+  }
 }
