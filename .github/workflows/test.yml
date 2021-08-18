@@ -31,5 +31,5 @@ jobs:
           node-version: 12
       - name: npm test
         run: |
-          npm i
+          npm i --quiet --no-progress 
           npm t
