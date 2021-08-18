@@ -1,15 +1,16 @@
-name: 'CI Test (main)'
+name: 'CI Test'
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, beta ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, beta ]
 
   workflow_dispatch:
 
 jobs:
-  test:
+  main-test:
+    if: ${{ github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -22,3 +23,18 @@ jobs:
         run: |
           npm i --quiet --no-progress 
           npm t
+  beta-test:
+    if: ${{ github.ref == 'refs/heads/beta' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          ref: 'beta'
+      - uses: actions/setup-node@v1
+        with:
+          node-version: 12
+      - name: npm test
+        run: |
+          npm i --quiet --no-progress 
+          npm t
+          
