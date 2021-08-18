@@ -2,7 +2,6 @@ import Scene from 'Scene';
 import Diagnostics from 'Diagnostics';
 import Reactive from 'Reactive';
 import Time from 'Time';
-import CamInfo from 'CameraInfo';
 
 //#region types & interfaces
 export type PublicOnly<T> = Pick<T, keyof T>;
@@ -10,7 +9,7 @@ export type PublicOnly<T> = Pick<T, keyof T>;
 type Snapshot = { [key: string]: ScalarSignal | Vec2Signal | VectorSignal | Vec4Signal | StringSignal | BoolSignal };
 
 type getDimsOfSignal<S> = S extends Vec4Signal
-  ? `X4` | 'Y4' | 'Z4' | 'W4'
+  ? 'X4' | 'Y4' | 'Z4' | 'W4'
   : S extends VectorSignal
   ? 'X3' | 'Y3' | 'Z3'
   : S extends Vec2Signal
@@ -248,7 +247,6 @@ export class World<
     // Camera & focal distance 👇
     this.__sensitive.Camera = (await Scene.root.findFirst('Camera')) as Camera;
     this.__sensitive.formattedValuesToSnapshot = Object.assign(
-      // @ts-ignore
       this.signalsToSnapshot_able({ __volts__internal__focalDistance: this.__sensitive.Camera.focalPlane.distance }),
       this.__sensitive.formattedValuesToSnapshot,
     );
@@ -457,6 +455,9 @@ export class World<
   }
 
   private runTimedEvents(onFramePerformanceData: onFramePerformanceData) {
+    this.__sensitive.timedEvents = this.__sensitive.timedEvents.sort(
+      (e1, e2) => e1.lastCall + e1.delay - (e2.lastCall + e2.delay),
+    );
     let i = this.__sensitive.timedEvents.length;
     while (i--) {
       const event = this.__sensitive.timedEvents[i];
@@ -515,7 +516,7 @@ export class World<
     }
   }
 
-  protected signalsToSnapshot_able(values: SnapshotObjType): ObjectToSnapshot_able<SnapshotObjType> {
+  protected signalsToSnapshot_able<values extends Snapshot>(values: values): ObjectToSnapshot_able<values> {
     // The purpose of the prefix & suffix is to ensure any signal values added to the snapshot don't collide.
     // Eg. were vec3 'V1' to be broken up into 'V1x' 'V1y' 'V1z', it'd collide with any signals named 'V1x' 'V1y' 'V1z'
     // Here the names would get converted to 'CONVERTED::V1::x|y|z|w:[UUID]', later pieced back together into a number[]
@@ -524,7 +525,7 @@ export class World<
     const suffix = getUUIDv4();
     const getKey = (k: string, e: string) => `${prefix}::${k}::${e}::${suffix}`;
     // @ts-ignore
-    const tmp: ObjectToSnapshot_able<SnapshotObjType> = {};
+    const tmp: ObjectToSnapshot_able<values> = {};
     const keys = Object.keys(values);
     for (let i = 0; i < keys.length; i++) {
       const key = keys[i];
@@ -566,7 +567,6 @@ export class World<
     snapshot: ObjectToSnapshot_able<SnapshotObjType>,
   ): SnapshotToVanilla<SnapshotObjType> {
     let keys = Object.keys(snapshot);
-    // Diagnostics.log(keys);
     const signals: { [key: string]: [number, string] } = {}; // name, dimension
     for (let i = 0; i < keys.length; i++) {
       const key = keys[i];
@@ -619,9 +619,19 @@ export class World<
   public addToSnapshot(obj: Snapshot): void {
     this.__sensitive.formattedValuesToSnapshot = Object.assign(
       this.__sensitive.formattedValuesToSnapshot,
-      // @ts-ignore
-      this.signalsToSnapshot_able(obj)
+      this.signalsToSnapshot_able(obj),
     );
+  }
+
+  public removeFromSnapshot(keys: string | string[]): void {
+    const keysToRemove = Array.isArray(keys) ? keys : [keys];
+    const snapKeys = Object.keys(this.__sensitive.formattedValuesToSnapshot);
+    const matches = snapKeys.filter((k) => keysToRemove.indexOf(k.split('::')[1]) !== -1);
+
+    for (let index = 0; index < matches.length; index++) {
+      const match = matches[index];
+      delete this.__sensitive.formattedValuesToSnapshot[match];
+    }
   }
 
   /**
@@ -714,6 +724,8 @@ export class Vector {
   constructor(...args: number[] | number[][]) {
     // @ts-ignore
     this.values = (Array.isArray(args[0]) ? args[0] : args) || [0, 0, 0];
+    if (!this.values.every((v) => typeof v == 'number'))
+      throw new Error(`@ Vector.constructor: Values provided are not valid`);
     this.dimension = this.values.length;
   }
 
