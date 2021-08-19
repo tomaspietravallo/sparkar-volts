@@ -29,14 +29,14 @@ describe('vector construction', () => {
     const nonValidVec = () => new Vector(1, 2, '3');
     expect(nonValidVec).toThrow();
   });
-  test('scalar', ()=>{
+  test('scalar', () => {
     expect(new Vector(1).values).toEqual([1]);
-  })
-  test('100D vector', ()=>{
-    const arr = new Array(100).fill(0).map((e,i)=>i);
+  });
+  test('100D vector', () => {
+    const arr = new Array(100).fill(0).map((e, i) => i);
     const vec = new Vector(arr);
     expect(vec.dimension).toEqual(100);
-    expect(vec.add(vec).values).toEqual(arr.map(v=>v*2));
+    expect(vec.add(vec).values).toEqual(arr.map((v) => v * 2));
   });
 });
 
@@ -67,54 +67,58 @@ describe('math operations', () => {
   test('mul', () => {
     const a = new Vector(1, 2, 3);
     const b = new Vector(1, 2, 3);
-    expect(a.mul(b).values).toEqual([1,4,9]);
+    expect(a.mul(b).values).toEqual([1, 4, 9]);
   });
   test('div', () => {
     const a = new Vector(1, 2, 3);
     const b = new Vector(1, 2, 3);
 
-    expect(a.div(b).values).toEqual([1,1,1]);
+    expect(a.div(b).values).toEqual([1, 1, 1]);
 
     a.div(-1);
-    expect(a.values).toEqual([-1,-1,-1]);
+    expect(a.values).toEqual([-1, -1, -1]);
 
     a.div(0.5); // same as mul(2)
-    expect(a.values).toEqual([-2,-2,-2]);
+    expect(a.values).toEqual([-2, -2, -2]);
 
-    expect(()=>a.div(0)).toThrow();
-    expect(()=>a.div([1,2,0])).toThrow();
+    expect(() => a.div(0)).toThrow();
+    expect(() => a.div([1, 2, 0])).toThrow();
   });
-  test('dot product', ()=>{
-    const a = new Vector(1,3,-5)
-    const b = new Vector(4,-2,-1);
+  test('dot product', () => {
+    const a = new Vector(1, 3, -5);
+    const b = new Vector(4, -2, -1);
     expect(a.dot(b)).toEqual(3);
   });
-  test('cross product', ()=>{
-    const a = new Vector(2,3,4);
-    const b = new Vector(5,6,7);
+  test('cross product', () => {
+    const a = new Vector(2, 3, 4);
+    const b = new Vector(5, 6, 7);
     expect(a.cross3D(b).values).toEqual([-3, 6, -3]);
   });
-  test('distance', ()=>{
+  test('distance', () => {
     const a = new Vector(-1);
     const b = new Vector(2);
     expect(a.distance(b)).toEqual(3);
   });
-  test('magSq', ()=>{
-    expect(new Vector([1,2,3]).magSq()).toEqual(14);
+  test('magSq', () => {
+    expect(new Vector([1, 2, 3]).magSq()).toEqual(14);
   });
-  test('mag', ()=>{
+  test('mag', () => {
     expect(new Vector(1).mag()).toEqual(1);
     expect(new Vector(2).mag()).toEqual(2);
-    expect(new Vector([1,2,3]).mag()).toEqual(Math.sqrt(14));
+    expect(new Vector([1, 2, 3]).mag()).toEqual(Math.sqrt(14));
   });
-  test('normalize', ()=>{
+  test('normalize', () => {
     expect(new Vector(-1).normalize().values).toEqual([-1]);
     expect(new Vector(1).normalize().values).toEqual([1]);
-    expect(new Vector(1,1).normalize().values).toEqual([1 / Math.sqrt(2), 1 / Math.sqrt(2)]);
+    expect(new Vector(1, 1).normalize().values).toEqual([1 / Math.sqrt(2), 1 / Math.sqrt(2)]);
   });
-  // test('copy', ()=>{
-  //   const a = new Vector([1,2,3]);
-  //   const b = new Vector([1,2,3]);
-  // })
-
+  test('copy', ()=>{
+    const a = new Vector([1,2,3]);
+    const b = a.copy();
+    expect(a).toEqual(b);
+    b.add(0.1);
+    expect(a).not.toEqual(b);
+    a.add(0.1);
+    expect(a).toEqual(b);
+  });
 });

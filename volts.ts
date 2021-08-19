@@ -801,10 +801,8 @@ export class Vector {
   }
   div(...args: VectorArgRest): Vector {
     const b = Vector.convertToSameDimVector(this, ...args).values;
-    if (![...this.values, ...b].every((v) => (typeof v === 'number' && Number.isFinite(v) && v !== 0))) {
-      throw new Error(
-        `@ Vector.div: values provided are not valid. this value(s): ${this.values}\n\nb value(s): ${all}`,
-      );
+    if (![...this.values, ...b].every((v) => typeof v === 'number' && Number.isFinite(v) && v !== 0)) {
+      throw new Error(`@ Vector.div: values provided are not valid. this value(s): ${this.values}\n\nb value(s): ${b}`);
     }
     this.values = this.values.map((v, i) => v / b[i]);
     return this;
@@ -821,7 +819,7 @@ export class Vector {
     return this.values.reduce((acc, val) => acc + val * val);
   }
   mag(): number {
-    return this.values.map(v=>v*v).reduce((acc, val) => acc + val) ** 0.5;
+    return this.values.map((v) => v * v).reduce((acc, val) => acc + val) ** 0.5;
   }
   copy(): Vector {
     return new Vector(this.values);
@@ -856,9 +854,9 @@ export class Vector {
   }
   /** @description Test whether two Vectors are equal to each other */
   equals(b: Vector): boolean {
-    return b && this.values + '' === b.values + '';
+    return b && this.dimension === b.dimension && this.values.every((v, i) => v === b.values[i]);
   }
   toString(): string {
-    return 'vec' + this.dimension + ':[' + this.values.toString() + ']';
+    return `vec${this.dimension}: [${this.values.toString()}]`;
   }
 }
