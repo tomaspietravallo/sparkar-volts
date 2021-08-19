@@ -112,8 +112,8 @@ describe('math operations', () => {
     expect(new Vector(1).normalize().values).toEqual([1]);
     expect(new Vector(1, 1).normalize().values).toEqual([1 / Math.sqrt(2), 1 / Math.sqrt(2)]);
   });
-  test('copy', ()=>{
-    const a = new Vector([1,2,3]);
+  test('copy', () => {
+    const a = new Vector([1, 2, 3]);
     const b = a.copy();
     expect(a).toEqual(b);
     b.add(0.1);

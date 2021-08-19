@@ -155,8 +155,8 @@ export class World<
     valuesToSnapshot: SnapshotObjType;
     formattedValuesToSnapshot: ObjectToSnapshot_able<SnapshotObjType>;
     userFriendlySnapshot: SnapshotToVanilla<SnapshotObjType>;
-    onLoad: (snapshot?, data?: onFramePerformanceData) => void;
-    onFrame: (snapshot?, data?: onFramePerformanceData) => void;
+    onLoad: (snapshot?: SnapshotToVanilla<SnapshotObjType>, data?: onFramePerformanceData) => void;
+    onFrame: (snapshot?: SnapshotToVanilla<SnapshotObjType>, data?: onFramePerformanceData) => void;
     Camera: Camera;
   };
 
@@ -168,7 +168,7 @@ export class World<
   }: {
     assets?: ObjectTypes;
     lazyAssets?: LazyLoaded;
-    snapshot: SnapshotObjType;
+    snapshot?: SnapshotObjType;
     mode: keyof typeof PRODUCTION_MODES;
   }) {
     if (__globalVoltsWorldInstance)
@@ -200,6 +200,8 @@ export class World<
     this.lazyAssets = lazyAssets || {};
     // @ts-ignore
     this.assets = assets || {};
+    // @ts-ignore
+    snapshot = snapshot || {};
     // @ts-ignore
     // prettier-ignore
     // eslint-disable-line no-alert
