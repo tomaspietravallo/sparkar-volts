@@ -801,9 +801,9 @@ export class Vector {
   }
   div(...args: VectorArgRest): Vector {
     const b = Vector.convertToSameDimVector(this, ...args).values;
-    if ([...this.values, ...b].every((v) => typeof v === 'number' && Number.isFinite(v) && v !== 0)) {
+    if (![...this.values, ...b].every((v) => (typeof v === 'number' && Number.isFinite(v) && v !== 0))) {
       throw new Error(
-        `@ Vector.div: values provided are not valid. this value(s): ${this.values}\n\nb value(s): ${b.values}`,
+        `@ Vector.div: values provided are not valid. this value(s): ${this.values}\n\nb value(s): ${all}`,
       );
     }
     this.values = this.values.map((v, i) => v / b[i]);
@@ -821,7 +821,7 @@ export class Vector {
     return this.values.reduce((acc, val) => acc + val * val);
   }
   mag(): number {
-    return this.values.reduce((acc, val) => acc + val * val) ** 0.5;
+    return this.values.map(v=>v*v).reduce((acc, val) => acc + val) ** 0.5;
   }
   copy(): Vector {
     return new Vector(this.values);
