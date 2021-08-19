@@ -32,7 +32,7 @@ declare global {
 export default {
   root: {
     findFirst: (s: string): Promise<SceneObjectBase> => {
-      return new Promise((resolve, ) => {
+      return new Promise((resolve) => {
         const shouldFail = s.toLowerCase().indexOf('fail') !== -1;
         const reqCamera = s.indexOf('Camera') !== -1;
         if (shouldFail) throw new Error('The object was not found');
@@ -41,7 +41,7 @@ export default {
       });
     },
     findByPath: (s: string): Promise<SceneObjectBase[]> => {
-      return new Promise((resolve, ) => {
+      return new Promise((resolve) => {
         const shouldFail = s.toLowerCase().indexOf('fail') !== -1;
         if (shouldFail) throw new Error('The object was not found');
         let objs: SceneObjectBase[];

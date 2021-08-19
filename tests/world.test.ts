@@ -8,16 +8,16 @@ describe('world construction', () => {
     });
     expect(world.MODE).toEqual(PRODUCTION_MODES.NO_AUTO);
     // @ts-ignore
-    expect(()=>new World()).toBeTruthy();
+    expect(() => new World()).toBeTruthy();
     // @ts-ignore
-    expect(()=>new World({})).toBeTruthy();
+    expect(() => new World({})).toBeTruthy();
   });
   test('incorrect dev mode', () => {
     // @ts-ignore
-    expect(()=>new World({mode: 'not-a-mode'})).toThrow();
+    expect(() => new World({ mode: 'not-a-mode' })).toThrow();
     // @ts-ignore
-    expect(()=>new World({mode: true})).toThrow();
+    expect(() => new World({ mode: true })).toThrow();
     // @ts-ignore
-    expect(()=>new World({mode: {dev: true}})).toThrow();
+    expect(() => new World({ mode: { dev: true } })).toThrow();
   });
 });

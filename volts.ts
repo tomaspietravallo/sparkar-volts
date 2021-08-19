@@ -2,6 +2,13 @@ import Scene from 'Scene';
 import Diagnostics from 'Diagnostics';
 import Reactive from 'Reactive';
 import Time from 'Time';
+let Persistence: {
+  userScope: {
+    get: (s: string) => Promise<object>;
+    set: (s: string, o: Object) => Promise<boolean>;
+    remove: (s: string) => Promise<boolean>;
+  };
+};
 
 //#region types & interfaces
 export type PublicOnly<T> = Pick<T, keyof T>;
@@ -122,7 +129,7 @@ export enum PRODUCTION_MODES {
 }
 
 /**
- * @classdesc The main building block of VOLTS. This class (and the associated Time.ms subscription) functions as the internal clock that keeps things running
+ * @classdesc The main building block of VOLTS. This class functions as the internal clock that keeps things running
  *
  * @example ```typescript
  * const WORLD = new World({mode: 'DEV'});
@@ -149,7 +156,6 @@ export class World<
     events: {};
     timedEvents: TimedEvent[];
     elapsedTime: number;
-    // timeMSSignalValue: number;
     timeoutStopFlag: boolean;
     frameCount: number;
     valuesToSnapshot: SnapshotObjType;
@@ -165,11 +171,13 @@ export class World<
     lazyAssets,
     snapshot,
     mode,
+    loadStates,
   }: {
     assets?: ObjectTypes;
     lazyAssets?: LazyLoaded;
     snapshot?: SnapshotObjType;
     mode: keyof typeof PRODUCTION_MODES;
+    loadStates?: createState<any> | createState<any>[];
   }) {
     if (__globalVoltsWorldInstance)
       throw new Error(
@@ -213,7 +221,6 @@ export class World<
         events: { value: {}, writable: true, configurable: false },
         timedEvents: { value: [], writable: true, configurable: false },
         elapsedTime: { value: 0, writable: true, configurable: false },
-        // timeMSSignalValue: { value: 0, writable: true, configurable: false },
         timeMSSubscription: { value: null, writable: true, configurable: false },
         frameCount: { value: 0, writable: true, configurable: false },
         valuesToSnapshot: { value: snapshot, writable: true, configurable: false },
@@ -861,4 +868,78 @@ export class Vector {
   toString(): string {
     return `vec${this.dimension}: [${this.values.toString()}]`;
   }
+}
+
+/**
+ * @description Provides an easy interface to the Persistence module
+ *
+ * **This REQUIRES you to go to `Project > Capabilities > Persistence > ::Whitelist the persistenceKey::`**
+ *
+ * To whitelist a key, write it into the field (case sensitive), if there are multiple keys, separate them with spaces
+ *
+ * This feature is still on an early state
+ * @see https://github.com/tomaspietravallo/sparkar-volts/issues/4
+ */
+export class createState<State extends { [key: string]: Vector | number | string | boolean }> {
+  protected State: State;
+  protected key: string;
+  protected loaded: boolean;
+  constructor(persistenceKey: string) {
+    if (!persistenceKey) {
+      throw new Error(`@ VOLTS.createState: argument persistenceKey is not defined`);
+    } else {
+      this.key = persistenceKey;
+    }
+    try {
+      if (!Persistence) Persistence = require('Persistence');
+    } catch {
+      throw new Error(
+        `@ VOLTS.createState: Persistence is not enabled as a capability, or is not available in the current target platforms.\n\nTo use VOLTS.createState(), please go to your project capabilities, inspect the target platforms, and remove the ones that don't support "Persistence"`,
+      );
+    }
+    // @ts-ignore
+    this.State = {};
+    try {
+      Persistence.userScope.get(this.key);
+    } catch {
+      throw new Error(
+        `@ VOLTS.createState: The key provided: "${this.key}" is not whitelisted.\n\ngo to Project > Capabilities > Persistence > then write the key into the field (case sensitive). If there are multiple keys, separate them with spaces`,
+      );
+    };
+
+    // don't show as part of the loadState type, while remaining public
+    Object.defineProperty(this, 'loadState', {
+      value: (): Promise<State> => {
+          // Explanation for the use of Promise.race
+          // https://github.com/tomaspietravallo/sparkar-volts/issues/4
+          return Promise.race([
+            // persistence
+            Persistence.userScope.get(this.key),
+            // timeout
+            new Promise((resolve) => {
+              Time.setTimeout(resolve, 350);
+            }),
+          ]) as Promise<State>;
+        },
+        enumerable: false,
+        writable: false,
+        configurable: false
+    });
+  }
+
+  protected setPersistenceAPI(): void {
+    Persistence.userScope.set(this.key, { data: JSON.stringify(this.State) });
+  }
+
+  /**
+   * @todo Add support for Reactive values
+   * @body Improve the use experience by allowing Reactive values to be used as values
+   */
+  setKey(key: keyof State, value: Vector | number | string | boolean): void {
+    // @ts-ignore
+    this.State[key] = value instanceof Vector ? value.copy() : value;
+    // rate limit (?)
+    this.setPersistenceAPI();
+  };
+
 }
