@@ -210,12 +210,14 @@ export class World<
     this.assets = assets || {};
     // @ts-ignore
     snapshot = snapshot || {};
+    loadStates = loadStates || [];
+    loadStates = Array.isArray(loadStates) ? loadStates : [loadStates];
     // @ts-ignore
     // prettier-ignore
     // eslint-disable-line no-alert
     this.__sensitive = Object.defineProperties({},
       {
-        initPromise: { value: this.init.bind(this, [this.assets]), writable: false, configurable: false },
+        initPromise: { value: this.init.bind(this, this.assets, loadStates), writable: false, configurable: false },
         running: { value: false, writable: true, configurable: false },
         loaded: { value: false, writable: true, configurable: false },
         events: { value: {}, writable: true, configurable: false },
@@ -252,7 +254,7 @@ export class World<
   /**
    * @description Initializes the class with any data required. Called as part of the constructor, to load/fetch async data
    */
-  private async init(assets): Promise<void> {
+  private async init(assets: any[], states: createState<any>[]): Promise<void> {
     // Camera & focal distance 👇
     this.__sensitive.Camera = (await Scene.root.findFirst('Camera')) as Camera;
     this.__sensitive.formattedValuesToSnapshot = Object.assign(
@@ -260,11 +262,15 @@ export class World<
       this.__sensitive.formattedValuesToSnapshot,
     );
 
+    // load states
+    // States are automatically loaded when created
+    // @todo Separate the createState class into a mode 'independent' thing, remove loadStates?: createState<any>[] from the type def
+    // @ts-ignore key is purposely not part of the type
+    // const loadStateArr = await Promise.all(states.map((s: createState<any>)=> s.loadState() ))
+
     const keys = Object.keys(assets);
-    /**
-     * @todo Add support for loading a SceneObject with it's material(s)
-     * @body Use cases might be limited, but it would be nice to have
-     */
+    // World.init: Add support for loading a SceneObject with it's material(s)
+    // Use cases might be limited, but it would be nice to have
     const getAssets: ObjectTypes[keyof ObjectTypes][] = await Promise.all([
       ...keys.map((n) => assets[n][0] || assets[n]),
     ]);
@@ -351,7 +357,7 @@ export class World<
   /**
    * @description This method forces the instance to reload all data loaded during the `VOLTS.World.init` function. This will override and replace any existing assets. lazyAssets are not reloaded nor deleted
    *
-   * Note, this might break if not used properly. It is not a function meant to be called multiple times -- or even at all -- it is just a utility that allows reloading data in case it got lost.
+   * Note, this might break if not used properly. It is not a function meant to be called multiple times -- or even at all -- it is just a utility that allows reloading data
    *
    * This function is bound in the constructor `value: this.init.bind(this, [this.assets])`, meaning it cannot be used to load **new** assets. lazyAssets are preferred for that
    */
@@ -559,12 +565,8 @@ export class World<
         // bool // string // scalar, this very likely unintentionally catches any and all other signal types, even non-scalar(s)
         tmp[getKey(key, 'X1')] = signal;
       } else {
-        /**
-         * @todo Add link Issue URL
-         * @body Add a link to the github repo so the issue can be properly reported
-         */
         throw new Error(
-          `@ (static) signalsToSnapshot_able: The provided Signal is not defined or is not supported. Key: "${key}"\n\nPlease consider opening an issue/PR`,
+          `@ (static) signalsToSnapshot_able: The provided Signal is not defined or is not supported. Key: "${key}"\n\nPlease consider opening an issue/PR: https://github.com/tomaspietravallo/sparkar-volts/issues`,
         );
       }
     }
@@ -881,7 +883,7 @@ export class Vector {
  * @see https://github.com/tomaspietravallo/sparkar-volts/issues/4
  */
 export class createState<State extends { [key: string]: Vector | number | string | boolean }> {
-  protected State: State;
+  public readonly data: {[Property in keyof State]+?: State[Property]};
   protected key: string;
   protected loaded: boolean;
   constructor(persistenceKey: string) {
@@ -898,9 +900,15 @@ export class createState<State extends { [key: string]: Vector | number | string
       );
     }
     // @ts-ignore
-    this.State = {};
+    this.data = {};
     try {
-      Persistence.userScope.get(this.key);
+      /**
+       * @todo createState: Format vectors
+       * @body `createState.constructor` & `createState.loadState`: Format JSON.stringified vectors into a `VOLTS.Vector` instance
+       */
+      Persistence.userScope.get(this.key).then(d=>{
+        if (d && d.data) this.data = JSON.parse(d.data);
+      });
     } catch {
       throw new Error(
         `@ VOLTS.createState: The key provided: "${this.key}" is not whitelisted.\n\ngo to Project > Capabilities > Persistence > then write the key into the field (case sensitive). If there are multiple keys, separate them with spaces`,
@@ -928,7 +936,7 @@ export class createState<State extends { [key: string]: Vector | number | string
   }
 
   protected setPersistenceAPI(): void {
-    Persistence.userScope.set(this.key, { data: JSON.stringify(this.State) });
+    Persistence.userScope.set(this.key, { data: JSON.stringify(this.data) });
   }
 
   /**
@@ -937,7 +945,7 @@ export class createState<State extends { [key: string]: Vector | number | string
    */
   setKey(key: keyof State, value: Vector | number | string | boolean): void {
     // @ts-ignore
-    this.State[key] = value instanceof Vector ? value.copy() : value;
+    this.data[key] = value instanceof Vector ? value.copy() : value;
     // rate limit (?)
     this.setPersistenceAPI();
   }

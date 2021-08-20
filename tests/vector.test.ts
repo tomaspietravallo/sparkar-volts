@@ -54,10 +54,15 @@ describe('vector utils', () => {
 
 describe('math operations', () => {
   test('add', () => {
+    // vec3
     const a = new Vector(1, 2, 3);
     const b = new Vector(4, 5, 6);
     expect(a.add(b).values).toEqual([5, 7, 9]);
     expect(b.values).toEqual([4, 5, 6]);
+
+    // scalar
+    const scalar = new Vector(2);
+    expect(scalar.add(1).values).toEqual([3]);
   });
   test('sub', () => {
     const a = new Vector(2, 3, 2);
