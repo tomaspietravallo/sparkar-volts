@@ -197,11 +197,7 @@ export class World<
         break;
 
       default:
-        Diagnostics.log(
-          `@ VOLTS.World.constructor: 'mode' parameter was not set, or was set incorrectly, defaulting to PRODUCTION_MODES.DEV`,
-        );
-        this.MODE = PRODUCTION_MODES.DEV;
-        break;
+        throw new Error(`@ VOLTS.World.constructor: 'mode' parameter was not set, or was set incorrectly.`);
     }
 
     __globalVoltsWorldInstance = this;
@@ -248,7 +244,13 @@ export class World<
       },
     );
 
-    this.__sensitive.initPromise();
+    Object.defineProperty(this, 'rawInitPromise', {
+      value: this.__sensitive.initPromise(),
+      enumerable: false,
+      writable: false,
+      configurable: false,
+    });
+    // this.__sensitive.initPromise()
   }
 
   /**

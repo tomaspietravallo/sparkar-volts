@@ -44,7 +44,7 @@ export default {
       return new Promise((resolve) => {
         const shouldFail = s.toLowerCase().indexOf('fail') !== -1;
         if (shouldFail) throw new Error('The object was not found');
-        let objs: SceneObjectBase[];
+        let objs: SceneObjectBase[] = [];
         let i = Math.floor(Math.random() * 5) + 1;
         while (i--) {
           objs.push(new SceneObjectBase());
