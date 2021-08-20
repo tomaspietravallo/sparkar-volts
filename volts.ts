@@ -177,7 +177,7 @@ export class World<
     lazyAssets?: LazyLoaded;
     snapshot?: SnapshotObjType;
     mode: keyof typeof PRODUCTION_MODES;
-    loadStates?: createState<any> | createState<any>[];
+    loadStates?: State<any> | State<any>[];
   }) {
     if (__globalVoltsWorldInstance)
       throw new Error(
@@ -197,11 +197,7 @@ export class World<
         break;
 
       default:
-        Diagnostics.log(
-          `@ VOLTS.World.constructor: 'mode' parameter was not set, or was set incorrectly, defaulting to PRODUCTION_MODES.DEV`,
-        );
-        this.MODE = PRODUCTION_MODES.DEV;
-        break;
+        throw new Error(`@ VOLTS.World.constructor: 'mode' parameter was not set, or was set incorrectly.`);
     }
 
     __globalVoltsWorldInstance = this;
@@ -210,12 +206,14 @@ export class World<
     this.assets = assets || {};
     // @ts-ignore
     snapshot = snapshot || {};
+    loadStates = loadStates || [];
+    loadStates = Array.isArray(loadStates) ? loadStates : [loadStates];
     // @ts-ignore
     // prettier-ignore
     // eslint-disable-line no-alert
     this.__sensitive = Object.defineProperties({},
       {
-        initPromise: { value: this.init.bind(this, [this.assets]), writable: false, configurable: false },
+        initPromise: { value: this.init.bind(this, this.assets, loadStates), writable: false, configurable: false },
         running: { value: false, writable: true, configurable: false },
         loaded: { value: false, writable: true, configurable: false },
         events: { value: {}, writable: true, configurable: false },
@@ -246,13 +244,19 @@ export class World<
       },
     );
 
-    this.__sensitive.initPromise();
+    Object.defineProperty(this, 'rawInitPromise', {
+      value: this.__sensitive.initPromise(),
+      enumerable: false,
+      writable: false,
+      configurable: false,
+    });
+    // this.__sensitive.initPromise()
   }
 
   /**
    * @description Initializes the class with any data required. Called as part of the constructor, to load/fetch async data
    */
-  private async init(assets): Promise<void> {
+  private async init(assets: any[], states: State<any>[]): Promise<void> {
     // Camera & focal distance 👇
     this.__sensitive.Camera = (await Scene.root.findFirst('Camera')) as Camera;
     this.__sensitive.formattedValuesToSnapshot = Object.assign(
@@ -260,11 +264,14 @@ export class World<
       this.__sensitive.formattedValuesToSnapshot,
     );
 
+    // load states
+    // States are automatically loaded when created
+    // @ts-ignore key is purposely not part of the type
+    const loadStateArr = await Promise.all(states.map((s: State<any>) => s.loadState()));
+
     const keys = Object.keys(assets);
-    /**
-     * @todo Add support for loading a SceneObject with it's material(s)
-     * @body Use cases might be limited, but it would be nice to have
-     */
+    // World.init: Add support for loading a SceneObject with it's material(s)
+    // Use cases might be limited, but it would be nice to have
     const getAssets: ObjectTypes[keyof ObjectTypes][] = await Promise.all([
       ...keys.map((n) => assets[n][0] || assets[n]),
     ]);
@@ -349,11 +356,11 @@ export class World<
   }
 
   /**
-   * @description This method forces the instance to reload all data loaded during the `VOLTS.World.init` function. This will override and replace any existing assets. lazyAssets are not reloaded nor deleted
+   * @description This method forces the instance to reload all data loaded during the `VOLTS.World.init` function. This will override and replace any existing assets, and reload all States. lazyAssets are not reloaded nor deleted
    *
-   * Note, this might break if not used properly. It is not a function meant to be called multiple times -- or even at all -- it is just a utility that allows reloading data in case it got lost.
+   * Note, this might break if not used properly. It is not a function meant to be called multiple times -- or even at all -- it is just a utility that allows reloading data
    *
-   * This function is bound in the constructor `value: this.init.bind(this, [this.assets])`, meaning it cannot be used to load **new** assets. lazyAssets are preferred for that
+   * This function is bound in the constructor `value: this.init.bind(this, [this.assets, loadStates])`, meaning it cannot be used to load **new** assets. lazyAssets are preferred for that
    */
   public forceAssetReload(): Promise<void> {
     return this.__sensitive.initPromise();
@@ -559,12 +566,8 @@ export class World<
         // bool // string // scalar, this very likely unintentionally catches any and all other signal types, even non-scalar(s)
         tmp[getKey(key, 'X1')] = signal;
       } else {
-        /**
-         * @todo Add link Issue URL
-         * @body Add a link to the github repo so the issue can be properly reported
-         */
         throw new Error(
-          `@ (static) signalsToSnapshot_able: The provided Signal is not defined or is not supported. Key: "${key}"\n\nPlease consider opening an issue/PR`,
+          `@ (static) signalsToSnapshot_able: The provided Signal is not defined or is not supported. Key: "${key}"\n\nPlease consider opening an issue/PR: https://github.com/tomaspietravallo/sparkar-volts/issues`,
         );
       }
     }
@@ -722,6 +725,10 @@ export function STOP(): void {
   }
 }
 
+export function __clearGlobalInstance(): void {
+  __globalVoltsWorldInstance = null;
+}
+
 /**
  * @classdesc A flexible, easy to use, N-D vector class
  *
@@ -789,7 +796,7 @@ export class Vector {
     return new Vector(
       bounds.values[0] * x,
       bounds.values[1] * y,
-      focalPlane ? (__globalVoltsWorldInstance.snapshot.__volts__internal__focalDistance as number) : 0,
+      focalPlane ? (__globalVoltsWorldInstance.snapshot.__volts__internal__focalDistance as unknown as number) : 0,
     );
   }
 
@@ -868,6 +875,36 @@ export class Vector {
   toString(): string {
     return `vec${this.dimension}: [${this.values.toString()}]`;
   }
+  public get x(): number {
+    return this.values[0];
+  }
+  public set x(x: number) {
+    this.values[0] = x;
+  }
+  public get y(): number {
+    if (this.dimension < 2) throw new Error(`Cannot get Vector.y, vector is a scalar`);
+    return this.values[1];
+  }
+  public set y(y: number) {
+    if (this.dimension < 2) throw new Error(`Cannot set Vector.y, vector is a scalar`);
+    this.values[1] = y;
+  }
+  public get z(): number {
+    if (this.dimension < 3) throw new Error(`Cannot get Vector.z, vector is not 3D`);
+    return this.values[2];
+  }
+  public set z(z: number) {
+    if (this.dimension < 3) throw new Error(`Cannot set Vector.z, vector is not 3D`);
+    this.values[2] = z;
+  }
+  public get w(): number {
+    if (this.dimension < 4) throw new Error(`Cannot get Vector.w, vector is not 4D`);
+    return this.values[3];
+  }
+  public set w(w: number) {
+    if (this.dimension < 4) throw new Error(`Cannot set Vector.w, vector is not 4D`);
+    this.values[3] = w;
+  }
 }
 
 /**
@@ -880,13 +917,13 @@ export class Vector {
  * This feature is still on an early state
  * @see https://github.com/tomaspietravallo/sparkar-volts/issues/4
  */
-export class createState<State extends { [key: string]: Vector | number | string | boolean }> {
-  protected State: State;
+export class State<State extends { [key: string]: Vector | number | string | boolean }> {
+  public data: { [Property in keyof State]+?: State[Property] };
   protected key: string;
   protected loaded: boolean;
   constructor(persistenceKey: string) {
     if (!persistenceKey) {
-      throw new Error(`@ VOLTS.createState: argument persistenceKey is not defined`);
+      throw new Error(`@ VOLTS.State: argument persistenceKey is not defined`);
     } else {
       this.key = persistenceKey;
     }
@@ -894,25 +931,18 @@ export class createState<State extends { [key: string]: Vector | number | string
       if (!Persistence) Persistence = require('Persistence');
     } catch {
       throw new Error(
-        `@ VOLTS.createState: Persistence is not enabled as a capability, or is not available in the current target platforms.\n\nTo use VOLTS.createState(), please go to your project capabilities, inspect the target platforms, and remove the ones that don't support "Persistence"`,
+        `@ VOLTS.State: Persistence is not enabled as a capability, or is not available in the current target platforms.\n\nTo use VOLTS.State, please go to your project capabilities, inspect the target platforms, and remove the ones that don't support "Persistence"`,
       );
     }
     // @ts-ignore
-    this.State = {};
-    try {
-      Persistence.userScope.get(this.key);
-    } catch {
-      throw new Error(
-        `@ VOLTS.createState: The key provided: "${this.key}" is not whitelisted.\n\ngo to Project > Capabilities > Persistence > then write the key into the field (case sensitive). If there are multiple keys, separate them with spaces`,
-      );
-    }
+    this.data = {};
 
     // don't show as part of the loadState type, while remaining public
     Object.defineProperty(this, 'loadState', {
-      value: (): Promise<State> => {
+      value: (): void => {
         // Explanation for the use of Promise.race
         // https://github.com/tomaspietravallo/sparkar-volts/issues/4
-        return Promise.race([
+        const promise = Promise.race([
           // persistence
           Persistence.userScope.get(this.key),
           // timeout
@@ -920,15 +950,31 @@ export class createState<State extends { [key: string]: Vector | number | string
             Time.setTimeout(resolve, 350);
           }),
         ]) as Promise<State>;
+        promise.then((d) => {
+          if (d && d.data) this.data = JSON.parse(d.data as string);
+          this.loaded = true;
+        });
       },
       enumerable: false,
       writable: false,
       configurable: false,
     });
+
+    try {
+      /**
+       * @todo State: Format vectors
+       * @body `State.constructor` & `State.loadState`: Format JSON.stringified vectors into a `VOLTS.Vector` instance
+       */
+      this.loadState();
+    } catch {
+      throw new Error(
+        `@ VOLTS.State: The key provided: "${this.key}" is not whitelisted.\n\ngo to Project > Capabilities > Persistence > then write the key into the field (case sensitive). If there are multiple keys, separate them with spaces`,
+      );
+    }
   }
 
   protected setPersistenceAPI(): void {
-    Persistence.userScope.set(this.key, { data: JSON.stringify(this.State) });
+    Persistence.userScope.set(this.key, { data: JSON.stringify(this.data) });
   }
 
   /**
@@ -937,8 +983,15 @@ export class createState<State extends { [key: string]: Vector | number | string
    */
   setKey(key: keyof State, value: Vector | number | string | boolean): void {
     // @ts-ignore
-    this.State[key] = value instanceof Vector ? value.copy() : value;
+    this.data[key] = value instanceof Vector ? value.copy() : value;
     // rate limit (?)
     this.setPersistenceAPI();
   }
 }
+
+/**
+ * @description Alias of `State`. Maintains backwards compatibility
+ * @deprecated Name change on the road for v2.0.0, the use of `State` is preferred
+ * @alias createState
+ */
+export const createState = State;
