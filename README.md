@@ -20,17 +20,17 @@ An extensive non-reactive Typescript framework that eases the development experi
 
 ## How to add VOLTS to your project
 
-[[Read this installation guide]]
+[Read this installation guide](docs/install.md)
 
 ## How to use?
 
-[[Read this guide on getting started with VOLTS]]
+[Read this guide on getting started with VOLTS](docs/how-to-use-volts.md)
 
 ## Fast paced doc
 If you are more familiar with Javascript and don't want to read the longer doc linked above:
 
 ```bash
-npm i sparkar-volts@latest
+npm i sparkar-volts
 ```
 
 Or use [this download link](https://github.com/tomaspietravallo/sparkar-volts/releases/latest/download/volts.ts)
