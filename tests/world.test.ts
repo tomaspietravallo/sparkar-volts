@@ -1,7 +1,9 @@
-import { World, PublicOnly, PRODUCTION_MODES } from '../volts';
+import { World, PublicOnly, PRODUCTION_MODES, __clearGlobalInstance } from '../volts';
+import Scene from './__mocks__/Scene';
 
 describe('world construction', () => {
   test('default world', () => {
+    __clearGlobalInstance();
     const world = new World({
       mode: PRODUCTION_MODES.NO_AUTO,
       snapshot: {},
@@ -21,3 +23,14 @@ describe('world construction', () => {
     expect(() => new World({ mode: { dev: true } })).toThrow();
   });
 });
+
+describe('load assets', ()=>{
+  __clearGlobalInstance();
+  const world = new World({
+    mode: 'DEV',
+    assets: {
+      sceneObjZero: Scene.root.findFirst('object-zero'),
+      arrayOfObjs: Scene.root.findByPath('**/path/*')
+    }
+  })
+})

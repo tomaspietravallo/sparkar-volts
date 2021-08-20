@@ -177,7 +177,7 @@ export class World<
     lazyAssets?: LazyLoaded;
     snapshot?: SnapshotObjType;
     mode: keyof typeof PRODUCTION_MODES;
-    loadStates?: createState<any> | createState<any>[];
+    loadStates?: State<any> | State<any>[];
   }) {
     if (__globalVoltsWorldInstance)
       throw new Error(
@@ -254,7 +254,7 @@ export class World<
   /**
    * @description Initializes the class with any data required. Called as part of the constructor, to load/fetch async data
    */
-  private async init(assets: any[], states: createState<any>[]): Promise<void> {
+  private async init(assets: any[], states: State<any>[]): Promise<void> {
     // Camera & focal distance 👇
     this.__sensitive.Camera = (await Scene.root.findFirst('Camera')) as Camera;
     this.__sensitive.formattedValuesToSnapshot = Object.assign(
@@ -264,9 +264,8 @@ export class World<
 
     // load states
     // States are automatically loaded when created
-    // @todo Separate the createState class into a mode 'independent' thing, remove loadStates?: createState<any>[] from the type def
     // @ts-ignore key is purposely not part of the type
-    const loadStateArr = await Promise.all(states.map((s: createState<any>) => s.loadState()));
+    const loadStateArr = await Promise.all(states.map((s: State<any>) => s.loadState()));
 
     const keys = Object.keys(assets);
     // World.init: Add support for loading a SceneObject with it's material(s)
@@ -355,7 +354,7 @@ export class World<
   }
 
   /**
-   * @description This method forces the instance to reload all data loaded during the `VOLTS.World.init` function. This will override and replace any existing assets, and reload all States (`createState<any>[]`). lazyAssets are not reloaded nor deleted
+   * @description This method forces the instance to reload all data loaded during the `VOLTS.World.init` function. This will override and replace any existing assets, and reload all States. lazyAssets are not reloaded nor deleted
    *
    * Note, this might break if not used properly. It is not a function meant to be called multiple times -- or even at all -- it is just a utility that allows reloading data
    *
@@ -724,6 +723,10 @@ export function STOP(): void {
   }
 }
 
+export function __clearGlobalInstance(): void {
+  __globalVoltsWorldInstance = null;
+}
+
 /**
  * @classdesc A flexible, easy to use, N-D vector class
  *
@@ -870,6 +873,36 @@ export class Vector {
   toString(): string {
     return `vec${this.dimension}: [${this.values.toString()}]`;
   }
+  public get x(): number {
+    return this.values[0];
+  }
+  public set x(x: number) {
+    this.values[0] = x;
+  }
+  public get y(): number {
+    if (this.dimension < 2) throw new Error(`Cannot get Vector.y, vector is a scalar`);
+    return this.values[1];
+  }
+  public set y(y: number) {
+    if (this.dimension < 2) throw new Error(`Cannot set Vector.y, vector is a scalar`);
+    this.values[1] = y;
+  }
+  public get z(): number {
+    if (this.dimension < 3) throw new Error(`Cannot get Vector.z, vector is not 3D`);
+    return this.values[2];
+  }
+  public set z(z: number) {
+    if (this.dimension < 3) throw new Error(`Cannot set Vector.z, vector is not 3D`);
+    this.values[2] = z;
+  }
+  public get w(): number {
+    if (this.dimension < 4) throw new Error(`Cannot get Vector.w, vector is not 4D`);
+    return this.values[3];
+  }
+  public set w(w: number) {
+    if (this.dimension < 4) throw new Error(`Cannot set Vector.w, vector is not 4D`);
+    this.values[3] = w;
+  }
 }
 
 /**
@@ -896,7 +929,7 @@ export class State<State extends { [key: string]: Vector | number | string | boo
       if (!Persistence) Persistence = require('Persistence');
     } catch {
       throw new Error(
-        `@ VOLTS.State: Persistence is not enabled as a capability, or is not available in the current target platforms.\n\nTo use VOLTS.createState(), please go to your project capabilities, inspect the target platforms, and remove the ones that don't support "Persistence"`,
+        `@ VOLTS.State: Persistence is not enabled as a capability, or is not available in the current target platforms.\n\nTo use VOLTS.State, please go to your project capabilities, inspect the target platforms, and remove the ones that don't support "Persistence"`,
       );
     }
     // @ts-ignore
@@ -927,8 +960,8 @@ export class State<State extends { [key: string]: Vector | number | string | boo
 
     try {
       /**
-       * @todo createState: Format vectors
-       * @body `createState.constructor` & `createState.loadState`: Format JSON.stringified vectors into a `VOLTS.Vector` instance
+       * @todo State: Format vectors
+       * @body `State.constructor` & `State.loadState`: Format JSON.stringified vectors into a `VOLTS.Vector` instance
        */
       this.loadState();
     } catch {

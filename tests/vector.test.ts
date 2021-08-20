@@ -127,3 +127,37 @@ describe('math operations', () => {
     expect(a).toEqual(b);
   });
 });
+
+describe('accessors', () => {
+  const scalar = new Vector(1);
+  const twoD = new Vector(1, 2);
+  const threeD = new Vector(1, 2, 3);
+  const fourD = new Vector(1, 2, 3, 4);
+
+  test('1d', () => {
+    expect(scalar.x).toEqual(1);
+    expect((scalar.x += 4)).toEqual(5);
+    expect(scalar.x).toEqual(5);
+    expect(() => scalar.y).toThrow();
+  });
+  test('2d', () => {
+    expect(twoD.x).toEqual(1);
+    expect(twoD.y).toEqual(2);
+    expect((twoD.y += 3)).toEqual(5);
+    expect(twoD.y).toEqual(5);
+    expect(() => twoD.z).toThrow();
+  });
+  test('3d', () => {
+    expect(threeD.x).toEqual(1);
+    expect(threeD.z).toEqual(3);
+    expect((threeD.z += 2)).toEqual(5);
+    expect(threeD.z).toEqual(5);
+    expect(() => threeD.w).toThrow();
+  });
+  test('4d', () => {
+    expect(fourD.x).toEqual(1);
+    expect(fourD.w).toEqual(4);
+    expect((fourD.w += 1)).toEqual(5);
+    expect(fourD.w).toEqual(5);
+  });
+});
