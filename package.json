@@ -1,11 +1,11 @@
 {
   "name": "sparkar-volts",
-  "version": "0.0.6",
+  "version": "1.2.0",
   "description": "An extensive non-reactive Typescript framework that eases the development experience in Spark AR",
   "main": "volts.ts",
   "scripts": {
-    "lint": "npx prettier ./ -w",
-    "test": "echo \"No test specified\""
+    "lint": "npx prettier -w . ; npx eslint . --ext .ts;",
+    "test": "jest"
   },
   "repository": {
     "type": "git",
@@ -24,5 +24,22 @@
   "bugs": {
     "url": "https://github.com/tomaspietravallo/sparkar-volts/issues"
   },
-  "homepage": "https://github.com/tomaspietravallo/sparkar-volts#readme"
+  "homepage": "https://github.com/tomaspietravallo/sparkar-volts#readme",
+  "devDependencies": {
+    "@types/jest": "^27.0.1",
+    "@types/node": "^16.6.1",
+    "@types/source-map-support": "^0.5.4",
+    "@typescript-eslint/eslint-plugin": "^4.29.1",
+    "@typescript-eslint/parser": "^4.29.1",
+    "eslint": "^7.32.0",
+    "eslint-plugin-unused-imports": "^1.1.3",
+    "jest": "^27.0.6",
+    "source-map-support": "^0.5.19",
+    "ts-jest": "^27.0.5",
+    "ts-node": "^10.2.0",
+    "typescript": "^4.3.5"
+  },
+  "dependencies": {
+    "npm": "^7.20.6"
+  }
 }

@@ -1,6 +1,6 @@
 *.DS_STORE
 *.arproj
 *.arprojbk
-tsconfig.json
+/spark-test-proj
 /node_modules
 /.vscode
