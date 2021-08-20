@@ -266,7 +266,7 @@ export class World<
     // States are automatically loaded when created
     // @todo Separate the createState class into a mode 'independent' thing, remove loadStates?: createState<any>[] from the type def
     // @ts-ignore key is purposely not part of the type
-    // const loadStateArr = await Promise.all(states.map((s: createState<any>)=> s.loadState() ))
+    const loadStateArr = await Promise.all(states.map((s: createState<any>) => s.loadState()));
 
     const keys = Object.keys(assets);
     // World.init: Add support for loading a SceneObject with it's material(s)
@@ -355,11 +355,11 @@ export class World<
   }
 
   /**
-   * @description This method forces the instance to reload all data loaded during the `VOLTS.World.init` function. This will override and replace any existing assets. lazyAssets are not reloaded nor deleted
+   * @description This method forces the instance to reload all data loaded during the `VOLTS.World.init` function. This will override and replace any existing assets, and reload all States (`createState<any>[]`). lazyAssets are not reloaded nor deleted
    *
    * Note, this might break if not used properly. It is not a function meant to be called multiple times -- or even at all -- it is just a utility that allows reloading data
    *
-   * This function is bound in the constructor `value: this.init.bind(this, [this.assets])`, meaning it cannot be used to load **new** assets. lazyAssets are preferred for that
+   * This function is bound in the constructor `value: this.init.bind(this, [this.assets, loadStates])`, meaning it cannot be used to load **new** assets. lazyAssets are preferred for that
    */
   public forceAssetReload(): Promise<void> {
     return this.__sensitive.initPromise();
@@ -882,13 +882,13 @@ export class Vector {
  * This feature is still on an early state
  * @see https://github.com/tomaspietravallo/sparkar-volts/issues/4
  */
-export class createState<State extends { [key: string]: Vector | number | string | boolean }> {
-  public readonly data: {[Property in keyof State]+?: State[Property]};
+export class State<State extends { [key: string]: Vector | number | string | boolean }> {
+  public data: { [Property in keyof State]+?: State[Property] };
   protected key: string;
   protected loaded: boolean;
   constructor(persistenceKey: string) {
     if (!persistenceKey) {
-      throw new Error(`@ VOLTS.createState: argument persistenceKey is not defined`);
+      throw new Error(`@ VOLTS.State: argument persistenceKey is not defined`);
     } else {
       this.key = persistenceKey;
     }
@@ -896,31 +896,18 @@ export class createState<State extends { [key: string]: Vector | number | string
       if (!Persistence) Persistence = require('Persistence');
     } catch {
       throw new Error(
-        `@ VOLTS.createState: Persistence is not enabled as a capability, or is not available in the current target platforms.\n\nTo use VOLTS.createState(), please go to your project capabilities, inspect the target platforms, and remove the ones that don't support "Persistence"`,
+        `@ VOLTS.State: Persistence is not enabled as a capability, or is not available in the current target platforms.\n\nTo use VOLTS.createState(), please go to your project capabilities, inspect the target platforms, and remove the ones that don't support "Persistence"`,
       );
     }
     // @ts-ignore
     this.data = {};
-    try {
-      /**
-       * @todo createState: Format vectors
-       * @body `createState.constructor` & `createState.loadState`: Format JSON.stringified vectors into a `VOLTS.Vector` instance
-       */
-      Persistence.userScope.get(this.key).then(d=>{
-        if (d && d.data) this.data = JSON.parse(d.data);
-      });
-    } catch {
-      throw new Error(
-        `@ VOLTS.createState: The key provided: "${this.key}" is not whitelisted.\n\ngo to Project > Capabilities > Persistence > then write the key into the field (case sensitive). If there are multiple keys, separate them with spaces`,
-      );
-    }
 
     // don't show as part of the loadState type, while remaining public
     Object.defineProperty(this, 'loadState', {
-      value: (): Promise<State> => {
+      value: (): void => {
         // Explanation for the use of Promise.race
         // https://github.com/tomaspietravallo/sparkar-volts/issues/4
-        return Promise.race([
+        const promise = Promise.race([
           // persistence
           Persistence.userScope.get(this.key),
           // timeout
@@ -928,11 +915,27 @@ export class createState<State extends { [key: string]: Vector | number | string
             Time.setTimeout(resolve, 350);
           }),
         ]) as Promise<State>;
+        promise.then((d) => {
+          if (d && d.data) this.data = JSON.parse(d.data as string);
+          this.loaded = true;
+        });
       },
       enumerable: false,
       writable: false,
       configurable: false,
     });
+
+    try {
+      /**
+       * @todo createState: Format vectors
+       * @body `createState.constructor` & `createState.loadState`: Format JSON.stringified vectors into a `VOLTS.Vector` instance
+       */
+      this.loadState();
+    } catch {
+      throw new Error(
+        `@ VOLTS.State: The key provided: "${this.key}" is not whitelisted.\n\ngo to Project > Capabilities > Persistence > then write the key into the field (case sensitive). If there are multiple keys, separate them with spaces`,
+      );
+    }
   }
 
   protected setPersistenceAPI(): void {
@@ -950,3 +953,10 @@ export class createState<State extends { [key: string]: Vector | number | string
     this.setPersistenceAPI();
   }
 }
+
+/**
+ * @description Alias of `State`. Maintains backwards compatibility
+ * @deprecated Name change on the road for v2.0.0, the use of `State` is preferred
+ * @alias createState
+ */
+export const createState = State;
