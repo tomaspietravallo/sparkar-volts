@@ -1,2 +1,4 @@
 # Files to ignore
-# Use `npm publish --access=public ./ --dry-run` to check which files will be published
+# https://gist.github.com/adcreare/00a10f389841dd4c97197608c9b33a7f
+# npm version [#]-beta.[#]
+# Use `npm publish --access=public --tag beta ./ --dry-run` to check which files will be published
