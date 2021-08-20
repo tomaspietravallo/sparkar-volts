@@ -1,46 +1,12 @@
 # VOLTS ⚡️
 
+[![CI Test](https://github.com/tomaspietravallo/sparkar-volts/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/tomaspietravallo/sparkar-volts/actions/workflows/test.yml)
+[![](https://img.shields.io/npm/v/sparkar-volts?color=informational&label=npm%20sparkar-volts)](https://www.npmjs.com/package/sparkar-volts)
+
+
 > Work in progress 🚧 🚧 🚧
 
 An extensive non-reactive Typescript framework that eases the development experience in Spark AR
-
-<!-- ## Installation 📦️
-
-![](https://img.shields.io/npm/v/sparkar-volts/latest?color=informational&label=latest%20version%20%28npm%29)
-![](https://img.shields.io/npm/v/sparkar-volts/beta?color=informational&label=beta%20version%20%28npm%29)
-
-### NPM
-
-Install the full package. Aimed at workspaces using [webpack](https://webpack.js.org)/ [rollup.js](https://rollupjs.org/)
-
-```bash
-npm install sparkar-volts
-```
-
-Just install the volts.ts script into the current folder. Aimed at day-to-day use/ projects with less set up
-
-```bash
-# NOTE: @minimal hasn't been published yet
-npm install sparkar-volts@minimal
-```
-
-### Download link
-
-Use this \[\[link\]\] to download the latest version of the script as a traditional download
-
-### Importing in Spark AR
-
-Import the entire module
-
-```ts
-import VOLTS from "./sparkar-volts";
-```
-
-Use ES6 tree-shakable imports
-
-```ts
-import { Vector } from "./sparkar-volts";
-``` -->
 
 ### Highlights
 
@@ -48,7 +14,7 @@ import { Vector } from "./sparkar-volts";
 
 - Typescript: You'll have a smoother and richer experience while developing. [Use VSC to take full advantage, with autocompletions and intellisense](https://sparkar.facebook.com/ar-studio/learn/scripting/scripting-basics/#scripting-fundamentals)
 
-> Please make sure to read this list of reasons why you should prefer the ReactiveAPI over vanilla js: [Reactive programming, SparkAR](https://sparkar.facebook.com/ar-studio/learn/scripting/reactive/), before using VOLTS, as it might not be the right thing for every project
+> Please make sure to read this list of reasons why you should prefer the ReactiveAPI over vanilla js: [Reactive programming, SparkAR](https://sparkar.facebook.com/ar-studio/learn/scripting/reactive/) before using `volts`, as it might not be the right thing for every project
 
 ---
 
@@ -59,6 +25,53 @@ import { Vector } from "./sparkar-volts";
 ## How to use?
 
 [[Read this guide on getting started with VOLTS]]
+
+## Fast paced doc
+If you are more familiar with Javascript and don't want to read the longer doc linked above:
+
+```bash
+npm i sparkar-volts@latest
+```
+
+Or use [this download link](https://github.com/tomaspietravallo/sparkar-volts/releases/latest/download/volts.ts)
+
+> Note: the example below doesn't make much sense as a general use case, it just tries to quickly demonstrate the framework as quickly as possible
+
+```ts
+// import * as VOLTS from './volts';
+import { Vector, World, PublicOnly } from './volts';
+
+const myVec = new Vector();
+
+const face = FaceTracking.face(0);
+
+const myWorld = new World({
+    mode: 'DEV' // DEV, PRODUCTION, NO_AUTO
+    objects: { // an object composed of Promises
+        myMeshes: Scene.root.findByPath('**/path/*') as Promise<FaceMesh[]>
+    },
+    snapshot: { // an object composed of Scalar/String/Boolean/Vector(2/3/4) signals
+        Face0: face.cameraTransform.applyToPoint(face.nose.tip)
+    }
+})
+
+// myWorld.onLoad = undefined
+
+// snapshot & onFrameData automatically get typed out for you
+myWorld.onFrame = function(this: PublicOnly<typeof myWorld>, snapshot, onFrameData){
+    this.objects.myMeshes; // FaceMesh[], type is maintained
+    myVec.values = this.snapshot.face0 // the vec values are now == to the Face0 signal
+
+    myVec.div(2);
+    // (myVec is a 3D vector, so 3D arguments)
+    myVec.mul(2,2,2);
+    myVec.mul([1,1,1]);
+
+    this.objects.myMeshes.forEach((mesh)=>{
+        mesh.transform.x = myVec.values[0]
+    });
+}
+```
 
 ## Contributing ❤️
 
