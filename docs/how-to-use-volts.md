@@ -5,13 +5,16 @@ Once you've installed `volts` and added it to your project, you are ready to use
 > [See how to install volts here](install.md)
 
 ## Set up
+
 1. Create a new script in Spark AR Studio \(`Add Asset + > Script > Typescript`\)
 2. Then open your new script in your favorite code editor
 
 > If you don't have a code editor, Spark AR and I, recommend using [Visual Studio Code](https://code.visualstudio.com)
 
 ## Import volts into your scripts
+
 You can selectively import parts of `volts` as follows
+
 ```ts
 import { Vector, World } from './volts';
 
@@ -29,6 +32,6 @@ const myWorld = new World();
 
 There are many different parts that make up `volts`, below, you can find a list to their respective documentations
 
-* [Vector](vector.md)
-* [World](world.md)
-* [transformAcrossSpaces](transformAcrossSpaces.md)
+- [Vector](vector.md)
+- [World](world.md)
+- [transformAcrossSpaces](transformAcrossSpaces.md)

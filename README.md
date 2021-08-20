@@ -3,7 +3,6 @@
 [![CI Test](https://github.com/tomaspietravallo/sparkar-volts/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/tomaspietravallo/sparkar-volts/actions/workflows/test.yml)
 [![](https://img.shields.io/npm/v/sparkar-volts?color=informational&label=npm%20sparkar-volts)](https://www.npmjs.com/package/sparkar-volts)
 
-
 > Work in progress 🚧 🚧 🚧
 
 An extensive non-reactive Typescript framework that eases the development experience in Spark AR
@@ -27,6 +26,7 @@ An extensive non-reactive Typescript framework that eases the development experi
 [Read this guide on getting started with VOLTS](docs/how-to-use-volts.md)
 
 ## Fast paced doc
+
 If you are more familiar with Javascript and don't want to read the longer doc linked above:
 
 ```bash
@@ -82,7 +82,7 @@ You can contribute to the development of VOLTS.
 
 PRs & Issues welcomed!
 
-Check the [issues](https://github.com/tomaspietravallo/sparkar-volts/issues) to see if there's anything that requires help, or want to discuss aspects of the project
+Check the [issues](https://github.com/tomaspietravallo/sparkar-volts/issues) to see if there's anything that requires help, or want to discuss aspects of the project — feel free to open an issue if you encounter a bug/ want to request a feature/ other
 
 > Please check the [contributing.md](contributing.md) file if you wish to contribute to the development of the project.
 

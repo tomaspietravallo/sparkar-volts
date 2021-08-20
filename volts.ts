@@ -905,25 +905,25 @@ export class createState<State extends { [key: string]: Vector | number | string
       throw new Error(
         `@ VOLTS.createState: The key provided: "${this.key}" is not whitelisted.\n\ngo to Project > Capabilities > Persistence > then write the key into the field (case sensitive). If there are multiple keys, separate them with spaces`,
       );
-    };
+    }
 
     // don't show as part of the loadState type, while remaining public
     Object.defineProperty(this, 'loadState', {
       value: (): Promise<State> => {
-          // Explanation for the use of Promise.race
-          // https://github.com/tomaspietravallo/sparkar-volts/issues/4
-          return Promise.race([
-            // persistence
-            Persistence.userScope.get(this.key),
-            // timeout
-            new Promise((resolve) => {
-              Time.setTimeout(resolve, 350);
-            }),
-          ]) as Promise<State>;
-        },
-        enumerable: false,
-        writable: false,
-        configurable: false
+        // Explanation for the use of Promise.race
+        // https://github.com/tomaspietravallo/sparkar-volts/issues/4
+        return Promise.race([
+          // persistence
+          Persistence.userScope.get(this.key),
+          // timeout
+          new Promise((resolve) => {
+            Time.setTimeout(resolve, 350);
+          }),
+        ]) as Promise<State>;
+      },
+      enumerable: false,
+      writable: false,
+      configurable: false,
     });
   }
 
@@ -940,6 +940,5 @@ export class createState<State extends { [key: string]: Vector | number | string
     this.State[key] = value instanceof Vector ? value.copy() : value;
     // rate limit (?)
     this.setPersistenceAPI();
-  };
-
+  }
 }
