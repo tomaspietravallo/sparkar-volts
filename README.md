@@ -1,76 +1,54 @@
 # VOLTS ⚡️
 
-> Work in progress 🚧 🚧 🚧
-
 An extensive non-reactive Typescript framework that eases the development experience in Spark AR
 
-<!-- ## Installation 📦️
+## WIP x BETA branch
 
-![](https://img.shields.io/npm/v/sparkar-volts/latest?color=informational&label=latest%20version%20%28npm%29)
+[![CI](https://github.com/tomaspietravallo/sparkar-volts/actions/workflows/test.yml/badge.svg?branch=beta)](https://github.com/tomaspietravallo/sparkar-volts/actions/workflows/test.yml)
+
+Please don't use this on serious projects. This is a development branch.
+
+Install the beta package
+
 ![](https://img.shields.io/npm/v/sparkar-volts/beta?color=informational&label=beta%20version%20%28npm%29)
 
-### NPM
+```bash
+npm install sparkar-volts@beta
+```
 
-Install the full package. Aimed at workspaces using [webpack](https://webpack.js.org)/ [rollup.js](https://rollupjs.org/)
+Or checkout into this branch
 
 ```bash
-npm install sparkar-volts
+git clone https://github.com/tomaspietravallo/sparkar-volts.git
 ```
-
-Just install the volts.ts script into the current folder. Aimed at day-to-day use/ projects with less set up
 
 ```bash
-# NOTE: @minimal hasn't been published yet
-npm install sparkar-volts@minimal
+git checkout beta
 ```
 
-### Download link
+## CI / NPM package publishing
 
-Use this \[\[link\]\] to download the latest version of the script as a traditional download
+There's no CI workflow set up yet, so npm publishing will be carried out manually.
 
-### Importing in Spark AR
+If you feel an update is required, please, do not hesitate to request that a major/minor/patch be released. Include as part of your commit/pr message, and tag @tomaspietravallo.
 
-Import the entire module
-
-```ts
-import VOLTS from "./sparkar-volts";
+```sh
+npm version major|minor|patch -m "Optional message"
 ```
 
-Use ES6 tree-shakable imports
+```sh
+npm publish --access public --tag latest|beta
+```
 
-```ts
-import { Vector } from "./sparkar-volts";
-``` -->
+> An NPM token `NPM_TOKEN` is already set up as part of the repo env, to be used by future actions
 
-### Highlights
+# Notes
 
-- Non-reactive: This framework takes an imperative approach, and tries to abstract away the SparkAR Reactive API as much as possible
+- Behavior in blocks:
 
-- Typescript: You'll have a smoother and richer experience while developing. [Use VSC to take full advantage, with autocompletions and intellisense](https://sparkar.facebook.com/ar-studio/learn/scripting/scripting-basics/#scripting-fundamentals)
+  - Due to the use of the `Camera` object, VOLTS may not run as expected inside blocks. Some of the things that may break are listed below, note this isn't a comprehensive list, and that some of these might be used internally
+    - `Vector.screenToWorld2D`
 
-> Please make sure to read this list of reasons why you should prefer the ReactiveAPI over vanilla js: [Reactive programming, SparkAR](https://sparkar.facebook.com/ar-studio/learn/scripting/reactive/), before using VOLTS, as it might not be the right thing for every project
-
----
-
-## How to add VOLTS to your project
-
-[[Read this installation guide]]
-
-## How to use?
-
-[[Read this guide on getting started with VOLTS]]
-
-## Contributing ❤️
-
-![](https://img.shields.io/github/issues-raw/tomaspietravallo/sparkar-volts?color=green)
-![](https://img.shields.io/github/issues-pr-raw/tomaspietravallo/sparkar-volts?color=green)
-
-You can contribute to the development of VOLTS.
-
-PRs & Issues welcomed!
-
-Check the [issues](https://github.com/tomaspietravallo/sparkar-volts/issues) to see if there's anything that requires help, or want to discuss aspects of the project
-
-> Please check the [contributing.md](contributing.md) file if you wish to contribute to the development of the project.
-
-> If you want to open a PR/Issue, please make sure to read the [code-of-conduct.md](code-of-conduct.md) before doing so.
+- Internal signals:
+  - `__volts__internal__focalDistance`: `this.__sensitive.Camera.focalPlane.distance`
+  - `__volts__internal__screen`: `Scene.unprojectToFocalPlane(Reactive.point2d(0,0))`
