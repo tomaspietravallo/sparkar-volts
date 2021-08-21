@@ -702,9 +702,10 @@ export class World<
 /**
  * @description The purpose of this function is to be an accessible interface between VOLTS.World & a creator, using the Spark AR Studio command line
  */
-export function RUN(): void {
-  if (__globalVoltsWorldInstance) {
+export function RUN(): boolean {
+  if (__globalVoltsWorldInstance && !__globalVoltsWorldInstance.running) {
     __globalVoltsWorldInstance.run();
+    return true
   } else {
     Diagnostics.log(
       '@ RUN (volts.ts export). __globalVoltsWorldInstance is not defined, meaning no VOLTS.World instance was found',
@@ -715,9 +716,10 @@ export function RUN(): void {
 /**
  * @description The purpose of this function is to be an accessible interface between VOLTS.World & a creator, using the Spark AR Studio command line
  */
-export function STOP(): void {
-  if (__globalVoltsWorldInstance) {
+export function STOP(): boolean {
+  if (__globalVoltsWorldInstance && __globalVoltsWorldInstance.running) {
     __globalVoltsWorldInstance.stop();
+    return true
   } else {
     Diagnostics.log(
       '@ STOP (volts.ts export). __globalVoltsWorldInstance is not defined, meaning no VOLTS.World instance was found',
@@ -939,19 +941,29 @@ export class State<State extends { [key: string]: Vector | number | string | boo
 
     // don't show as part of the loadState type, while remaining public
     Object.defineProperty(this, 'loadState', {
-      value: (): void => {
+      value: (): Promise<void> => {
         // Explanation for the use of Promise.race
         // https://github.com/tomaspietravallo/sparkar-volts/issues/4
-        const promise = Promise.race([
+        return Promise.race([
           // persistence
           Persistence.userScope.get(this.key),
           // timeout
           new Promise((resolve) => {
             Time.setTimeout(resolve, 350);
           }),
-        ]) as Promise<State>;
-        promise.then((d) => {
-          if (d && d.data) this.data = JSON.parse(d.data as string);
+        ]).then((d: {data?: string}) => {
+          if (d && d.data) {
+            this.data = JSON.parse(d.data);
+            const keys = Object.keys(this.data);
+            for (let index = 0; index < keys.length; index++) {
+              const key = keys[index];
+              // @ts-ignore
+              if (this.data[key].dimension && Array.isArray(this.data[key].values)){
+                // @ts-ignore
+                this.data[key] = new Vector(this.data[key].values);
+              };
+            };
+          };
           this.loaded = true;
         });
       },
@@ -965,8 +977,8 @@ export class State<State extends { [key: string]: Vector | number | string | boo
        * @todo State: Format vectors
        * @body `State.constructor` & `State.loadState`: Format JSON.stringified vectors into a `VOLTS.Vector` instance
        */
-      this.loadState();
-    } catch {
+      this.rawInitPromise = this.loadState();
+    } catch (e) {
       throw new Error(
         `@ VOLTS.State: The key provided: "${this.key}" is not whitelisted.\n\ngo to Project > Capabilities > Persistence > then write the key into the field (case sensitive). If there are multiple keys, separate them with spaces`,
       );

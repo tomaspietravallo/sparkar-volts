@@ -145,6 +145,7 @@ class NDVectorSignal {
       // @ts-ignore
       this._vector = new Vector(args);
     }
+    this._ops = [];
   }
   add(...args: number[]): NDVectorSignal {
     this._ops.push(['add', args]);
