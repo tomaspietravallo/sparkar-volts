@@ -629,6 +629,8 @@ export class World<
   }
 
   public addToSnapshot(obj: Snapshot): void {
+    if (!Object.keys(obj).every((k) => k.indexOf('__volts__internal__') === -1))
+      throw new Error(`Attempted to overwrite internal signal`);
     this.__sensitive.formattedValuesToSnapshot = Object.assign(
       this.__sensitive.formattedValuesToSnapshot,
       this.signalsToSnapshot_able(obj),
@@ -637,6 +639,8 @@ export class World<
 
   public removeFromSnapshot(keys: string | string[]): void {
     const keysToRemove = Array.isArray(keys) ? keys : [keys];
+    if (!keysToRemove.every((k) => k.indexOf('__volts__internal__') === -1))
+      throw new Error(`Attempted to remove internal signal`);
     const snapKeys = Object.keys(this.__sensitive.formattedValuesToSnapshot);
     const matches = snapKeys.filter((k) => keysToRemove.indexOf(k.split('::')[1]) !== -1);
 
@@ -705,7 +709,7 @@ export class World<
 export function RUN(): boolean {
   if (__globalVoltsWorldInstance && !__globalVoltsWorldInstance.running) {
     __globalVoltsWorldInstance.run();
-    return true
+    return true;
   } else {
     Diagnostics.log(
       '@ RUN (volts.ts export). __globalVoltsWorldInstance is not defined, meaning no VOLTS.World instance was found',
@@ -719,7 +723,7 @@ export function RUN(): boolean {
 export function STOP(): boolean {
   if (__globalVoltsWorldInstance && __globalVoltsWorldInstance.running) {
     __globalVoltsWorldInstance.stop();
-    return true
+    return true;
   } else {
     Diagnostics.log(
       '@ STOP (volts.ts export). __globalVoltsWorldInstance is not defined, meaning no VOLTS.World instance was found',
@@ -951,19 +955,19 @@ export class State<State extends { [key: string]: Vector | number | string | boo
           new Promise((resolve) => {
             Time.setTimeout(resolve, 350);
           }),
-        ]).then((d: {data?: string}) => {
+        ]).then((d: { data?: string }) => {
           if (d && d.data) {
             this.data = JSON.parse(d.data);
             const keys = Object.keys(this.data);
             for (let index = 0; index < keys.length; index++) {
               const key = keys[index];
               // @ts-ignore
-              if (this.data[key].dimension && Array.isArray(this.data[key].values)){
+              if (this.data[key].dimension && Array.isArray(this.data[key].values)) {
                 // @ts-ignore
                 this.data[key] = new Vector(this.data[key].values);
-              };
-            };
-          };
+              }
+            }
+          }
           this.loaded = true;
         });
       },

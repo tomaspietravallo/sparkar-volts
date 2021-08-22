@@ -8,15 +8,17 @@ An extensive non-reactive Typescript framework that eases the development experi
 
 Please don't use this on serious projects. This is a development branch.
 
+## Install
+
 Install the beta package
 
-![](https://img.shields.io/npm/v/sparkar-volts/beta?color=informational&label=beta%20version%20%28npm%29)
+![](https://img.shields.io/npm/v/sparkar-volts/beta?color=informational&label=npm)
 
 ```bash
 npm install sparkar-volts@beta
 ```
 
-Or checkout into this branch
+Or clone into this branch
 
 ```bash
 git clone https://github.com/tomaspietravallo/sparkar-volts.git
@@ -26,21 +28,25 @@ git clone https://github.com/tomaspietravallo/sparkar-volts.git
 git checkout beta
 ```
 
-## CI / NPM package publishing
+```bash
+npm i
+```
+
+## CI / npm package publishing
 
 There's no CI workflow set up yet, so npm publishing will be carried out manually.
 
 If you feel an update is required, please, do not hesitate to request that a major/minor/patch be released. Include as part of your commit/pr message, and tag @tomaspietravallo.
 
-```sh
-npm version major|minor|patch -m "Optional message"
-```
+> Note: An npm token `NPM_TOKEN` is already set up as part of the repo env, to be used by future actions
 
-```sh
-npm publish --access public --tag latest|beta
-```
+# v2.0.0 plans
 
-> An NPM token `NPM_TOKEN` is already set up as part of the repo env, to be used by future actions
+- Major rewrite
+- Change the structure of some classes (notably `World`)
+- Better types for the Vector class accessors (still not clear on the implementation)
+- `State` might be formatted as a function, to provide better type support
+- Provide a template, ideally one using a non-trivial use case, in which the advantages of vanilla > reactive can be noticed
 
 # Notes
 
@@ -52,3 +58,4 @@ npm publish --access public --tag latest|beta
 - Internal signals:
   - `__volts__internal__focalDistance`: `this.__sensitive.Camera.focalPlane.distance`
   - `__volts__internal__screen`: `Scene.unprojectToFocalPlane(Reactive.point2d(0,0))`
+    > Note, as of v2.0.0-beta.2, addToSnapshot and removeFromSnapshot will prevent you from overwriting/ removing these signals

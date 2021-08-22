@@ -9,7 +9,7 @@ describe('world construction', () => {
 
     __clearGlobalInstance();
     // @ts-ignore
-    expect(()=>new World({})).toThrow();
+    expect(() => new World({})).toThrow();
   });
   test('incorrect dev mode', () => {
     __clearGlobalInstance();
@@ -24,7 +24,7 @@ describe('world construction', () => {
     // @ts-ignore
     expect(() => new World({ mode: { dev: true } })).toThrow();
   });
-  test('exported utils', ()=>{
+  test('exported utils', () => {
     __clearGlobalInstance();
     const world = new World({
       mode: 'NO_AUTO',
@@ -32,12 +32,12 @@ describe('world construction', () => {
     expect(RUN()).toBeTruthy();
     expect(STOP()).toBeTruthy();
     expect(STOP()).toBeUndefined();
-  })
+  });
 });
 
 describe('load assets', () => {
   test('scene mocks', async () => {
-    await expect(()=>Scene.root.findFirst('fail')).rejects.toThrow();
+    await expect(() => Scene.root.findFirst('fail')).rejects.toThrow();
     await expect(Scene.root.findByPath('any-other-string')).resolves.toBeTruthy();
   });
 
@@ -48,9 +48,9 @@ describe('load assets', () => {
       new World({
         mode: 'NO_AUTO',
         assets: {
-          obj: Scene.root.findFirst('obj')
-        }
-      }).rawInitPromise
+          obj: Scene.root.findFirst('obj'),
+        },
+      }).rawInitPromise,
     ).resolves.not.toThrow();
   });
 
@@ -70,19 +70,19 @@ describe('load assets', () => {
   });
 });
 
-describe('test real world use cases', ()=>{
+describe('test real world use cases', () => {
   test('load objects - mode.no_auto', async () => {
     expect.assertions(4);
     __clearGlobalInstance();
     const world = new World({
-        mode: PRODUCTION_MODES.NO_AUTO,
-        assets: {
-          obj: Scene.root.findFirst('obj')
-        }
+      mode: PRODUCTION_MODES.NO_AUTO,
+      assets: {
+        obj: Scene.root.findFirst('obj'),
+      },
     });
     expect(world.running).toEqual(false);
     // @ts-ignore
-    await world.rawInitPromise.then(()=>{
+    await world.rawInitPromise.then(() => {
       expect(world.loaded).toEqual(true);
       expect(world.running).toEqual(false);
       expect(STOP()).toEqual(undefined);
@@ -93,27 +93,26 @@ describe('test real world use cases', ()=>{
     expect.assertions(6);
     __clearGlobalInstance();
     const world = new World({
-        mode: PRODUCTION_MODES.DEV,
-        assets: {
-          obj: Scene.root.findFirst('obj')
-        }
+      mode: PRODUCTION_MODES.DEV,
+      assets: {
+        obj: Scene.root.findFirst('obj'),
+      },
     });
     expect(world.running).toEqual(false);
     // @ts-ignore
-    await world.rawInitPromise.then(()=>{
+    await world.rawInitPromise.then(() => {
       expect(world.loaded).toEqual(true);
       expect(world.running).toEqual(true);
       expect(world.assets.obj[0]).toBeInstanceOf(SceneObjectBase);
       expect(world.frameCount).toBeDefined();
     });
 
-    await new Promise(resolve=>{
-      setTimeout(resolve, 100)
+    await new Promise((resolve) => {
+      setTimeout(resolve, 100);
     });
 
     expect(world.frameCount).toBeGreaterThan(1);
 
     STOP();
-
   }, 500);
-})
+});

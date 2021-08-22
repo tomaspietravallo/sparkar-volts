@@ -24,7 +24,7 @@ const Persistence = {
         this.storage[key] = null;
         resolve(true);
       });
-    },    
+    },
   },
 };
 

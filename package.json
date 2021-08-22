@@ -34,12 +34,13 @@
     "eslint": "^7.32.0",
     "eslint-plugin-unused-imports": "^1.1.3",
     "jest": "^27.0.6",
+    "simple-pre-commit": "^1.2.1",
     "source-map-support": "^0.5.19",
     "ts-jest": "^27.0.5",
     "ts-node": "^10.2.0",
     "typescript": "^4.3.5"
   },
-  "dependencies": {
-    "npm": "^7.20.6"
+  "simple-git-hooks": {
+    "pre-commit": "npx prettier -w . --loglevel=silent; npx eslint . --ext .ts --quiet=true;"
   }
 }
