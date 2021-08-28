@@ -13,9 +13,13 @@ describe('State constructor', () => {
   test('invalid key', async () => {
     expect.assertions(1);
     // @ts-ignore
-    new State('fail').rawInitPromise.catch((e) => {
+    try {
+      // @ts-ignore
+      await new State('fail').rawConstructorPromise;
+    } catch (e){
       expect(e).toBeInstanceOf(Error);
-    });
+    };
+
   });
   test('invalid arguments', async () => {
     // @ts-ignore
@@ -30,7 +34,8 @@ describe('loadState', () => {
     const data = 'some-data';
     const state = new State('key');
     state.setKey('someData', data);
-    state.data = {};
+    // @ts-ignore
+    state.wipe()
     // @ts-ignore
     await state.loadState();
     expect(state.data.someData).toEqual(data);
@@ -38,7 +43,8 @@ describe('loadState', () => {
   test('never resolve', async () => {
     const state = new State('never');
     state.setKey('someData', 'some-data');
-    state.data = {};
+    // @ts-ignore
+    state.wipe()
     // @ts-ignore
     await state.loadState();
     expect(state.data.someData).toBeUndefined();
@@ -48,7 +54,8 @@ describe('loadState', () => {
     const data = new Vector(1, 2, 3);
     const state = new State<{ someData: Vector }>('key');
     state.setKey('someData', data);
-    state.data = {};
+    // @ts-ignore
+    state.wipe()
     // @ts-ignore
     await state.loadState();
     expect(state.data.someData).toBeInstanceOf(Vector);

@@ -42,11 +42,11 @@ If you feel an update is required, please, do not hesitate to request that a maj
 
 # v2.0.0 plans
 
-- Major rewrite
-- Change the structure of some classes (notably `World`)
-- Better types for the Vector class accessors (still not clear on the implementation)
-- `State` might be formatted as a function, to provide better type support
-- Provide a template, ideally one using a non-trivial use case, in which the advantages of vanilla > reactive can be noticed
+- [ ] Major rewrite
+- [x] Change the structure of some classes (notably `World`)
+- [ ] Better types for the Vector class accessors (still not clear on the implementation)
+- [ ] ~~`State` might be formatted as a function, to provide better type support~~
+- [ ] Provide a template, ideally one using a non-trivial use case, in which the advantages of vanilla > reactive can be noticed
 
 # Notes
 

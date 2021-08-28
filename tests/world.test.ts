@@ -1,37 +1,40 @@
-import { World, PublicOnly, PRODUCTION_MODES, __clearGlobalInstance, RUN, STOP } from '../volts';
+import { VOLTSWorld, PublicOnly, PRODUCTION_MODES } from '../volts';
 import Scene, { SceneObjectBase } from './__mocks__/Scene';
 
 describe('world construction', () => {
   test('default world', () => {
-    __clearGlobalInstance();
-    const world = new World({ mode: PRODUCTION_MODES.NO_AUTO });
-    expect(world.MODE).toEqual(PRODUCTION_MODES.NO_AUTO);
+    const world = VOLTSWorld.getInstance({ mode: PRODUCTION_MODES.NO_AUTO });
+    expect(world.mode).toEqual(PRODUCTION_MODES.NO_AUTO);
 
-    __clearGlobalInstance();
+    VOLTSWorld.devClear();
     // @ts-ignore
-    expect(() => new World({})).toThrow();
+    expect(() => VOLTSWorld.getInstance({})).toThrow();
+
+    VOLTSWorld.devClear();
+    // @ts-ignore
+    expect(() => VOLTSWorld.getInstance()).toThrow();
   });
   test('incorrect dev mode', () => {
-    __clearGlobalInstance();
+    VOLTSWorld.devClear();
     // @ts-ignore
-    expect(() => new World({ mode: 'not-a-mode' })).toThrow();
+    expect(() => VOLTSWorld.getInstance({ mode: 'not-a-mode' })).toThrow();
 
-    __clearGlobalInstance();
+    VOLTSWorld.devClear();
     // @ts-ignore
-    expect(() => new World({ mode: true })).toThrow();
+    expect(() => VOLTSWorld.getInstance({ mode: true })).toThrow();
 
-    __clearGlobalInstance();
+    VOLTSWorld.devClear();
     // @ts-ignore
-    expect(() => new World({ mode: { dev: true } })).toThrow();
+    expect(() => VOLTSWorld.getInstance({ mode: { dev: true } })).toThrow();
   });
-  test('exported utils', () => {
-    __clearGlobalInstance();
-    const world = new World({
+  test('run/stop functions', () => {
+    VOLTSWorld.devClear();
+    const world = VOLTSWorld.getInstance({
       mode: 'NO_AUTO',
     });
-    expect(RUN()).toBeTruthy();
-    expect(STOP()).toBeTruthy();
-    expect(STOP()).toBeUndefined();
+    expect(VOLTSWorld.getInstance().run()).toBeTruthy();
+    expect(VOLTSWorld.getInstance().stop()).toBeTruthy();
+    expect(VOLTSWorld.getInstance().stop()).toBeFalsy();
   });
 });
 
@@ -42,23 +45,24 @@ describe('load assets', () => {
   });
 
   test('valid objects', async () => {
-    __clearGlobalInstance();
+    VOLTSWorld.devClear();
     // This one is actually doing the entire set up
     await expect(
-      new World({
+      VOLTSWorld.getInstance({
         mode: 'NO_AUTO',
         assets: {
           obj: Scene.root.findFirst('obj'),
         },
+        // @ts-ignore
       }).rawInitPromise,
     ).resolves.not.toThrow();
   });
 
   test('invalid objects', async () => {
-    __clearGlobalInstance();
+    VOLTSWorld.devClear();
     await expect(
       () =>
-        new World({
+        VOLTSWorld.getInstance({
           mode: 'NO_AUTO',
           assets: {
             sceneObjZero: Scene.root.findFirst('object-zero'),
@@ -73,8 +77,8 @@ describe('load assets', () => {
 describe('test real world use cases', () => {
   test('load objects - mode.no_auto', async () => {
     expect.assertions(4);
-    __clearGlobalInstance();
-    const world = new World({
+    VOLTSWorld.devClear();
+    const world = VOLTSWorld.getInstance({
       mode: PRODUCTION_MODES.NO_AUTO,
       assets: {
         obj: Scene.root.findFirst('obj'),
@@ -85,18 +89,20 @@ describe('test real world use cases', () => {
     await world.rawInitPromise.then(() => {
       expect(world.loaded).toEqual(true);
       expect(world.running).toEqual(false);
-      expect(STOP()).toEqual(undefined);
+      expect(world.stop()).toEqual(false);
     });
   });
 
   test('run - mode.dev', async () => {
-    expect.assertions(6);
-    __clearGlobalInstance();
-    const world = new World({
+    // expect.assertions(6);
+    VOLTSWorld.devClear();
+    const world = VOLTSWorld.getInstance({
       mode: PRODUCTION_MODES.DEV,
       assets: {
         obj: Scene.root.findFirst('obj'),
       },
+      snapshot: {},
+      loadStates: undefined
     });
     expect(world.running).toEqual(false);
     // @ts-ignore
@@ -108,11 +114,13 @@ describe('test real world use cases', () => {
     });
 
     await new Promise((resolve) => {
-      setTimeout(resolve, 100);
+      setTimeout(resolve, 300);
     });
 
+    expect(world.running).toEqual(true);
+    expect(VOLTSWorld.getInstance().mode).toEqual(PRODUCTION_MODES.DEV);
     expect(world.frameCount).toBeGreaterThan(1);
 
-    STOP();
+    VOLTSWorld.getInstance().stop();
   }, 500);
 });
