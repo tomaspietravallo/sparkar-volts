@@ -25,51 +25,37 @@ An extensive non-reactive Typescript framework that eases the development experi
 
 [Read this guide on getting started with VOLTS](docs/how-to-use-volts.md)
 
-## Fast paced doc
+## Template
 
-If you are more familiar with Javascript and don't want to read the longer doc linked above:
+Use this template as a quick start if you're already familiar with the library
 
 ```bash
-npm i sparkar-volts
+npm i sparkar-volts@beta
 ```
 
 Or use [this download link](https://github.com/tomaspietravallo/sparkar-volts/releases/latest/download/volts.ts)
 
-> Note: the example below doesn't make much sense as a general use case, it just tries to quickly demonstrate the framework as quickly as possible
+<!-- the code for World.onFrame uses a trailing \n so the formatting of the two messages is the same in Spark AR Studio -->
 
 ```ts
-// import * as VOLTS from './volts';
-import { Vector, World, PublicOnly } from './volts';
+// main.ts
+// using sparkar-volts@2.0.0-beta.3
+import Diagnostics from 'Diagnostics';
+import Volts from './volts';
 
-const myVec = new Vector();
+const World = Volts.World.getInstance({
+  mode: 'DEV',
+  snapshot: {},
+  assets: {},
+  loadStates: undefined
+});
 
-const face = FaceTracking.face(0);
+World.onLoad = function(snapshot){
+  Diagnostics.log(`Loaded 🧪.\nAssets: ${Object.keys(World.assets) || 'no assets were loaded'}`);
+}
 
-const myWorld = new World({
-    mode: 'DEV' // DEV, PRODUCTION, NO_AUTO
-    objects: { // an object composed of Promises
-        myMeshes: Scene.root.findByPath('**/path/*') as Promise<FaceMesh[]>
-    },
-    snapshot: { // an object composed of Scalar/String/Boolean/Vector(2/3/4) signals
-        Face0: face.cameraTransform.applyToPoint(face.nose.tip)
-    }
-})
-
-// myWorld.onLoad = undefined
-
-// snapshot & onFrameData automatically get typed out for you
-myWorld.onFrame = function(this: PublicOnly<typeof myWorld>, snapshot, onFrameData){
-    this.objects.myMeshes; // FaceMesh[], type is maintained
-    myVec.values = this.snapshot.face0 // the vec values are now == to the Face0 signal
-
-    myVec.div(2);
-    // (myVec is a 3D vector, so 3D arguments)
-    myVec.mul(2,2,2);
-    myVec.mul([1,1,1]);
-
-    this.objects.myMeshes.forEach((mesh)=>{
-        mesh.transform.x = myVec.values[0]
-    });
+World.onFrame = function(snapshot, data){
+  if (data.frameCount == 0) Diagnostics.log(`Running... 🚀\n`);
 }
 ```
 
