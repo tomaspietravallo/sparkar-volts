@@ -127,11 +127,17 @@ class World<WorldConfigParams extends WorldConfig> {
   private static instance: World<any>;
   private static userConfig: WorldConfig;
   protected internalData: InternalWorldData;
-  public assets: { [key: string]: SceneObjectBase[] };
+  public assets: {
+    [Prop in keyof WorldConfigParams['assets']]:
+    WorldConfigParams['assets'][Prop] extends PromiseLike<infer C>
+    ? C extends ArrayLike<any> ? C : Array<C>
+    : never
+  };
   public mode: keyof typeof PRODUCTION_MODES;
 
   private constructor() {
     this.mode = World.userConfig.mode;
+    // @ts-ignore
     this.assets = {};
     this.internalData = {
       initPromise: this.init.bind(this, World.userConfig.assets, World.userConfig.loadStates),
@@ -268,7 +274,6 @@ class World<WorldConfigParams extends WorldConfig> {
           if (
             lastThreeFrames[0] === lastThreeFrames[1] &&
             lastThreeFrames[1] === lastThreeFrames[2] &&
-            !this.internalData.FLAGS.stopTimeout &&
             this.mode == PRODUCTION_MODES.DEV
           )
             return loop();
