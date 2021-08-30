@@ -5,6 +5,8 @@ import Time from './__mocks__/Time';
 // new State('fail-Fail-FAIL') // throws
 // new State('never-Never-NEVER') // resolve(undefined)
 
+jest.useFakeTimers();
+
 describe('State constructor', () => {
   test('valid key', async () => {
     // @ts-ignore
@@ -16,10 +18,9 @@ describe('State constructor', () => {
     try {
       // @ts-ignore
       await new State('fail').rawConstructorPromise;
-    } catch (e){
+    } catch (e) {
       expect(e).toBeInstanceOf(Error);
-    };
-
+    }
   });
   test('invalid arguments', async () => {
     // @ts-ignore
@@ -35,7 +36,7 @@ describe('loadState', () => {
     const state = new State('key');
     state.setKey('someData', data);
     // @ts-ignore
-    state.wipe()
+    state.wipe();
     // @ts-ignore
     await state.loadState();
     expect(state.data.someData).toEqual(data);
@@ -44,7 +45,7 @@ describe('loadState', () => {
     const state = new State('never');
     state.setKey('someData', 'some-data');
     // @ts-ignore
-    state.wipe()
+    state.wipe();
     // @ts-ignore
     await state.loadState();
     expect(state.data.someData).toBeUndefined();
@@ -55,7 +56,7 @@ describe('loadState', () => {
     const state = new State<{ someData: Vector }>('key');
     state.setKey('someData', data);
     // @ts-ignore
-    state.wipe()
+    state.wipe();
     // @ts-ignore
     await state.loadState();
     expect(state.data.someData).toBeInstanceOf(Vector);

@@ -128,10 +128,11 @@ class World<WorldConfigParams extends WorldConfig> {
   private static userConfig: WorldConfig;
   protected internalData: InternalWorldData;
   public assets: {
-    [Prop in keyof WorldConfigParams['assets']]:
-    WorldConfigParams['assets'][Prop] extends PromiseLike<infer C>
-    ? C extends ArrayLike<any> ? C : Array<C>
-    : never
+    [Prop in keyof WorldConfigParams['assets']]: WorldConfigParams['assets'][Prop] extends PromiseLike<infer C>
+      ? C extends ArrayLike<any>
+        ? C
+        : Array<C>
+      : never;
   };
   public mode: keyof typeof PRODUCTION_MODES;
 
@@ -149,7 +150,7 @@ class World<WorldConfigParams extends WorldConfig> {
       timedEvents: [],
       // @ts-ignore missing props are assigned at runtime
       userFriendlySnapshot: {},
-      formattedValuesToSnapshot: {},
+      formattedValuesToSnapshot: this.signalsToSnapshot_able(World.userConfig.snapshot),
       FLAGS: {
         stopTimeout: false,
         lockInternalSnapshotOverride: false,
@@ -312,6 +313,9 @@ class World<WorldConfigParams extends WorldConfig> {
   }
   get frameCount(): number {
     return this.internalData.frameCount;
+  }
+  get snapshot(): SnapshotToVanilla<WorldConfigParams['snapshot']> {
+    return this.internalData.userFriendlySnapshot;
   }
   public forceAssetReload(): Promise<void> {
     return this.internalData.initPromise();
@@ -499,7 +503,7 @@ class World<WorldConfigParams extends WorldConfig> {
         tmp[getKey(key, 'Y2')] = signal.y;
         tmp[getKey(key, 'X2')] = signal.x;
       } else if (signal.xor || signal.concat || signal.pinLastValue) {
-        // bool // string // scalar, this very likely unintentionally catches any and all other signal types, even non-scalar(s)
+        // bool // string // scalar, this very likely unintentionally catches any and all other signal types, even the ones that can't be snapshot'ed
         tmp[getKey(key, 'X1')] = signal;
       } else {
         throw new Error(
@@ -803,9 +807,13 @@ export class State<Data extends { [key: string]: Vector | number | string | bool
       value: async (): Promise<void> => {
         // Brief explanation for the use of Promise.race
         // https://github.com/tomaspietravallo/sparkar-volts/issues/4
-        const loadedDataFromPersistence: {data?: string} = await Promise.race([
+        const loadedDataFromPersistence: { data?: string } = await Promise.race([
           // persistence
-          Persistence.userScope.get(this.key).catch(()=>{ return new Error(`@ VOLTS.State: The key provided: "${this.key}" is not whitelisted.\n\ngo to Project > Capabilities > Persistence > then write the key into the field (case sensitive). If there are multiple keys, separate them with spaces`) }),
+          Persistence.userScope.get(this.key).catch(() => {
+            return new Error(
+              `@ VOLTS.State: The key provided: "${this.key}" is not whitelisted.\n\ngo to Project > Capabilities > Persistence > then write the key into the field (case sensitive). If there are multiple keys, separate them with spaces`,
+            );
+          }),
           // timeout
           new Promise((resolve) => {
             Time.setTimeout(resolve, 350);
@@ -815,8 +823,8 @@ export class State<Data extends { [key: string]: Vector | number | string | bool
         // Avoid an unhandled promise rejection (👆 .catch)
         if (loadedDataFromPersistence instanceof Error) {
           throw loadedDataFromPersistence;
-        };
-        
+        }
+
         if (loadedDataFromPersistence && loadedDataFromPersistence.data) {
           this._data = JSON.parse(loadedDataFromPersistence.data);
           const keys = Object.keys(this._data);
@@ -841,16 +849,17 @@ export class State<Data extends { [key: string]: Vector | number | string | bool
       value: this.loadState(),
       enumerable: false,
       writable: false,
-      configurable: false
+      configurable: false,
     });
 
     Object.defineProperty(this, 'wipe', {
-      value: ()=>{this._data = {}},
+      value: () => {
+        this._data = {};
+      },
       enumerable: false,
       writable: false,
-      configurable: false
+      configurable: false,
     });
-
   }
 
   protected setPersistenceAPI(): void {

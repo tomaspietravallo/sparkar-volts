@@ -1,5 +1,9 @@
-import { VOLTSWorld, PublicOnly, PRODUCTION_MODES } from '../volts';
+import { VOLTSWorld, Vector, PublicOnly, PRODUCTION_MODES } from '../volts';
 import Scene, { SceneObjectBase } from './__mocks__/Scene';
+import Reactive from './__mocks__/Reactive';
+import Time from './__mocks__/Time';
+
+jest.useFakeTimers();
 
 describe('world construction', () => {
   test('default world', () => {
@@ -102,7 +106,7 @@ describe('test real world use cases', () => {
         obj: Scene.root.findFirst('obj'),
       },
       snapshot: {},
-      loadStates: undefined
+      loadStates: undefined,
     });
     expect(world.running).toEqual(false);
     // @ts-ignore
@@ -113,14 +117,61 @@ describe('test real world use cases', () => {
       expect(world.frameCount).toBeDefined();
     });
 
-    await new Promise((resolve) => {
-      setTimeout(resolve, 300);
-    });
+    // await new Promise((resolve) => {
+    //   setTimeout(resolve, 300);
+    // });
+
+    jest.advanceTimersByTime(100);
 
     expect(world.running).toEqual(true);
     expect(VOLTSWorld.getInstance().mode).toEqual(PRODUCTION_MODES.DEV);
     expect(world.frameCount).toBeGreaterThan(1);
 
     VOLTSWorld.getInstance().stop();
+  }, 500);
+
+  test('snapshot', async () => {
+    VOLTSWorld.devClear();
+    const World = VOLTSWorld.getInstance({
+      mode: 'DEV',
+      snapshot: {
+        scalar: Reactive.val(1),
+        point2D: Reactive.point2d(1, 5),
+        point3D: Reactive.vector(1, 5, 10),
+        point4D: Reactive.pack4(1, 5, 10, 15),
+        string: Reactive.stringSignal('a-string'),
+      },
+    });
+
+    World.addToSnapshot({added: Reactive.point2d(1,2)});
+
+    // @ts-ignore
+    await World.rawInitPromise.then(() => {
+      jest.advanceTimersByTime(100);
+      expect(World.snapshot.scalar).toEqual(1);
+      expect(World.snapshot.point2D.values).toEqual([1, 5]);
+      expect(World.snapshot.point3D.values).toEqual([1, 5, 10]);
+      expect(World.snapshot.point4D.values).toEqual([1, 5, 10, 15]);
+      expect(World.snapshot.string).toEqual('a-string');
+
+      // @ts-ignore
+      expect(World.snapshot.added.values).toEqual([1,2]);
+      expect(()=>World.removeFromSnapshot('added')).not.toThrow();
+      jest.advanceTimersByTime(100);
+      // @ts-ignore
+      expect(World.snapshot.added).not.toBeDefined();
+    });
+  }, 500);
+  test('events - onEvent/emitEvent', async () => {
+    VOLTSWorld.devClear();
+    const World = VOLTSWorld.getInstance({
+      mode: 'NO_AUTO',
+    });
+
+    let i = 0;
+    const fn = (function(){i++}).bind(this);
+    World.onEvent('evt', fn);
+    World.emitEvent('evt');
+    expect(i).toEqual(1);
   }, 500);
 });

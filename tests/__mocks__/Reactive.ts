@@ -160,7 +160,8 @@ class NDVectorSignal {
     if (!this.isReactive) {
       res = this._vector.copy();
     } else {
-      res = this._vector = this._vector = new Vector(this.f());
+      this._vector = new Vector(this.f());
+      res = this._vector;
     }
     for (let index = 0; index < this._ops.length; index++) {
       const op = this._ops[index];
@@ -200,8 +201,19 @@ export class Quaternion extends NDVectorSignal {
   }
 }
 
+export class StringSignal {
+  private val: string;
+  constructor(string) {
+    this.val = string;
+  }
+  pinLastValue(): string {
+    return this.val;
+  }
+}
+
 declare global {
   namespace Reactive {
+    export type StringSignal = typeof StringSignal.prototype;
     export type ScalarSignal = typeof ScalarSignal.prototype;
     export type Vec2Signal = typeof Vec2Signal.prototype;
     export type VectorSignal = typeof VectorSignal.prototype;
@@ -211,8 +223,10 @@ declare global {
 }
 
 export default {
+  stringSignal: (x: string) => new StringSignal(x),
   val: (x: any): ScalarSignal => new ScalarSignal(x),
   point2d: (...args: [number, number]): Vec2Signal => new Vec2Signal(...args),
   vector: (...args: [number, number, number]): VectorSignal => new VectorSignal(...args),
+  pack4: (...args: [number, number, number, number]): Vec4Signal => new Vec4Signal(...args),
   quaternion: (...args: [number, number, number, number]): Quaternion => new Quaternion(...args),
 };
