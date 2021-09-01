@@ -23,6 +23,7 @@ jobs:
         run: |
           npm i --quiet --no-progress 
           npm t
+          npm coverage-badge
   beta-test:
     if: ${{ github.ref == 'refs/heads/beta' }}
     runs-on: ubuntu-latest
@@ -37,3 +38,4 @@ jobs:
         run: |
           npm i --quiet --no-progress 
           npm t
+          npm coverage-badge

@@ -6,7 +6,7 @@
   "scripts": {
     "lint": "npx prettier -w . ; npx eslint . --ext .ts;",
     "test": "jest",
-    "coverage-badge": "npm test && jest-coverage-badges"
+    "coverage-badge": "jest-coverage-badges"
   },
   "repository": {
     "type": "git",
