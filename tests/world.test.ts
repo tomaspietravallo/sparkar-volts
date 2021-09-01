@@ -132,7 +132,7 @@ describe('test real world use cases', () => {
 
   test('snapshot', async () => {
     World.devClear();
-    const World = World.getInstance({
+    const W = World.getInstance({
       mode: 'DEV',
       snapshot: {
         scalar: Reactive.val(1),
@@ -143,35 +143,37 @@ describe('test real world use cases', () => {
       },
     });
 
-    World.addToSnapshot({added: Reactive.point2d(1,2)});
+    W.addToSnapshot({ added: Reactive.point2d(1, 2) });
 
     // @ts-ignore
-    await World.rawInitPromise.then(() => {
+    await W.rawInitPromise.then(() => {
       jest.advanceTimersByTime(100);
-      expect(World.snapshot.scalar).toEqual(1);
-      expect(World.snapshot.point2D.values).toEqual([1, 5]);
-      expect(World.snapshot.point3D.values).toEqual([1, 5, 10]);
-      expect(World.snapshot.point4D.values).toEqual([1, 5, 10, 15]);
-      expect(World.snapshot.string).toEqual('a-string');
+      expect(W.snapshot.scalar).toEqual(1);
+      expect(W.snapshot.point2D.values).toEqual([1, 5]);
+      expect(W.snapshot.point3D.values).toEqual([1, 5, 10]);
+      expect(W.snapshot.point4D.values).toEqual([1, 5, 10, 15]);
+      expect(W.snapshot.string).toEqual('a-string');
 
       // @ts-ignore
-      expect(World.snapshot.added.values).toEqual([1,2]);
-      expect(()=>World.removeFromSnapshot('added')).not.toThrow();
+      expect(W.snapshot.added.values).toEqual([1, 2]);
+      expect(() => W.removeFromSnapshot('added')).not.toThrow();
       jest.advanceTimersByTime(100);
       // @ts-ignore
-      expect(World.snapshot.added).not.toBeDefined();
+      expect(W.snapshot.added).not.toBeDefined();
     });
   }, 500);
   test('events - onEvent/emitEvent', async () => {
     World.devClear();
-    const World = World.getInstance({
+    const W = World.getInstance({
       mode: 'NO_AUTO',
     });
 
     let i = 0;
-    const fn = (function(){i++}).bind(this);
-    World.onEvent('evt', fn);
-    World.emitEvent('evt');
+    const fn = function () {
+      i++;
+    }.bind(this);
+    W.onEvent('evt', fn);
+    W.emitEvent('evt');
     expect(i).toEqual(1);
   }, 500);
 });

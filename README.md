@@ -57,7 +57,8 @@ If you feel an update is required, please, do not hesitate to request that a maj
   - `Time.ms.monitor` vs `Time.subscribeWithSnapshot`
 
 - Internal signals:
-Documented as part of the `InternalSignals` interface (after v2.0.0-beta.3)
+  Documented as part of the `InternalSignals` interface (after v2.0.0-beta.3)
+
 ```ts
 interface InternalSignals {
   __volts__internal__time: number;
@@ -65,4 +66,5 @@ interface InternalSignals {
   __volts__internal__screen: Vector;
 }
 ```
+
 > Note, as of v2.0.0-beta.2, addToSnapshot and removeFromSnapshot will prevent you from overwriting/ removing these signals
