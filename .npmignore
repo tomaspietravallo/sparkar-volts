@@ -3,3 +3,5 @@
 # npm version [#]-beta.[#]
 # Use `npm publish --access=public --tag beta ./ --dry-run` to check which files will be published
 /coverage
+/node_modules
+.github
