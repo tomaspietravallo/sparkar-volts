@@ -18,6 +18,12 @@ let Persistence: {
 //#region types
 export type PublicOnly<T> = Pick<T, keyof T>;
 
+// https://github.com/microsoft/TypeScript/issues/26223#issuecomment-410642988
+interface FixedLengthArray<T extends any, L extends number> extends Array<T> {
+  "0": T;
+  length: L;
+}
+
 type Snapshot = { [key: string]: ScalarSignal | Vec2Signal | VectorSignal | Vec4Signal | StringSignal | BoolSignal };
 
 type getDimsOfSignal<S> = S extends Vec4Signal
@@ -37,8 +43,10 @@ type ObjectToSnapshot_able<Obj> = {
 };
 
 type SnapshotToVanilla<Obj> = {
-  [Property in keyof Obj]: Obj[Property] extends Vec2Signal | VectorSignal | Vec4Signal
-    ? Vector
+  [Property in keyof Obj]: Obj[Property] extends Vec2Signal
+    ? Vector<2>
+    : Obj[Property] extends VectorSignal ? Vector<3>
+    : Obj[Property] extends Vec4Signal ? Vector<4>
     : Obj[Property] extends ScalarSignal
     ? number
     : Obj[Property] extends StringSignal
@@ -59,7 +67,7 @@ interface onFramePerformanceData {
  * @param count The amount of times the timeout/interval has been called.
  * Note this is incremented after the function is called, so it will always be 0 for any timeout
  * @param lastCall The last time the function was called. `let deltaBetweenCalls = elapsedTime-lastCall;`
- * @param created The time (in elapsed VOLTS.World time, not UNIX) when the function was created
+ * @param created The time (in elapsed Volts.World time, not UNIX) when the function was created
  * @param onFramePerformanceData onFramePerformanceData corresponding to the frame when the function was called
  */
 type TimedEventFunction = (
@@ -77,7 +85,6 @@ interface TimedEvent {
   count: number;
 }
 
-type VectorArgRest = [number] | [number[]] | number[] | [Vector];
 //#endregion
 
 //#region utils
@@ -227,7 +234,7 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
     const keys = Object.keys(assets);
     const getAssets: any[] = await Promise.all([...keys.map((n) => assets[n])]);
     for (let k = 0; k < keys.length; k++) {
-      if (!getAssets[k]) throw new Error(`@ VOLTS.World.init: Object(s) not found. Key: "${keys[k]}"`);
+      if (!getAssets[k]) throw new Error(`@ Volts.World.init: Object(s) not found. Key: "${keys[k]}"`);
       // @ts-ignore
       // To be properly typed out. Unfortunately, i think loading everything at once with an array ([...keys.map((n) =>...) would make it very challenging...
       // Might be best to ts-ignore or `as unknown` in this case
@@ -387,7 +394,7 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
   ): (...args: argTypes) => void {
     if (!this.internalData.running)
       Diagnostics.log(
-        'Warning @ VOLTS.World.setDebounce: created a debounce while the current instance is not running',
+        'Warning @ Volts.World.setDebounce: created a debounce while the current instance is not running',
       );
     let timer: { clear: () => void };
     if (trailing)
@@ -455,7 +462,7 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
   // since this way, an arrow function would allow more advanced users access to the private/protected fields,
   // while the type makes it unlikely that anyone not familiar with the code base might accidentally change something.
   // To get the type of the context an arrow function would have, the line below can be changed to
-  // this: typeof VOLTS.World.prototype
+  // this: typeof Volts.World.prototype
   /**
    * @description A function to be called every frame
    */
@@ -465,18 +472,18 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
     if (typeof f == 'function') {
       this.internalData.onFrame = f;
     } else {
-      throw new Error(`@ VOLTS.World.onFrame (set). The value provided is not a function`);
+      throw new Error(`@ Volts.World.onFrame (set). The value provided is not a function`);
     }
   }
 
   /**
-   * @description A function to be called after the class has fully loaded all it's data. `VOLTS.World.init` has executed successfully
+   * @description A function to be called after the class has fully loaded all it's data. `Volts.World.init` has executed successfully
    */
   public set onLoad(f: (this: any, snapshot?: SnapshotToVanilla<WorldConfigParams['snapshot']>) => void) {
     if (typeof f == 'function') {
       this.internalData.onLoad = f;
     } else {
-      throw new Error(`@ VOLTS.World.onLoad (set). The value provided is not a function`);
+      throw new Error(`@ Volts.World.onLoad (set). The value provided is not a function`);
     }
   }
   protected signalsToSnapshot_able<values extends Snapshot>(values: values): ObjectToSnapshot_able<values> {
@@ -530,7 +537,7 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
       const parts: string[] = key.split('::');
       if (parts.length !== 4 || parts[0] !== 'CONVERTED')
         throw new Error(
-          `@ VOLTS.World.formattedSnapshotToUserFriendly: Signal is missing the correct prefix, or is missing parts. Key: ${key}. Parts: ${parts}`,
+          `@ Volts.World.formattedSnapshotToUserFriendly: Signal is missing the correct prefix, or is missing parts. Key: ${key}. Parts: ${parts}`,
         );
       const name = parts[1];
       // eslint-disable-line no-alert
@@ -565,7 +572,7 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
         result[name] = snapshot[`CONVERTED::${name}::X${dim}::${uuid}`];
       } else {
         throw new Error(
-          `@ VOLTS.World.formattedSnapshotToUserFriendly: dimension of signals[name] not 1|2|3|4. Dim: ${dim}. Name: ${name}.\n\nPlease report this on Github as an issue\n\nExtra data:\nKeys: ${keys}`,
+          `@ Volts.World.formattedSnapshotToUserFriendly: dimension of signals[name] not 1|2|3|4. Dim: ${dim}. Name: ${name}.\n\nPlease report this on Github as an issue\n\nExtra data:\nKeys: ${keys}`,
         );
       }
     }
@@ -594,9 +601,9 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
   /**
    * @description Returns a 2D Vector representing the bottom right of the screen, in world space coordinates
    */
-  public getWorldSpaceScreenBounds(): Vector {
+  public getWorldSpaceScreenBounds(): Vector<2> {
     // ask the spark team about this :D, at the time of writing (v119), this didn't output consistent results
-    return (this.internalData.userFriendlySnapshot.__volts__internal__screen as Vector).copy().abs().mul(1, -1);
+    return (this.internalData.userFriendlySnapshot.__volts__internal__screen).copy().abs().mul(1, -1);
   }
 }
 
@@ -604,184 +611,235 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
 
 //#region Vector
 
+type VectorArgRest = [number] | [number[]] | number[] | [Vector<number>];
+
+interface NDVectorInstance {
+  values: number[];
+  readonly dimension: number;
+  add(...args: VectorArgRest): NDVectorInstance;
+  sub(...args: VectorArgRest): NDVectorInstance;
+  mul(...args: VectorArgRest): NDVectorInstance;
+  div(...args: VectorArgRest): NDVectorInstance;
+  dot(...args: VectorArgRest): number;
+  distance(...other: VectorArgRest): number;
+  magSq(): number;
+  mag(): number;
+  abs(): NDVectorInstance;
+  copy(): NDVectorInstance;
+  normalize(): NDVectorInstance;
+  equals(b: NDVectorInstance): boolean;
+  toString(): string;
+}
+
+interface Vector2DInstance {
+  get x(): number;
+  set x(x: number);
+  get y(): number;
+  set y(y: number);
+  heading(): number;
+  rotate(a: number): NDVectorInstance;
+}
+
+interface Vector3DInstance {
+  get z(): number;
+  set z(z: number);
+  cross(...args: VectorArgRest): NDVectorInstance;
+}
+
+interface Vector4DInstance {
+  get w(): number;
+  set w(w: number);
+}
+
+interface NDVector {
+  new <D, args extends VectorArgRest>(...args: args):
+  args extends [number[]] ? Vector<number>
+  : args extends FixedLengthArray<number, infer D> ? Vector<D>
+  : args extends [Vector<infer D>] ? Vector<D>
+  : never;
+  convertToSameDimVector<D extends number>(v: Vector<D>, ...args: VectorArgRest): Vector<D>;
+  screenToWorld(x: number, y: number, focalPlane: true): Vector<3>;
+}
+
+export type Vector<D extends number> =
+  NDVectorInstance
+  & (
+    D extends 2 ? Vector2DInstance
+    : D extends 3 ? Vector3DInstance
+    : D extends 4 ? Vector4DInstance
+    : (Vector2DInstance & Vector3DInstance & Vector4DInstance)
+    ) | NDVectorInstance;
+
 /**
  * @classdesc A flexible, easy to use, N-D vector class
  *
- * Note: this is not optimized for incredible performance, but this gives greater flexibility to users of the framework/lib
+ * Note: this is not optimized for incredible performance, but it provides a lot of flexibility to users of the framework/lib
  */
-export class Vector {
-  values: number[];
-  readonly dimension: number;
-  constructor(...args: [number[]] | [Vector] | number[]) {
+
+export const Vector = function <D extends number, args extends VectorArgRest>(this: Vector<number>, ...args: args): Vector<D> {
+  if (args[0] instanceof Vector) {
+    return args[0].copy();
+  } else if (Array.isArray(args[0])) {
+    this.values = args[0];
+  } else if (!args[0]) {
+    this.values = [0, 0, 0];
+  } else {
+    this.values = args as number[];
+  }
+  if (!this.values.every((v) => typeof v == 'number') || this.values.length === 0)
+    throw new Error(`@ Vector.constructor: Values provided are not valid`);
+  // @ts-expect-error
+  this.dimension = this.values.length;
+
+  // prettier-ignore
+  Object.defineProperties(this, {
+    x: {
+      get:    () =>{                                                                                    return this.values[0]},
+      set:    (x)=>{                                                                                    this.values[0] = x}},
+    y: {
+      get:    () =>{if (this.dimension < 2) throw new Error(`Cannot get Vector.y, vector is a scalar`); return this.values[1]},
+      set:    (y)=>{if (this.dimension < 2) throw new Error(`Cannot get Vector.y, vector is a scalar`); this.values[1] = y}},
+    z: {
+      get:    () =>{if (this.dimension < 3) throw new Error(`Cannot get Vector.z, vector is not 3D`);   return this.values[2]},
+      set:    (z)=>{if (this.dimension < 3) throw new Error(`Cannot get Vector.z, vector is not 3D`);   this.values[2] = z}},
+    w: {
+      get:    () =>{if (this.dimension < 4) throw new Error(`Cannot get Vector.w, vector is not 4D`);   return this.values[3]},
+      set:    (w)=>{if (this.dimension < 4) throw new Error(`Cannot get Vector.w, vector is not 4D`);   this.values[3] = w}},
+  });
+
+  return this;
+} as unknown as NDVector;
+
+//#region static
+Vector.convertToSameDimVector = function <D extends number>(v: Vector<D>, ...args: VectorArgRest): Vector<D> {
+  if (!args) throw new Error('@ Vector.convertToSameDimVector: No values provided');
+  if (args.length == 1) {
     if (args[0] instanceof Vector) {
-      return args[0].copy();
+      if (args[0].dimension == v.dimension) return args[0]; // returns the same vector that was provided
+      if (args[0].dimension > v.dimension) return new Vector(args[0].values.slice(0, v.dimension)); // returns a vector that's swizzled to match
+      throw new Error(
+        `@ Vector.convertToVector: values provided are not valid. Dimensions do not match. v.values: ${v.values}.Value(s): ${args}`,
+      );
+    } else if (typeof args[0] == 'number') {
+      return new Vector(new Array(v.dimension).fill(args[0])); // returns a vector filled with the given number
     } else if (Array.isArray(args[0])) {
-      this.values = args[0];
-    } else if (!args[0]) {
-      this.values = [0, 0, 0];
+      if (args[0].length == v.dimension) return new Vector(args[0]); // returns a vector with the given array as components
+      if (args[0].length > v.dimension) return new Vector(args[0].slice(0, v.dimension)); // returns a vector with the given array as components (swizzled)
+      throw new Error(
+        `@ Vector.convertToVector: values provided are not valid. Dimensions do not match. v.values: ${v.values}.Value(s): ${args}`,
+      );
     } else {
-      this.values = args as number[];
+      throw new Error(
+        `@ Vector.convertToVector: values provided are not valid. v.values: ${v.values}.Value(s): ${args}`,
+      );
     }
-    if (!this.values.every((v) => typeof v == 'number') || this.values.length === 0)
-      throw new Error(`@ Vector.constructor: Values provided are not valid`);
-    this.dimension = this.values.length;
+  } else {
+    if (!(Array.isArray(args) && (args as any[]).every((a) => typeof a === 'number')))
+      throw new Error(
+        `@ Vector.convertToVector: values provided are not valid. v.values: ${v.values}.Value(s): ${args}`,
+      );
+    return new Vector(args as unknown as number[]);
   }
-  public static convertToSameDimVector(v: Vector, ...args: VectorArgRest): Vector {
-    if (!args) throw new Error('@ Vector.convertToSameDimVector: No values provided');
-    if (args.length == 1) {
-      if (args[0] instanceof Vector) {
-        if (args[0].dimension == v.dimension) return args[0]; // returns the same vector that was provided
-        if (args[0].dimension > v.dimension) return new Vector(args[0].values.slice(0, v.dimension)); // returns a vector that's swizzled to match
-        throw new Error(
-          `@ Vector.convertToVector: values provided are not valid. Dimensions do not match. v.values: ${v.values}.Value(s): ${args}`,
-        );
-      } else if (typeof args[0] == 'number') {
-        return new Vector(new Array(v.dimension).fill(args[0])); // returns a vector filled with the given number
-      } else if (Array.isArray(args[0])) {
-        if (args[0].length == v.dimension) return new Vector(args[0]); // returns a vector with the given array as components
-        if (args[0].length > v.dimension) return new Vector(args[0].slice(0, v.dimension)); // returns a vector with the given array as components (swizzled)
-        throw new Error(
-          `@ Vector.convertToVector: values provided are not valid. Dimensions do not match. v.values: ${v.values}.Value(s): ${args}`,
-        );
-      } else {
-        throw new Error(
-          `@ Vector.convertToVector: values provided are not valid. v.values: ${v.values}.Value(s): ${args}`,
-        );
-      }
-    } else {
-      if (!(Array.isArray(args) && (args as any[]).every((a) => typeof a === 'number')))
-        throw new Error(
-          `@ Vector.convertToVector: values provided are not valid. v.values: ${v.values}.Value(s): ${args}`,
-        );
-      return new Vector(args as unknown as number[]);
-    }
+};
+Vector.screenToWorld = function (x: number, y: number, focalPlane = true): Vector<3> {
+  const Instance = VoltsWorld.getInstance();
+  if (!(Instance && Instance.running)) {
+    throw new Error(`Vector.screenToWorld can only be called when there's a Volts.World instance running`);
   }
-  public static screenToWorld2D(x: number, y: number, focalPlane = true): Vector {
-    if (!(VoltsWorld.getInstance() && VoltsWorld.getInstance().running)) {
-      throw new Error(`Vector.screenToWorld can only be called when there's a VOLTS.World instance running`);
-    }
-    if (!(typeof x == 'number' && typeof y == 'number')) {
-      throw new Error(`@ Vector.screenToWorld: values provided are not valid. Values: x: ${x}, y: ${y}`);
-    }
-    x = (x - 0.5) * 2;
-    y = (y - 0.5) * 2;
-    const bounds = VoltsWorld.getInstance().getWorldSpaceScreenBounds();
-    return new Vector(
-      bounds.values[0] * x,
-      bounds.values[1] * y,
-      focalPlane ? (VoltsWorld.getInstance().snapshot.__volts__internal__focalDistance as unknown as number) : 0,
-    );
+  if (!(typeof x == 'number' && typeof y == 'number')) {
+    throw new Error(`@ Vector.screenToWorld: values provided are not valid. Values: x: ${x}, y: ${y}`);
   }
-  add(...args: VectorArgRest): Vector {
-    const b = Vector.convertToSameDimVector(this, ...args).values;
-    this.values = this.values.map((v, i) => v + b[i]);
-    return this;
+  x = (x - 0.5) * 2;
+  y = (y - 0.5) * 2;
+  const bounds = Instance.getWorldSpaceScreenBounds();
+  return new Vector(
+    bounds.values[0] * x,
+    bounds.values[1] * y,
+    focalPlane ? (Instance.snapshot.__volts__internal__focalDistance as unknown as number) : 0,
+  );
+};
+//#endregion
+//#region common
+Vector.prototype.add = function <D extends number>(this: Vector<D>, ...args: VectorArgRest): Vector<D> {
+  const b = Vector.convertToSameDimVector(this, ...args).values;
+  this.values = this.values.map((v, i) => v + b[i]);
+  return this;
+};
+Vector.prototype.sub = function <D extends number>(this: Vector<D>, ...args: VectorArgRest): Vector<D> {
+  const b = Vector.convertToSameDimVector(this, ...args).values;
+  this.values = this.values.map((v, i) => v - b[i]);
+  return this;
+};
+Vector.prototype.mul = function <D extends number>(this: Vector<D>, ...args: VectorArgRest): Vector<D> {
+  const b = Vector.convertToSameDimVector(this, ...args).values;
+  this.values = this.values.map((v, i) => v * b[i]);
+  return this;
+};
+Vector.prototype.div = function <D extends number>(this: Vector<D>, ...args: VectorArgRest): Vector<D> {
+  const b = Vector.convertToSameDimVector(this, ...args).values;
+  if (![...this.values, ...b].every((v) => typeof v === 'number' && Number.isFinite(v) && v !== 0)) {
+    throw new Error(`@ Vector.div: values provided are not valid. this value(s): ${this.values}\n\nb value(s): ${b}`);
   }
-  sub(...args: VectorArgRest): Vector {
-    const b = Vector.convertToSameDimVector(this, ...args).values;
-    this.values = this.values.map((v, i) => v - b[i]);
-    return this;
-  }
-  mul(...args: VectorArgRest): Vector {
-    const b = Vector.convertToSameDimVector(this, ...args).values;
-    this.values = this.values.map((v, i) => v * b[i]);
-    return this;
-  }
-  div(...args: VectorArgRest): Vector {
-    const b = Vector.convertToSameDimVector(this, ...args).values;
-    if (![...this.values, ...b].every((v) => typeof v === 'number' && Number.isFinite(v) && v !== 0)) {
-      throw new Error(`@ Vector.div: values provided are not valid. this value(s): ${this.values}\n\nb value(s): ${b}`);
-    }
-    this.values = this.values.map((v, i) => v / b[i]);
-    return this;
-  }
-  dot(...args: VectorArgRest): number {
-    const b = Vector.convertToSameDimVector(this, ...args).values;
-    return this.values.map((x, i) => this.values[i] * b[i]).reduce((acc, val) => acc + val);
-  }
-  distance(...other: VectorArgRest): number {
-    const b = Vector.convertToSameDimVector(this, ...other);
-    return b.copy().sub(this).mag();
-  }
-  magSq(): number {
-    return this.values.reduce((acc, val) => acc + val * val);
-  }
-  mag(): number {
-    return this.values.map((v) => v * v).reduce((acc, val) => acc + val) ** 0.5;
-  }
-  abs(): Vector {
-    this.values = this.values.map((v) => (v < 0 ? -v : v));
-    return this;
-  }
-  copy(): Vector {
-    return new Vector(this.values);
-  }
-  normalize(): Vector {
-    const len = this.mag();
-    len !== 0 && this.mul(1 / len);
-    return this;
-  }
-  // https://stackoverflow.com/a/243984/14899497
-  // cross2D(){}
-  cross3D(...args: VectorArgRest): Vector {
-    if (this.dimension !== 3) throw `Attempting to use Vector.cross3D on non 3D vector. Dim: ${this.dimension}`;
-    const b = Vector.convertToSameDimVector(this, ...args);
-    return new Vector(
-      this.values[1] * b.values[2] - this.values[2] * b.values[1],
-      this.values[2] * b.values[0] - this.values[0] * b.values[2],
-      this.values[0] * b.values[1] - this.values[1] * b.values[0],
-    );
-  }
-  /** @description 2D Vectors only. Angles in RADIANS*/
-  heading(): number {
-    return Math.atan2(this.values[1], this.values[0]);
-  }
-  /** @description 2D Vectors only. Angles in RADIANS @param a Angle in RADIANS to rotate the vector by*/
-  rotate(a: number): Vector {
-    const newHeading = this.heading() + a;
-    const mag = this.mag();
-    this.values[0] = Math.cos(newHeading) * mag;
-    this.values[1] = Math.sin(newHeading) * mag;
-    return this;
-  }
-  /** @description Test whether two Vectors are equal to each other */
-  equals(b: Vector): boolean {
-    return b && this.dimension === b.dimension && this.values.every((v, i) => v === b.values[i]);
-  }
-  toString(): string {
-    return `vec${this.dimension}: [${this.values.toString()}]`;
-  }
-  public get x(): number {
-    return this.values[0];
-  }
-  public set x(x: number) {
-    this.values[0] = x;
-  }
-  public get y(): number {
-    if (this.dimension < 2) throw new Error(`Cannot get Vector.y, vector is a scalar`);
-    return this.values[1];
-  }
-  public set y(y: number) {
-    if (this.dimension < 2) throw new Error(`Cannot set Vector.y, vector is a scalar`);
-    this.values[1] = y;
-  }
-  public get z(): number {
-    if (this.dimension < 3) throw new Error(`Cannot get Vector.z, vector is not 3D`);
-    return this.values[2];
-  }
-  public set z(z: number) {
-    if (this.dimension < 3) throw new Error(`Cannot set Vector.z, vector is not 3D`);
-    this.values[2] = z;
-  }
-  public get w(): number {
-    if (this.dimension < 4) throw new Error(`Cannot get Vector.w, vector is not 4D`);
-    return this.values[3];
-  }
-  public set w(w: number) {
-    if (this.dimension < 4) throw new Error(`Cannot set Vector.w, vector is not 4D`);
-    this.values[3] = w;
-  }
-}
+  this.values = this.values.map((v, i) => v / b[i]);
+  return this;
+};
+Vector.prototype.dot = function <D extends number>(this: Vector<D>, ...args: VectorArgRest): number {
+  const b = Vector.convertToSameDimVector(this, ...args).values;
+  return this.values.map((x, i) => this.values[i] * b[i]).reduce((acc, val) => acc + val);
+};
+Vector.prototype.distance = function <D extends number>(this: Vector<D>, ...other: VectorArgRest): number {
+  const b = Vector.convertToSameDimVector(this, ...other);
+  return b.copy().sub(this).mag();
+};
+Vector.prototype.magSq = function <D extends number>(this: Vector<D>): number {
+  return this.values.reduce((acc, val) => acc + val * val);
+};
+Vector.prototype.mag = function <D extends number>(this: Vector<D>): number {
+  return this.values.map((v) => v * v).reduce((acc, val) => acc + val) ** 0.5;
+};
+Vector.prototype.abs = function <D extends number>(this: Vector<D>): Vector<D> {
+  this.values = this.values.map((v) => (v < 0 ? -v : v));
+  return this;
+};
+Vector.prototype.normalize = function <D extends number>(this: Vector<D>): Vector<D> {
+  const len = this.mag();
+  len !== 0 && this.mul(1 / len);
+  return this;
+};
+Vector.prototype.copy = function <D extends number>(this: Vector<D>): Vector<D> {
+  return new Vector(this.values);
+};
+/** @description Test whether two Vectors are equal to each other */
+Vector.prototype.equals = function <D extends number>(this: Vector<D>, b: Vector<number>) {
+  return b && this.dimension === b.dimension && this.values.every((v, i) => v === b.values[i]);
+};
+Vector.prototype.toString = function <D extends number>(): string {
+  return `vec${this.dimension}: [${this.values.toString()}]`;
+};
+//#endregion
+//#region Vector<3>
+Vector.prototype.cross = function(...args: VectorArgRest): Vector<3> {
+  if (this.dimension !== 3) throw `Attempting to use Vector<3>.cross on non 3D vector. Dim: ${this.dimension}`;
+  const b = Vector.convertToSameDimVector(this, ...args);
+  return new Vector(
+    this.values[1] * b.values[2] - this.values[2] * b.values[1],
+    this.values[2] * b.values[0] - this.values[0] * b.values[2],
+    this.values[0] * b.values[1] - this.values[1] * b.values[0],
+  );
+};
+//#endregion
+//#region Vector<2>
+Vector.prototype.heading = function <D extends number>(): number {
+  return Math.atan2(this.values[1], this.values[0]);
+};
+Vector.prototype.rotate = function <D extends number>(a: number): Vector<D> {
+  const newHeading = this.heading() + a;
+  const mag = this.mag();
+  this.values[0] = Math.cos(newHeading) * mag;
+  this.values[1] = Math.sin(newHeading) * mag;
+  return this;
+};
+//#endregion
 
 //#endregion
 
@@ -797,13 +855,13 @@ export class Vector {
  * This feature is still on an early state
  * @see https://github.com/tomaspietravallo/sparkar-volts/issues/4
  */
-export class State<Data extends { [key: string]: Vector | number | string | boolean }> {
+export class State<Data extends { [key: string]: Vector<number> | number | string | boolean }> {
   protected _data: { [Property in keyof Data]+?: Data[Property] };
   protected key: string;
   protected loaded: boolean;
   constructor(persistenceKey: string) {
     if (!persistenceKey) {
-      throw new Error(`@ VOLTS.State: argument 'persistenceKey' is not defined`);
+      throw new Error(`@ Volts.State: argument 'persistenceKey' is not defined`);
     } else {
       this.key = persistenceKey;
     }
@@ -811,7 +869,7 @@ export class State<Data extends { [key: string]: Vector | number | string | bool
       if (!Persistence) Persistence = require('Persistence');
     } catch {
       throw new Error(
-        `@ VOLTS.State: Persistence is not enabled as a capability, or is not available in the current target platforms.\n\nTo use VOLTS.State, please go to your project capabilities, inspect the target platforms, and remove the ones that don't support "Persistence"`,
+        `@ Volts.State: Persistence is not enabled as a capability, or is not available in the current target platforms.\n\nTo use Volts.State, please go to your project capabilities, inspect the target platforms, and remove the ones that don't support "Persistence"`,
       );
     }
     // @ts-ignore
@@ -826,7 +884,7 @@ export class State<Data extends { [key: string]: Vector | number | string | bool
           // persistence
           Persistence.userScope.get(this.key).catch(() => {
             return new Error(
-              `@ VOLTS.State: The key provided: "${this.key}" is not whitelisted.\n\ngo to Project > Capabilities > Persistence > then write the key into the field (case sensitive). If there are multiple keys, separate them with spaces`,
+              `@ Volts.State: The key provided: "${this.key}" is not whitelisted.\n\ngo to Project > Capabilities > Persistence > then write the key into the field (case sensitive). If there are multiple keys, separate them with spaces`,
             );
           }),
           // timeout
@@ -885,7 +943,7 @@ export class State<Data extends { [key: string]: Vector | number | string | bool
    * @todo Add support for Reactive values
    * @body Improve the use experience by allowing Reactive values to be used as values
    */
-  setKey(key: keyof Data, value: Vector | number | string | boolean): void {
+  setKey(key: keyof Data, value: Vector<number> | number | string | boolean): void {
     // @ts-ignore
     this.data[key] = value instanceof Vector ? value.copy() : value;
     // rate limit (?)

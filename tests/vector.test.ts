@@ -97,7 +97,7 @@ describe('math operations', () => {
   test('cross product', () => {
     const a = new Vector(2, 3, 4);
     const b = new Vector(5, 6, 7);
-    expect(a.cross3D(b).values).toEqual([-3, 6, -3]);
+    expect(a.cross(b).values).toEqual([-3, 6, -3]);
   });
   test('distance', () => {
     const a = new Vector(-1);
