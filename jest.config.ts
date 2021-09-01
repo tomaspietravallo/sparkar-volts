@@ -9,7 +9,7 @@ export default {
 
   // Stop running tests after `n` failures
   // bail: 0,
-  detectOpenHandles: true,
+  detectOpenHandles: false,
 
   // The directory where Jest should store its cached dependency information
   // cacheDirectory: "*****",
@@ -24,7 +24,7 @@ export default {
   // collectCoverageFrom: undefined,
 
   // The directory where Jest should output its coverage files
-  // coverageDirectory: undefined,
+  coverageDirectory: './coverage',
 
   // An array of regexp pattern strings used to skip coverage collection
   // coveragePathIgnorePatterns: [
@@ -36,7 +36,7 @@ export default {
 
   // A list of reporter names that Jest uses when writing coverage reports
   coverageReporters: [
-    // "json",
+    "json-summary",
     'text',
     // "lcov",
     // "clover"

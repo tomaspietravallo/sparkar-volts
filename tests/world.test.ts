@@ -1,4 +1,4 @@
-import { VOLTSWorld, Vector, PublicOnly, PRODUCTION_MODES } from '../volts';
+import { World, Vector, PublicOnly, PRODUCTION_MODES } from '../volts';
 import Scene, { SceneObjectBase } from './__mocks__/Scene';
 import Reactive from './__mocks__/Reactive';
 import Time from './__mocks__/Time';
@@ -7,38 +7,38 @@ jest.useFakeTimers();
 
 describe('world construction', () => {
   test('default world', () => {
-    const world = VOLTSWorld.getInstance({ mode: PRODUCTION_MODES.NO_AUTO });
+    const world = World.getInstance({ mode: PRODUCTION_MODES.NO_AUTO });
     expect(world.mode).toEqual(PRODUCTION_MODES.NO_AUTO);
 
-    VOLTSWorld.devClear();
+    World.devClear();
     // @ts-ignore
-    expect(() => VOLTSWorld.getInstance({})).toThrow();
+    expect(() => World.getInstance({})).toThrow();
 
-    VOLTSWorld.devClear();
+    World.devClear();
     // @ts-ignore
-    expect(() => VOLTSWorld.getInstance()).toThrow();
+    expect(() => World.getInstance()).toThrow();
   });
   test('incorrect dev mode', () => {
-    VOLTSWorld.devClear();
+    World.devClear();
     // @ts-ignore
-    expect(() => VOLTSWorld.getInstance({ mode: 'not-a-mode' })).toThrow();
+    expect(() => World.getInstance({ mode: 'not-a-mode' })).toThrow();
 
-    VOLTSWorld.devClear();
+    World.devClear();
     // @ts-ignore
-    expect(() => VOLTSWorld.getInstance({ mode: true })).toThrow();
+    expect(() => World.getInstance({ mode: true })).toThrow();
 
-    VOLTSWorld.devClear();
+    World.devClear();
     // @ts-ignore
-    expect(() => VOLTSWorld.getInstance({ mode: { dev: true } })).toThrow();
+    expect(() => World.getInstance({ mode: { dev: true } })).toThrow();
   });
   test('run/stop functions', () => {
-    VOLTSWorld.devClear();
-    const world = VOLTSWorld.getInstance({
+    World.devClear();
+    const world = World.getInstance({
       mode: 'NO_AUTO',
     });
-    expect(VOLTSWorld.getInstance().run()).toBeTruthy();
-    expect(VOLTSWorld.getInstance().stop()).toBeTruthy();
-    expect(VOLTSWorld.getInstance().stop()).toBeFalsy();
+    expect(World.getInstance().run()).toBeTruthy();
+    expect(World.getInstance().stop()).toBeTruthy();
+    expect(World.getInstance().stop()).toBeFalsy();
   });
 });
 
@@ -49,10 +49,10 @@ describe('load assets', () => {
   });
 
   test('valid objects', async () => {
-    VOLTSWorld.devClear();
+    World.devClear();
     // This one is actually doing the entire set up
     await expect(
-      VOLTSWorld.getInstance({
+      World.getInstance({
         mode: 'NO_AUTO',
         assets: {
           obj: Scene.root.findFirst('obj'),
@@ -63,10 +63,10 @@ describe('load assets', () => {
   });
 
   test('invalid objects', async () => {
-    VOLTSWorld.devClear();
+    World.devClear();
     await expect(
       () =>
-        VOLTSWorld.getInstance({
+        World.getInstance({
           mode: 'NO_AUTO',
           assets: {
             sceneObjZero: Scene.root.findFirst('object-zero'),
@@ -81,8 +81,8 @@ describe('load assets', () => {
 describe('test real world use cases', () => {
   test('load objects - mode.no_auto', async () => {
     expect.assertions(4);
-    VOLTSWorld.devClear();
-    const world = VOLTSWorld.getInstance({
+    World.devClear();
+    const world = World.getInstance({
       mode: PRODUCTION_MODES.NO_AUTO,
       assets: {
         obj: Scene.root.findFirst('obj'),
@@ -99,8 +99,8 @@ describe('test real world use cases', () => {
 
   test('run - mode.dev', async () => {
     // expect.assertions(6);
-    VOLTSWorld.devClear();
-    const world = VOLTSWorld.getInstance({
+    World.devClear();
+    const world = World.getInstance({
       mode: PRODUCTION_MODES.DEV,
       assets: {
         obj: Scene.root.findFirst('obj'),
@@ -124,15 +124,15 @@ describe('test real world use cases', () => {
     jest.advanceTimersByTime(100);
 
     expect(world.running).toEqual(true);
-    expect(VOLTSWorld.getInstance().mode).toEqual(PRODUCTION_MODES.DEV);
+    expect(World.getInstance().mode).toEqual(PRODUCTION_MODES.DEV);
     expect(world.frameCount).toBeGreaterThan(1);
 
-    VOLTSWorld.getInstance().stop();
+    World.getInstance().stop();
   }, 500);
 
   test('snapshot', async () => {
-    VOLTSWorld.devClear();
-    const World = VOLTSWorld.getInstance({
+    World.devClear();
+    const World = World.getInstance({
       mode: 'DEV',
       snapshot: {
         scalar: Reactive.val(1),
@@ -163,8 +163,8 @@ describe('test real world use cases', () => {
     });
   }, 500);
   test('events - onEvent/emitEvent', async () => {
-    VOLTSWorld.devClear();
-    const World = VOLTSWorld.getInstance({
+    World.devClear();
+    const World = World.getInstance({
       mode: 'NO_AUTO',
     });
 

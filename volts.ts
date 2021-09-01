@@ -1,7 +1,10 @@
+//#region imports
+
 import Scene from 'Scene';
 import Diagnostics from 'Diagnostics';
 import Reactive from 'Reactive';
 import Time from 'Time';
+// Persistence may be dynamically imported using `require`
 let Persistence: {
   userScope: {
     get: (s: string) => Promise<object>;
@@ -9,6 +12,8 @@ let Persistence: {
     remove: (s: string) => Promise<boolean>;
   };
 };
+
+//#endregion
 
 //#region types
 export type PublicOnly<T> = Pick<T, keyof T>;
@@ -88,6 +93,8 @@ function getUUIDv4() {
 }
 //#endregion
 
+//#region World
+
 export enum PRODUCTION_MODES {
   'PRODUCTION' = 'PRODUCTION',
   'DEV' = 'DEV',
@@ -123,8 +130,8 @@ interface WorldConfig {
   loadStates?: State<any> | State<any>[];
 }
 
-class World<WorldConfigParams extends WorldConfig> {
-  private static instance: World<any>;
+class VoltsWorld<WorldConfigParams extends WorldConfig> {
+  private static instance: VoltsWorld<any>;
   private static userConfig: WorldConfig;
   protected internalData: InternalWorldData;
   public assets: {
@@ -137,11 +144,11 @@ class World<WorldConfigParams extends WorldConfig> {
   public mode: keyof typeof PRODUCTION_MODES;
 
   private constructor() {
-    this.mode = World.userConfig.mode;
+    this.mode = VoltsWorld.userConfig.mode;
     // @ts-ignore
     this.assets = {};
     this.internalData = {
-      initPromise: this.init.bind(this, World.userConfig.assets, World.userConfig.loadStates),
+      initPromise: this.init.bind(this, VoltsWorld.userConfig.assets, VoltsWorld.userConfig.loadStates),
       running: false,
       loaded: false,
       events: {},
@@ -150,7 +157,7 @@ class World<WorldConfigParams extends WorldConfig> {
       timedEvents: [],
       // @ts-ignore missing props are assigned at runtime
       userFriendlySnapshot: {},
-      formattedValuesToSnapshot: this.signalsToSnapshot_able(World.userConfig.snapshot),
+      formattedValuesToSnapshot: this.signalsToSnapshot_able(VoltsWorld.userConfig.snapshot),
       FLAGS: {
         stopTimeout: false,
         lockInternalSnapshotOverride: false,
@@ -170,20 +177,20 @@ class World<WorldConfigParams extends WorldConfig> {
   }
 
   // @todo add uglier but user-friendlier long-form type
-  static getInstance<WorldConfigParams extends WorldConfig>(config?: WorldConfigParams): World<WorldConfigParams> {
-    if (!World.instance) {
+  static getInstance<WorldConfigParams extends WorldConfig>(config?: WorldConfigParams): VoltsWorld<WorldConfigParams> {
+    if (!VoltsWorld.instance) {
       if (!config)
         throw new Error(
-          `@ VOLTSWorld.getInstance: 'config' was not provided, but is required when creating the first instance`,
+          `@ VoltsWorld.getInstance: 'config' was not provided, but is required when creating the first instance`,
         );
       if (!config.mode)
         throw new Error(
-          `@ VOLTSWorld.getInstance: 'config.mode' was not provided, but is required when creating the first instance`,
+          `@ VoltsWorld.getInstance: 'config.mode' was not provided, but is required when creating the first instance`,
         );
       // @ts-ignore
       if (!Object.values(PRODUCTION_MODES).includes(config.mode))
         throw new Error(
-          `@ VOLTSWorld.getInstance: 'config.mode' was provided, but was not valid.\n\nAvailable modes are: ${Object.values(
+          `@ VoltsWorld.getInstance: 'config.mode' was provided, but was not valid.\n\nAvailable modes are: ${Object.values(
             PRODUCTION_MODES,
           )}`,
         );
@@ -192,15 +199,15 @@ class World<WorldConfigParams extends WorldConfig> {
       Array.isArray(config.loadStates) ? config.loadStates : [config.loadStates];
       config.assets = config.assets || {};
       config.snapshot = config.snapshot || {};
-      World.userConfig = config;
-      World.instance = new World();
+      VoltsWorld.userConfig = config;
+      VoltsWorld.instance = new VoltsWorld();
     }
-    return World.instance;
+    return VoltsWorld.instance;
   }
 
   static devClear() {
-    World.userConfig = undefined;
-    World.instance = undefined;
+    VoltsWorld.userConfig = undefined;
+    VoltsWorld.instance = undefined;
   }
 
   private async init(assets: any[], states: State<any>[]): Promise<void> {
@@ -593,6 +600,10 @@ class World<WorldConfigParams extends WorldConfig> {
   }
 }
 
+//#endregion
+
+//#region Vector
+
 /**
  * @classdesc A flexible, easy to use, N-D vector class
  *
@@ -646,7 +657,7 @@ export class Vector {
     }
   }
   public static screenToWorld2D(x: number, y: number, focalPlane = true): Vector {
-    if (!(World.getInstance() && World.getInstance().running)) {
+    if (!(VoltsWorld.getInstance() && VoltsWorld.getInstance().running)) {
       throw new Error(`Vector.screenToWorld can only be called when there's a VOLTS.World instance running`);
     }
     if (!(typeof x == 'number' && typeof y == 'number')) {
@@ -654,11 +665,11 @@ export class Vector {
     }
     x = (x - 0.5) * 2;
     y = (y - 0.5) * 2;
-    const bounds = World.getInstance().getWorldSpaceScreenBounds();
+    const bounds = VoltsWorld.getInstance().getWorldSpaceScreenBounds();
     return new Vector(
       bounds.values[0] * x,
       bounds.values[1] * y,
-      focalPlane ? (World.getInstance().snapshot.__volts__internal__focalDistance as unknown as number) : 0,
+      focalPlane ? (VoltsWorld.getInstance().snapshot.__volts__internal__focalDistance as unknown as number) : 0,
     );
   }
   add(...args: VectorArgRest): Vector {
@@ -772,6 +783,10 @@ export class Vector {
   }
 }
 
+//#endregion
+
+//#region State
+
 /**
  * @description Provides an easy interface to the Persistence module
  *
@@ -882,14 +897,20 @@ export class State<Data extends { [key: string]: Vector | number | string | bool
   }
 }
 
-export const VOLTSWorld = {
-  getInstance: World.getInstance,
-  devClear: World.devClear,
+//#endregion
+
+//#region exports
+
+export const World = {
+  getInstance: VoltsWorld.getInstance,
+  devClear: VoltsWorld.devClear,
 };
 
 export default {
-  World: VOLTSWorld,
+  World: World,
   Vector: Vector,
   State: State,
   PRODUCTION_MODES: PRODUCTION_MODES,
 };
+
+//#endregion

@@ -54,8 +54,15 @@ If you feel an update is required, please, do not hesitate to request that a maj
 
   - Due to the use of the `Camera` object, VOLTS may not run as expected inside blocks. Some of the things that may break are listed below, note this isn't a comprehensive list, and that some of these might be used internally
     - `Vector.screenToWorld2D`
+  - `Time.ms.monitor` vs `Time.subscribeWithSnapshot`
 
 - Internal signals:
-  - `__volts__internal__focalDistance`: `this.__sensitive.Camera.focalPlane.distance`
-  - `__volts__internal__screen`: `Scene.unprojectToFocalPlane(Reactive.point2d(0,0))`
-    > Note, as of v2.0.0-beta.2, addToSnapshot and removeFromSnapshot will prevent you from overwriting/ removing these signals
+Documented as part of the `InternalSignals` interface (after v2.0.0-beta.3)
+```ts
+interface InternalSignals {
+  __volts__internal__time: number;
+  __volts__internal__focalDistance: number;
+  __volts__internal__screen: Vector;
+}
+```
+> Note, as of v2.0.0-beta.2, addToSnapshot and removeFromSnapshot will prevent you from overwriting/ removing these signals
