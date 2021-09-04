@@ -15,11 +15,11 @@ An extensive non-reactive Typescript framework that eases the development experi
 
 ## How to add VOLTS to your project
 
-[Read this installation guide](docs/install.md)
+[Read this installation guide](https://tomaspietravallo.gitbook.io/sparkar-volts/)
 
 ## How to use?
 
-[Read this guide on getting started with VOLTS](docs/how-to-use-volts.md)
+[Read this guide on getting started with VOLTS](https://tomaspietravallo.gitbook.io/sparkar-volts/how-to-use-volts)
 
 ## Template
 
