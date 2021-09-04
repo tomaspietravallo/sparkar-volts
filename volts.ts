@@ -613,7 +613,7 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
 
 //#region Vector
 
-type VectorArgRest = [number] | [number[]] | number[] | [Vector<any>];
+type VectorArgRest<D extends number = any> = [number] | [number[]] | number[] | [Vector<D>];
 
 interface NDVectorInstance<D extends number> {
   values: number[];
@@ -645,7 +645,7 @@ interface Vector2DInstance {
 interface Vector3DInstance {
   get z(): number;
   set z(z: number);
-  cross(...args: VectorArgRest): Vector<3>;
+  cross(...args: VectorArgRest<3>): Vector<3>;
 }
 
 interface Vector4DInstance {
