@@ -670,7 +670,7 @@ interface NDVector {
       ? Vector<D>
       : never
     : never;
-  convertToSameDimVector<D extends number>(v: Vector<D>, ...args: VectorArgRest): Vector<D>;
+  convertToSameDimVector<D extends number>(dim: D, ...args: VectorArgRest): Vector<D>;
   screenToWorld(x: number, y: number, focalPlane: true): Vector<3>;
 }
 
@@ -730,32 +730,32 @@ export const Vector = function <D extends number, args extends VectorArgRest = [
 } as unknown as NDVector;
 
 //#region static
-Vector.convertToSameDimVector = function <D extends number>(v: Vector<D>, ...args: VectorArgRest): Vector<D> {
+Vector.convertToSameDimVector = function <D extends number>(dim: D, ...args: VectorArgRest): Vector<D> {
   if (!args) throw new Error('@ Vector.convertToSameDimVector: No values provided');
   if (args.length == 1) {
     if (args[0] instanceof Vector) {
-      if (args[0].dimension == v.dimension) return args[0]; // returns the same vector that was provided
-      if (args[0].dimension > v.dimension) return new Vector(args[0].values.slice(0, v.dimension)); // returns a vector that's swizzled to match
+      if (args[0].dimension == dim) return args[0]; // returns the same vector that was provided
+      if (args[0].dimension > dim) return new Vector(args[0].values.slice(0, dim)); // returns a vector that's swizzled to match
       throw new Error(
-        `@ Vector.convertToVector: values provided are not valid. Dimensions do not match. v.values: ${v.values}.Value(s): ${args}`,
+        `@ Vector.convertToVector: values provided are not valid. Dimensions do not match. dim: ${dim}. args(s): ${args}`,
       );
     } else if (typeof args[0] == 'number') {
-      return new Vector(new Array(v.dimension).fill(args[0])); // returns a vector filled with the given number
+      return new Vector(new Array(dim).fill(args[0])); // returns a vector filled with the given number
     } else if (Array.isArray(args[0])) {
-      if (args[0].length == v.dimension) return new Vector(args[0]); // returns a vector with the given array as components
-      if (args[0].length > v.dimension) return new Vector(args[0].slice(0, v.dimension)); // returns a vector with the given array as components (swizzled)
+      if (args[0].length == dim) return new Vector(args[0]); // returns a vector with the given array as components
+      if (args[0].length > dim) return new Vector(args[0].slice(0, dim)); // returns a vector with the given array as components (swizzled)
       throw new Error(
-        `@ Vector.convertToVector: values provided are not valid. Dimensions do not match. v.values: ${v.values}.Value(s): ${args}`,
+        `@ Vector.convertToVector: values provided are not valid. Dimensions do not match. dim: ${dim}. args(s): ${args}`,
       );
     } else {
       throw new Error(
-        `@ Vector.convertToVector: values provided are not valid. v.values: ${v.values}.Value(s): ${args}`,
+        `@ Vector.convertToVector: values provided are not valid. dim: ${dim}. args(s): ${args}`,
       );
     }
   } else {
     if (!(Array.isArray(args) && (args as any[]).every((a) => typeof a === 'number')))
       throw new Error(
-        `@ Vector.convertToVector: values provided are not valid. v.values: ${v.values}.Value(s): ${args}`,
+        `@ Vector.convertToVector: values provided are not valid. dim: ${dim}. args(s): ${args}`,
       );
     return new Vector(args as unknown as number[]);
   }
@@ -780,22 +780,22 @@ Vector.screenToWorld = function (x: number, y: number, focalPlane = true): Vecto
 //#endregion
 //#region common
 Vector.prototype.add = function <D extends number>(this: Vector<D>, ...args: VectorArgRest): Vector<D> {
-  const b = Vector.convertToSameDimVector(this, ...args).values;
+  const b = Vector.convertToSameDimVector(this.dimension, ...args).values;
   this.values = this.values.map((v, i) => v + b[i]);
   return this;
 };
 Vector.prototype.sub = function <D extends number>(this: Vector<D>, ...args: VectorArgRest): Vector<D> {
-  const b = Vector.convertToSameDimVector(this, ...args).values;
+  const b = Vector.convertToSameDimVector(this.dimension, ...args).values;
   this.values = this.values.map((v, i) => v - b[i]);
   return this;
 };
 Vector.prototype.mul = function <D extends number>(this: Vector<D>, ...args: VectorArgRest): Vector<D> {
-  const b = Vector.convertToSameDimVector(this, ...args).values;
+  const b = Vector.convertToSameDimVector(this.dimension, ...args).values;
   this.values = this.values.map((v, i) => v * b[i]);
   return this;
 };
 Vector.prototype.div = function <D extends number>(this: Vector<D>, ...args: VectorArgRest): Vector<D> {
-  const b = Vector.convertToSameDimVector(this, ...args).values;
+  const b = Vector.convertToSameDimVector(this.dimension, ...args).values;
   if (![...this.values, ...b].every((v) => typeof v === 'number' && Number.isFinite(v) && v !== 0)) {
     throw new Error(`@ Vector.div: values provided are not valid. this value(s): ${this.values}\n\nb value(s): ${b}`);
   }
@@ -803,11 +803,11 @@ Vector.prototype.div = function <D extends number>(this: Vector<D>, ...args: Vec
   return this;
 };
 Vector.prototype.dot = function <D extends number>(this: Vector<D>, ...args: VectorArgRest): number {
-  const b = Vector.convertToSameDimVector(this, ...args).values;
+  const b = Vector.convertToSameDimVector(this.dimension, ...args).values;
   return this.values.map((x, i) => this.values[i] * b[i]).reduce((acc, val) => acc + val);
 };
 Vector.prototype.distance = function <D extends number>(this: Vector<D>, ...other: VectorArgRest): number {
-  const b = Vector.convertToSameDimVector(this, ...other);
+  const b = Vector.convertToSameDimVector(this.dimension, ...other);
   return b.copy().sub(this).mag();
 };
 Vector.prototype.magSq = function <D extends number>(this: Vector<D>): number {
@@ -837,9 +837,9 @@ Vector.prototype.toString = function <D extends number>(): string {
 };
 //#endregion
 //#region Vector<3>
-Vector.prototype.cross = function (...args: VectorArgRest): Vector<3> {
+Vector.prototype.cross = function (this: Vector<3>, ...args: VectorArgRest): Vector<3> {
   if (this.dimension !== 3) throw `Attempting to use Vector<3>.cross on non 3D vector. Dim: ${this.dimension}`;
-  const b = Vector.convertToSameDimVector(this, ...args);
+  const b = Vector.convertToSameDimVector(3, ...args);
   return new Vector(
     this.values[1] * b.values[2] - this.values[2] * b.values[1],
     this.values[2] * b.values[0] - this.values[0] * b.values[2],

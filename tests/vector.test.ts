@@ -44,11 +44,11 @@ describe('vector utils', () => {
   test('convertToSameDimVector', () => {
     const a3 = new Vector(1, 2, 3);
     const b3 = new Vector(4, 5, 6);
-    expect(Vector.convertToSameDimVector(a3, b3)).toEqual(b3);
-    expect(Vector.convertToSameDimVector(a3, 5).values).toEqual([5, 5, 5]);
-    expect(Vector.convertToSameDimVector(a3, [1, 2, 3]).values).toEqual([1, 2, 3]);
-    expect(() => Vector.convertToSameDimVector(a3, [1, 2])).toThrow();
-    expect(Vector.convertToSameDimVector(a3, [1, 2, 3, 4, 5, 6]).values).toEqual([1, 2, 3]);
+    expect(Vector.convertToSameDimVector(a3.dimension, b3)).toEqual(b3);
+    expect(Vector.convertToSameDimVector(a3.dimension, 5).values).toEqual([5, 5, 5]);
+    expect(Vector.convertToSameDimVector(a3.dimension, [1, 2, 3]).values).toEqual([1, 2, 3]);
+    expect(() => Vector.convertToSameDimVector(a3.dimension, [1, 2])).toThrow();
+    expect(Vector.convertToSameDimVector(a3.dimension, [1, 2, 3, 4, 5, 6]).values).toEqual([1, 2, 3]);
   });
 });
 
