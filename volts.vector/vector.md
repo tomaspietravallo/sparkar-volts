@@ -4,6 +4,8 @@ description: In this section you'll find everything related to the VOLTS.Vector 
 
 # VOLTS.Vector
 
+`Vector` is a very useful class, as it provides a way to represent N-Dimentional data
+
 {% tabs %}
 {% tab title="v2" %}
 ```typescript
@@ -31,8 +33,6 @@ const myVector = new Vector(0,1,2, ...[]);
 ```
 {% endtab %}
 {% endtabs %}
-
-`Vector` is a very useful class, as it provides a way to represent N-Dimentional data
 
 ## Creating a Vector
 
