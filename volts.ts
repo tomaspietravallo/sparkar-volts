@@ -20,7 +20,7 @@ export type PublicOnly<T> = Pick<T, keyof T>;
 
 // https://github.com/microsoft/TypeScript/issues/26223#issuecomment-410642988
 interface FixedLengthArray<T extends any, L extends number> extends Array<T> {
-  "0": T;
+  '0': T;
   length: L;
 }
 
@@ -45,8 +45,10 @@ type ObjectToSnapshot_able<Obj> = {
 type SnapshotToVanilla<Obj> = {
   [Property in keyof Obj]: Obj[Property] extends Vec2Signal
     ? Vector<2>
-    : Obj[Property] extends VectorSignal ? Vector<3>
-    : Obj[Property] extends Vec4Signal ? Vector<4>
+    : Obj[Property] extends VectorSignal
+    ? Vector<3>
+    : Obj[Property] extends Vec4Signal
+    ? Vector<4>
     : Obj[Property] extends ScalarSignal
     ? number
     : Obj[Property] extends StringSignal
@@ -603,7 +605,7 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
    */
   public getWorldSpaceScreenBounds(): Vector<2> {
     // ask the spark team about this :D, at the time of writing (v119), this didn't output consistent results
-    return (this.internalData.userFriendlySnapshot.__volts__internal__screen).copy().abs().mul(1, -1);
+    return this.internalData.userFriendlySnapshot.__volts__internal__screen.copy().abs().mul(1, -1);
   }
 }
 
@@ -611,23 +613,23 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
 
 //#region Vector
 
-type VectorArgRest = [number] | [number[]] | number[] | [Vector<number>];
+type VectorArgRest = [number] | [number[]] | number[] | [Vector<any>];
 
 interface NDVectorInstance<D extends number> {
   values: number[];
   readonly dimension: number;
-  add(...args: VectorArgRest): NDVectorInstance<D> & getVecTypeForD<D>;
-  sub(...args: VectorArgRest): NDVectorInstance<D> & getVecTypeForD<D>;
-  mul(...args: VectorArgRest): NDVectorInstance<D> & getVecTypeForD<D>;
-  div(...args: VectorArgRest): NDVectorInstance<D> & getVecTypeForD<D>;
+  add(...args: VectorArgRest): Vector<D>;
+  sub(...args: VectorArgRest): Vector<D>;
+  mul(...args: VectorArgRest): Vector<D>;
+  div(...args: VectorArgRest): Vector<D>;
   dot(...args: VectorArgRest): number;
   distance(...other: VectorArgRest): number;
   magSq(): number;
   mag(): number;
-  abs(): NDVectorInstance<D> & getVecTypeForD<D>;
-  copy(): NDVectorInstance<D> & getVecTypeForD<D>;
-  normalize(): NDVectorInstance<D> & getVecTypeForD<D>;
-  equals(b: NDVectorInstance<D>): boolean;
+  abs(): Vector<D>;
+  copy(): Vector<D>;
+  normalize(): Vector<D>;
+  equals(b: Vector<D>): boolean;
   toString(): string;
 }
 
@@ -637,13 +639,13 @@ interface Vector2DInstance {
   get y(): number;
   set y(y: number);
   heading(): number;
-  rotate(a: number): NDVectorInstance<2>;
+  rotate(a: number): Vector<2>;
 }
 
 interface Vector3DInstance {
   get z(): number;
   set z(z: number);
-  cross(...args: VectorArgRest): NDVectorInstance<2>;
+  cross(...args: VectorArgRest): Vector<3>;
 }
 
 interface Vector4DInstance {
@@ -652,25 +654,35 @@ interface Vector4DInstance {
 }
 
 interface NDVector {
-  new <uD extends number, args extends VectorArgRest = FixedLengthArray<number, uD> | [number[]]>(...args: args):
-  args extends undefined[] ?
-  Vector<3> : 
-  args extends [number[]] ? Vector<uD>
-  : args extends FixedLengthArray<number, infer D> ?
-    // typeof args[0] extends Array<any> ? Vector<uD> :
-    D extends uD ? Vector<D> : never
-  : args extends [Vector<infer D>] ? D extends uD ? Vector<D> : never
-  : never;
+  new <uD extends number, args extends VectorArgRest = FixedLengthArray<number, uD> | [number[]]>(
+    ...args: args
+  ): args extends undefined[]
+    ? Vector<3>
+    : args extends [number[]]
+    ? Vector<uD>
+    : args extends FixedLengthArray<number, infer D>
+    ? // typeof args[0] extends Array<any> ? Vector<uD> :
+      D extends uD
+      ? Vector<D>
+      : never
+    : args extends [Vector<infer D>]
+    ? D extends uD
+      ? Vector<D>
+      : never
+    : never;
   convertToSameDimVector<D extends number>(v: Vector<D>, ...args: VectorArgRest): Vector<D>;
   screenToWorld(x: number, y: number, focalPlane: true): Vector<3>;
 }
 
-type getVecTypeForD<D extends number> =
-D extends 1 ? {} 
-: D extends 2 ? Vector2DInstance
-: D extends 3 ? Vector3DInstance
-: D extends 4 ? Vector4DInstance
-: (Vector2DInstance & Vector3DInstance & Vector4DInstance);
+type getVecTypeForD<D extends number> = D extends 1
+  ? {}
+  : D extends 2
+  ? Vector2DInstance
+  : D extends 3
+  ? Vector3DInstance
+  : D extends 4
+  ? Vector4DInstance
+  : Vector2DInstance & Vector3DInstance & Vector4DInstance;
 
 export type Vector<D extends number> = NDVectorInstance<D> & getVecTypeForD<D>;
 
@@ -680,7 +692,10 @@ export type Vector<D extends number> = NDVectorInstance<D> & getVecTypeForD<D>;
  * Note: this is not optimized for incredible performance, but it provides a lot of flexibility to users of the framework/lib
  */
 
-export const Vector = function <D extends number, args extends VectorArgRest = []>(this: Vector<number>, ...args: args): Vector<D> {
+export const Vector = function <D extends number, args extends VectorArgRest = []>(
+  this: Vector<number>,
+  ...args: args
+): Vector<D> {
   if (args[0] instanceof Vector) {
     return args[0].copy();
   } else if (Array.isArray(args[0])) {
@@ -822,7 +837,7 @@ Vector.prototype.toString = function <D extends number>(): string {
 };
 //#endregion
 //#region Vector<3>
-Vector.prototype.cross = function(...args: VectorArgRest): Vector<3> {
+Vector.prototype.cross = function (...args: VectorArgRest): Vector<3> {
   if (this.dimension !== 3) throw `Attempting to use Vector<3>.cross on non 3D vector. Dim: ${this.dimension}`;
   const b = Vector.convertToSameDimVector(this, ...args);
   return new Vector(
