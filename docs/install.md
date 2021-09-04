@@ -24,7 +24,3 @@ To directly download the `volts.ts` script:
 1. Open [this link](https://github.com/tomaspietravallo/sparkar-volts/releases/latest/download/volts.ts)
 2. Import the script \(named `volts.ts`\) into your Spark AR project
 
-## Next
-
-### [How to use volts ⚡️](how-to-use-volts.md)
-
