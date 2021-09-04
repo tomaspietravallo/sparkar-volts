@@ -1,6 +1,2 @@
 *.DS_STORE
-*.arproj
-*.arprojbk
-/spark-test-proj
-/node_modules
-/.vscode
+.vscode
