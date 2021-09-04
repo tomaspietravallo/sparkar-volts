@@ -11,15 +11,15 @@ An extensive non-reactive Typescript framework that eases the development experi
 * Non-reactive: This framework takes an imperative approach, and tries to abstract away the SparkAR Reactive API as much as possible
 * Typescript: You'll have a smoother and richer experience while developing. [Use VSC to take full advantage, with autocompletions and intellisense](https://sparkar.facebook.com/ar-studio/learn/scripting/scripting-basics/#scripting-fundamentals)
 
-> Please make sure to read this list of reasons why you should prefer the ReactiveAPI over vanilla js "[Reactive programming, SparkAR](https://sparkar.facebook.com/ar-studio/learn/scripting/reactive/)" before using `volts`, as it might not be the right thing for every project
+> Please make sure to read this list of reasons why you should prefer the ReactiveAPI over vanilla js: [Reactive programming, SparkAR](https://sparkar.facebook.com/ar-studio/learn/scripting/reactive/) before using `volts`, as it might not be the right thing for every project
 
 ## How to add VOLTS to your project
 
-[Read this installation guide](https://tomaspietravallo.gitbook.io/sparkar-volts/install)
+[Read this installation guide](docs/install.md)
 
 ## How to use?
 
-[Read this guide on getting started with VOLTS](https://tomaspietravallo.gitbook.io/sparkar-volts/how-to-use-volts)
+[Read this guide on getting started with VOLTS](docs/how-to-use-volts.md)
 
 ## Template
 
