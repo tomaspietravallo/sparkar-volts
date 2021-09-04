@@ -700,6 +700,8 @@ export const Vector = function <D extends number, args extends VectorArgRest = [
     return args[0].copy();
   } else if (Array.isArray(args[0])) {
     this.values = args[0];
+  } else if (args.length === 1) {
+    this.values = [args[0], args[0], args[0]];
   } else if (!args[0]) {
     this.values = [0, 0, 0];
   } else {
@@ -833,7 +835,7 @@ Vector.prototype.equals = function <D extends number>(this: Vector<D>, b: Vector
   return b && this.dimension === b.dimension && this.values.every((v, i) => v === b.values[i]);
 };
 Vector.prototype.toString = function <D extends number>(): string {
-  return `vec${this.dimension}: [${this.values.toString()}]`;
+  return `Vector<${this.dimension}> [${this.values.toString()}]`;
 };
 //#endregion
 //#region Vector<3>

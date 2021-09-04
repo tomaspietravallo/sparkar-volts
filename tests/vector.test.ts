@@ -29,8 +29,8 @@ describe('vector construction', () => {
     const nonValidVec = () => new Vector(1, 2, '3');
     expect(nonValidVec).toThrow();
   });
-  test('scalar', () => {
-    expect(new Vector(1).values).toEqual([1]);
+  test('scalar argument', () => {
+    expect(new Vector(1).values).toEqual([1,1,1]);
   });
   test('100D vector', () => {
     const arr = new Array(100).fill(0).map((e, i) => i);
@@ -61,7 +61,7 @@ describe('math operations', () => {
     expect(b.values).toEqual([4, 5, 6]);
 
     // scalar
-    const scalar = new Vector(2);
+    const scalar = new Vector([2]);
     expect(scalar.add(1).values).toEqual([3]);
   });
   test('sub', () => {
@@ -100,22 +100,22 @@ describe('math operations', () => {
     expect(a.cross(b).values).toEqual([-3, 6, -3]);
   });
   test('distance', () => {
-    const a = new Vector(-1);
-    const b = new Vector(2);
+    const a = new Vector([-1]);
+    const b = new Vector([2]);
     expect(a.distance(b)).toEqual(3);
   });
   test('magSq', () => {
     expect(new Vector([1, 2, 3]).magSq()).toEqual(14);
   });
   test('mag', () => {
-    expect(new Vector(1).mag()).toEqual(1);
-    expect(new Vector(2).mag()).toEqual(2);
+    expect(new Vector([1]).mag()).toEqual(1);
+    expect(new Vector([2]).mag()).toEqual(2);
     expect(new Vector([1, 2, 3]).mag()).toEqual(Math.sqrt(14));
   });
   test('normalize', () => {
-    expect(new Vector(-1).normalize().values).toEqual([-1]);
-    expect(new Vector(1).normalize().values).toEqual([1]);
-    expect(new Vector(1, 1).normalize().values).toEqual([1 / Math.sqrt(2), 1 / Math.sqrt(2)]);
+    expect(new Vector([-1]).normalize().values).toEqual([-1]);
+    expect(new Vector([1]).normalize().values).toEqual([1]);
+    expect(new Vector([1, 1]).normalize().values).toEqual([1 / Math.sqrt(2), 1 / Math.sqrt(2)]);
   });
   test('copy', () => {
     const a = new Vector([1, 2, 3]);
@@ -129,7 +129,7 @@ describe('math operations', () => {
 });
 
 describe('accessors', () => {
-  const scalar = new Vector(1);
+  const scalar = new Vector([1]);
   const twoD = new Vector(1, 2);
   const threeD = new Vector(1, 2, 3);
   const fourD = new Vector(1, 2, 3, 4);
@@ -161,3 +161,10 @@ describe('accessors', () => {
     expect(fourD.w).toEqual(5);
   });
 });
+
+describe('testing doc', ()=>{
+  test('doc', ()=>{
+    const a = new Vector(3);
+    expect(a.values).toEqual([3,3,3]);
+  })
+})
