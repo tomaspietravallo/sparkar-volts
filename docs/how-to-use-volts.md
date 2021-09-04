@@ -15,7 +15,7 @@ Once you've installed `volts` and added it to your project, you are ready to use
 
 You can selectively import parts of `volts` as follows
 
-```ts
+```typescript
 import { Vector, World } from './volts';
 
 // You can add or remove imports 👇
@@ -32,6 +32,7 @@ const myWorld = new World();
 
 There are many different parts that make up `volts`, below, you can find a list to their respective documentations
 
-- [Vector](vector.md)
-- [World](world.md)
-- [transformAcrossSpaces](transformAcrossSpaces.md)
+* [Vector](vector.md)
+* [World](https://github.com/tomaspietravallo/sparkar-volts/tree/b3239e897dfdc3f8160753b5bbebdcd9eb2451f1/docs/world.md)
+* [transformAcrossSpaces](https://github.com/tomaspietravallo/sparkar-volts/tree/b3239e897dfdc3f8160753b5bbebdcd9eb2451f1/docs/transformAcrossSpaces.md)
+
