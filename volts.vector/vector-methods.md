@@ -7,7 +7,7 @@ Before jumping into the methods, it's highly recommened that you read through th
 ## Instance methods
 
 {% hint style="danger" %}
-Methods called on an instance **WILL** overwrite the current instance
+Methods called on an instance **WILL** overwrite the instance
 {% endhint %}
 
 ```typescript
@@ -81,15 +81,15 @@ Multiples two `VectorArgRest` together
 ```typescript
 import { Vector } from 'volts';
 
-const a = new Vector(1,1,1);
+const a = new Vector(2,2,2);
 const b = new Vector(1,2,3);
 
 a.mul(b); // multiples 'a' and 'b' together, assigns the result to 'a'
-a.values; // [1,2,3]
+a.values; // [2,4,6]
 
 new Vector(2);              // Vector<3> [2,2,2]
-new Vector(2).mul(1)        // Vector<3> [0,0,0]
-new Vector(2).mul(1,2,3);   // Vector<3> [0,-1,-2]
-new Vector(2).mul([1,2,3]); // Vector<3> [0,-1,-2]
+new Vector(2).mul(1)        // Vector<3> [2,2,2]
+new Vector(2).mul(1,2,3);   // Vector<3> [2,4,6]
+new Vector(2).mul([1,2,3]); // Vector<3> [2,4,6]
 ```
 
