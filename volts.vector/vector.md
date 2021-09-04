@@ -9,15 +9,17 @@ description: In this section you'll find everything related to the VOLTS.Vector 
 ```typescript
 import { Vector } from 'volts';
 
-const defaultVector = new Vector();          // Vector<3> [0,0,0]
+const defaultVector = new Vector();           // Vector<3> [0,0,0]
 
-const vector1 = new Vector(1);               // Vector<1> [1]
-const vector2 = new Vector(1,2);             // Vector<2> [1, 2]
-const vector3 = new Vector(1,2,3);           // Vector<3> [1, 2, 3]
+const fromSigleArg = new Vector(1);           // Vector<3> [1,1,1]
 
-const fromArray = new Vector([1,2,3, ...[]]);// Vector<number> [...]
+const scalar  = new Vector<1>([1]);           // Vector<1> [1]
+const vector2 = new Vector(1,2);              // Vector<2> [1, 2]
+const vector3 = new Vector(1,2,3);            // Vector<3> [1, 2, 3]
 
-const hardTyped = new Vector<3>(1,2,3);      // Vector<3> [1,2,3]
+const fromArray = new Vector([1,2,3, ...[]]); // Vector<number> [...]
+
+const hardTyped = new Vector<3>(1,2,3);       // Vector<3> [1,2,3]
 ```
 {% endtab %}
 
@@ -30,15 +32,15 @@ const myVector = new Vector(0,1,2, ...[]);
 {% endtab %}
 {% endtabs %}
 
-`Vector` is a very useful class, it provides a way to represent N-Dimentional data, in a friendly way
+`Vector` is a very useful class, as it provides a way to represent N-Dimentional data
 
 ## Creating a Vector
 
-To create a `Vector`, you can
+To create a `Vector` you can use
 
-* Use rest parameters
-* Use an array
-* Use an existing `Vector`
+* [Rest parameters](vector.md#rest-parameters)
+* [An array](vector.md#array-parameter)
+* [An existing Vector](vector.md#another-vector)
 
 ### Rest parameters
 
@@ -49,11 +51,12 @@ To create a `Vector` from rest parameters, simply pass your values to the constr
 ```typescript
 import { Vector } from 'volts';
 
-const defaultVector = new Vector();          // Vector<3> [0,0,0]
+const defaultVector = new Vector(); // Vector<3> [0,0,0]
 
-const vector1 = new Vector(1);               // Vector<1> [1]
-const vector2 = new Vector(1,2);             // Vector<2> [1, 2]
-const vector3 = new Vector(1,2,3);           // Vector<3> [1, 2, 3]
+const fromSigleArg = new Vector(1); // Vector<3> [1,1,1]
+
+const vector2 = new Vector(1,2);    // Vector<2> [1, 2]
+const vector3 = new Vector(1,2,3);  // Vector<3> [1, 2, 3]
 ```
 {% endtab %}
 
@@ -72,6 +75,10 @@ const vectorN = new Vector([0,1,2, ...[]]);
 {% endtab %}
 {% endtabs %}
 
+{% hint style="warning" %}
+As you can see, creating a Vector with a sigle number as argument, will create a `Vector<3>`. To create a scalar, you need to force it using an array
+{% endhint %}
+
 ### Array parameter
 
 `Vector` can take in an array, and create a `Vector` with those values. The values will be assigned secuentially to the 1st, 2nd, 3rd, Nth dimension.
@@ -79,7 +86,7 @@ const vectorN = new Vector([0,1,2, ...[]]);
 This array **cannot** be empty, and must be composed entirely by numbers
 
 {% hint style="warning" %}
-Although`Vector` supports taking in an Array as parameter, currently [type inference](vector.md#types-and-generics) doesn't work as expected, and falls back to the `number` type.
+Although`Vector` supports taking in an Array as parameter, currently [type inference](vector.md#types-and-generics) doesn't work as expected, and falls back to the `number` type. See [Types & Generics](vector.md#types-and-generics)
 {% endhint %}
 
 ```typescript
@@ -88,7 +95,7 @@ import { Vector } from 'volts';
 // [0, 1, 2, 3, ... 99]
 const myArr = new Array(100).fill(0).map((_, i)=>i);
 
-const fromArray = new Vector(myArr);
+const fromArray = new Vector<100>(myArr);
 
 fromArray.x; // 0
 fromArray.y; // 1
@@ -133,7 +140,7 @@ const twoD = new Vector(1,2); // Type get's infered to Vector<2>
 
 twoD.x; // ✅
 twoD.y; // ✅
-twoD.z; // ❌ highlighted as a type error ('z' doesn't exist on Vector<2>s)
+twoD.z; // ❌ highlighted as a type error ('z' doesn't exist on Vector<2>)
 ```
 
 Hard-typing the generic is useful when dealing with cases when inference is not possible, for example, when constructing a `Vector` from an array.
@@ -143,14 +150,18 @@ import { Vector } from 'volts';
 const arr = [1,2];
 
 const noType = new Vector(arr); // Type get's infered to Vector<number>
-// Vector<number> doesn't provide any useful type completion, so instead 👇
+// Vector<number> doesn't provide any useful type information, so instead 👇
 
 const hardTyped = new Vector<2>(arr) // Vector<2>
 
 // Note hard-typing to the wrong type will highlight as an error
-// Here there's a collision between Vector<3> and Vector<2>
+// Here, there's a collision between Vector<3> and Vector<2>
 const badHardTyping = new Vector<3>(1,2); // ❌ highlighted as a type error
 ```
+
+{% hint style="info" %}
+`Vector<number>` is the same as the combination of the Vector 1,2,3 & 4 types + base. Meaning you won't get any useful information based on the dimension of your Vector
+{% endhint %}
 
  
 
