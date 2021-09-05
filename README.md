@@ -4,7 +4,7 @@ An extensive non-reactive Typescript framework that eases the development experi
 
 ## WIP x BETA branch
 
-[![CI](https://github.com/tomaspietravallo/sparkar-volts/actions/workflows/test.yml/badge.svg?branch=beta)](https://github.com/tomaspietravallo/sparkar-volts/actions/workflows/test.yml)
+[![CI](https://github.com/tomaspietravallo/sparkar-volts/actions/workflows/test.yml/badge.svg?branch=beta)](https://github.com/tomaspietravallo/sparkar-volts/actions/workflows/test.yml) ![](coverage/badge-statements.svg)
 
 Please don't use this on serious projects. This is a development branch.
 
