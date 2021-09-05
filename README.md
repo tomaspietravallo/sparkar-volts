@@ -1,12 +1,12 @@
 # VOLTS ⚡️
 
-[![CI Test](https://github.com/tomaspietravallo/sparkar-volts/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/tomaspietravallo/sparkar-volts/actions/workflows/test.yml) [![](https://img.shields.io/npm/v/sparkar-volts?color=informational&label=npm%20sparkar-volts)](https://www.npmjs.com/package/sparkar-volts)
+[![](https://img.shields.io/npm/v/sparkar-volts?color=informational&label=npm%20sparkar-volts)](https://www.npmjs.com/package/sparkar-volts) [![CI Test](https://github.com/tomaspietravallo/sparkar-volts/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/tomaspietravallo/sparkar-volts/actions/workflows/test.yml) ![](coverage/badge-statements.svg)
 
 > Work in progress 🚧 🚧 🚧
 
 An extensive non-reactive Typescript framework that eases the development experience in Spark AR
 
-### Highlights
+## Highlights
 
 * Non-reactive: This framework takes an imperative approach, and tries to abstract away the SparkAR Reactive API as much as possible
 * Typescript: You'll have a smoother and richer experience while developing. [Use VSC to take full advantage, with autocompletions and intellisense](https://sparkar.facebook.com/ar-studio/learn/scripting/scripting-basics/#scripting-fundamentals)

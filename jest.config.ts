@@ -9,6 +9,7 @@ export default {
 
   // Stop running tests after `n` failures
   // bail: 0,
+  detectOpenHandles: false,
 
   // The directory where Jest should store its cached dependency information
   // cacheDirectory: "*****",
@@ -23,7 +24,7 @@ export default {
   // collectCoverageFrom: undefined,
 
   // The directory where Jest should output its coverage files
-  // coverageDirectory: undefined,
+  coverageDirectory: './coverage',
 
   // An array of regexp pattern strings used to skip coverage collection
   // coveragePathIgnorePatterns: [
@@ -35,7 +36,7 @@ export default {
 
   // A list of reporter names that Jest uses when writing coverage reports
   coverageReporters: [
-    // "json",
+    'json-summary',
     'text',
     // "lcov",
     // "clover"
@@ -138,7 +139,7 @@ export default {
   // setupFilesAfterEnv: [],
 
   // The number of seconds after which a test is considered as slow and reported as such in the results.
-  // slowTestThreshold: 5,
+  slowTestThreshold: 10,
 
   // A list of paths to snapshot serializer modules Jest should use for snapshot testing
   // snapshotSerializers: [],
@@ -160,7 +161,7 @@ export default {
 
   // An array of regexp pattern strings that are matched against all test paths, matched tests are skipped
   // testPathIgnorePatterns: [
-  //   "/node_modules/"
+  //   "/node_modules/",
   // ],
 
   // The regexp pattern or array of patterns that Jest uses to detect test files

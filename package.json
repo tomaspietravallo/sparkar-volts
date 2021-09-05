@@ -5,7 +5,8 @@
   "main": "volts.ts",
   "scripts": {
     "lint": "npx prettier -w . ; npx eslint . --ext .ts;",
-    "test": "jest"
+    "test": "jest",
+    "coverage-badge": "jest-coverage-badges"
   },
   "repository": {
     "type": "git",
