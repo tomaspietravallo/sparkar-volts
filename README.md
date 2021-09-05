@@ -103,7 +103,6 @@ interface InternalSignals {
      };
      ```-->
      - `VoltsWorld.internalData.initPromise()` (calls VoltsWorld.init)
-     ```
 
 2. `VoltsWorld.init`
    - `VoltsWorld.internalData.Camera = (await Scene.root.findFirst('Camera')) as Camera;`
