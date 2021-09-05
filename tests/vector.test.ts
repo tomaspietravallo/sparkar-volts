@@ -30,7 +30,7 @@ describe('vector construction', () => {
     expect(nonValidVec).toThrow();
   });
   test('scalar argument', () => {
-    expect(new Vector(1).values).toEqual([1,1,1]);
+    expect(new Vector(1).values).toEqual([1, 1, 1]);
   });
   test('100D vector', () => {
     const arr = new Array(100).fill(0).map((e, i) => i);
@@ -162,9 +162,9 @@ describe('accessors', () => {
   });
 });
 
-describe('testing doc', ()=>{
-  test('doc', ()=>{
+describe('testing doc', () => {
+  test('doc', () => {
     const a = new Vector(3);
-    expect(a.values).toEqual([3,3,3]);
-  })
-})
+    expect(a.values).toEqual([3, 3, 3]);
+  });
+});

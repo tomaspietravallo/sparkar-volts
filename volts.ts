@@ -116,7 +116,7 @@ function getUUIDv4() {
  *              )
  * ```
  */
- export function transformAcrossSpaces(
+export function transformAcrossSpaces(
   vec: VectorSignal,
   vecParentSpace: TransformSignal,
   targetParentSpace: TransformSignal,
@@ -360,7 +360,7 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
   get frameCount(): number {
     return this.internalData.frameCount;
   }
-  get snapshot(): SnapshotToVanilla<WorldConfigParams['snapshot']> & {[key: string]: any} {
+  get snapshot(): SnapshotToVanilla<WorldConfigParams['snapshot']> & { [key: string]: any } {
     return this.internalData.userFriendlySnapshot;
   }
   public forceAssetReload(): Promise<void> {
@@ -499,7 +499,11 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
    * @description A function to be called every frame
    */
   public set onFrame(
-    f: (this: any, snapshot?: SnapshotToVanilla<WorldConfigParams['snapshot']> & {[key: string]: any}, data?: onFramePerformanceData) => void,
+    f: (
+      this: any,
+      snapshot?: SnapshotToVanilla<WorldConfigParams['snapshot']> & { [key: string]: any },
+      data?: onFramePerformanceData,
+    ) => void,
   ) {
     if (typeof f == 'function') {
       this.internalData.onFrame = f;
@@ -511,7 +515,9 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
   /**
    * @description A function to be called after the class has fully loaded all it's data. `Volts.World.init` has executed successfully
    */
-  public set onLoad(f: (this: any, snapshot?: SnapshotToVanilla<WorldConfigParams['snapshot']> & {[key: string]: any}) => void) {
+  public set onLoad(
+    f: (this: any, snapshot?: SnapshotToVanilla<WorldConfigParams['snapshot']> & { [key: string]: any }) => void,
+  ) {
     if (typeof f == 'function') {
       this.internalData.onLoad = f;
     } else {
@@ -780,15 +786,11 @@ Vector.convertToSameDimVector = function <D extends number>(dim: D, ...args: Vec
         `@ Vector.convertToVector: values provided are not valid. Dimensions do not match. dim: ${dim}. args(s): ${args}`,
       );
     } else {
-      throw new Error(
-        `@ Vector.convertToVector: values provided are not valid. dim: ${dim}. args(s): ${args}`,
-      );
+      throw new Error(`@ Vector.convertToVector: values provided are not valid. dim: ${dim}. args(s): ${args}`);
     }
   } else {
     if (!(Array.isArray(args) && (args as any[]).every((a) => typeof a === 'number')))
-      throw new Error(
-        `@ Vector.convertToVector: values provided are not valid. dim: ${dim}. args(s): ${args}`,
-      );
+      throw new Error(`@ Vector.convertToVector: values provided are not valid. dim: ${dim}. args(s): ${args}`);
     return new Vector(args as unknown as number[]);
   }
 };

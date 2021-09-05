@@ -34,11 +34,13 @@ npm i
 
 ## CI / npm package publishing
 
-There's no CI workflow set up yet, so npm publishing will be carried out manually.
+There's no CI workflow for npm packages set up yet, so npm publishing will be carried out manually.
 
 If you feel an update is required, please, do not hesitate to request that a major/minor/patch be released. Include as part of your commit/pr message, and tag @tomaspietravallo.
 
 > Note: An npm token `NPM_TOKEN` is already set up as part of the repo env, to be used by future actions
+
+However, there are actions set up to update coverage badges & test code on PRs/push
 
 # v2.0.0 plans
 
@@ -69,3 +71,61 @@ interface InternalSignals {
 ```
 
 > Note, as of v2.0.0-beta.2, addToSnapshot and removeFromSnapshot will prevent you from overwriting/ removing these signals
+
+# Lifecycle
+
+0. Code starts executing...
+1. `VOLTS.World.getInstance()` (first call)
+
+   - Checks for the config argument, validates, and...
+   - Creates a `VoltsWorld` instance
+     - `mode` is set
+     - `internalData` is created
+     <!-- ```ts
+     this.internalData = {
+         initPromise: this.init.bind(this, VoltsWorld.userConfig.assets, VoltsWorld.userConfig.loadStates),
+         running: false,
+         loaded: false,
+         events: {},
+         elapsedTime: 0,
+         frameCount: 0,
+         timedEvents: [],
+         // @ts-ignore missing props are assigned at runtime
+         userFriendlySnapshot: {},
+         formattedValuesToSnapshot: this.signalsToSnapshot_able(VoltsWorld.userConfig.snapshot),
+         FLAGS: {
+             stopTimeout: false,
+             lockInternalSnapshotOverride: false,
+         },
+         onLoad: null,
+         onFrame: null,
+         Camera: null,
+     };
+     ```-->
+     - `VoltsWorld.internalData.initPromise()` (calls VoltsWorld.init)
+     ```
+
+2. `VoltsWorld.init`
+   - `VoltsWorld.internalData.Camera = (await Scene.root.findFirst('Camera')) as Camera;`
+   - Adds internal signals to the snapshot
+     - \_\_volts\_\_internal\_\_focalDistance
+     - \_\_volts\_\_internal\_\_time
+     - \_\_volts\_\_internal\_\_screen
+     - `VoltsWorld.internalData.FLAGS.lockInternalSnapshotOverride = true;`
+   - Loads all States ( `Promise.all(states.map((s: State<any>) => s.loadState()));` )
+   - Loads all Scene Objects ( `await Promise.all([...keys.map((n) => assets[n])]);` )
+   - `VoltsWorld.internalData.loaded = true;`
+   - `if (VoltsWorld.mode !== PRODUCTION_MODES.NO_AUTO) VoltsWorld.run();`
+3. `VoltsWorld.run`
+   - `VoltsWorld.internalData.running = true;`
+   - Starts the recursive `setTimeoutWithSnapshot` loop
+4. `setTimeoutWithSnapshot` loop
+   - Formats and stores the snapshot
+   - Calculates the FPS and stores the new `elapsedTime`
+   - (Only in DEV mode): skips if it detects the Studio is paused
+   - (Only on the first frame): `onLoad` function gets called
+   - `VoltsWorld.runTimedEvents`
+   - `onFrame` function gets called
+   - `frameCount += 1;`
+   - loop() `if (!this.internalData.FLAGS.stopTimeout) return loop();`
+5. All subsequent VOLTS.World.getInstance calls return the instance created in step (1.)
