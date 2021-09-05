@@ -35,6 +35,7 @@
     "eslint": "^7.32.0",
     "eslint-plugin-unused-imports": "^1.1.3",
     "jest": "^27.0.6",
+    "jest-coverage-badges": "^1.1.2",
     "source-map-support": "^0.5.19",
     "ts-jest": "^27.0.5",
     "ts-node": "^10.2.0",
