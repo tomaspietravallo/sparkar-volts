@@ -6,7 +6,7 @@ description: 'Learn how to add Volts to your Spark AR projects'
 
 Once you've installed `volts` and added it to your project, you are ready to use it
 
-> [See how to install volts here](./)
+> [See how to install volts here](./install.md)
 
 ## Set up
 

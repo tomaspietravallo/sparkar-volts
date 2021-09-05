@@ -1,6 +1,7 @@
 # Table of contents
 
-* [Install volts ⚡️](README.md)
+* [Overview](README.md)
+* [Install volts ⚡️](install.md)
 * [How to use volts](how-to-use-volts.md)
 
 ## VOLTS.Vector
