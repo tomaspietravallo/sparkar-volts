@@ -2,7 +2,7 @@
 description: In this section you'll find everything related to the VOLTS.Vector class
 ---
 
-# VOLTS.Vector
+# Overview
 
 `Vector` is a very useful class, as it provides a way to represent N-Dimentional data
 

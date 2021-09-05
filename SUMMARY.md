@@ -1,11 +1,11 @@
 # Table of contents
 
 * [Install volts ⚡️](README.md)
-* [How to use volts ⚡️](how-to-use-volts.md)
+* [How to use volts](how-to-use-volts.md)
 
 ## VOLTS.Vector
 
-* [VOLTS.Vector](volts.vector/vector.md)
+* [Overview](volts.vector/vector.md)
 * [VectorArgRest](volts.vector/vectorargrest.md)
 * [Vector methods](volts.vector/vector-methods.md)
 * [Vector properties](volts.vector/vector-properties.md)

@@ -1,4 +1,4 @@
-# How to use volts ⚡️
+# How to use volts
 
 Once you've installed `volts` and added it to your project, you are ready to use it
 
@@ -16,16 +16,14 @@ Once you've installed `volts` and added it to your project, you are ready to use
 You can selectively import parts of `volts` as follows
 
 ```typescript
-import { Vector, World } from './volts';
+import { Vector } from './volts';
 
-// You can add or remove imports 👇
-// E.g.: Only import Vector
-// import { Vector } from './volts';
+// You can add or remove imports
+// E.g.: import Vector AND World 👇
+// import { Vector, World } from './volts';
 
 // You can use Vector as follows:
 const myVec = new Vector();
-// You can use World as follows:
-const myWorld = new World();
 ```
 
 ## Using volts
