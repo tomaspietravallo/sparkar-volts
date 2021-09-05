@@ -360,7 +360,7 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
   get frameCount(): number {
     return this.internalData.frameCount;
   }
-  get snapshot(): SnapshotToVanilla<WorldConfigParams['snapshot']> {
+  get snapshot(): SnapshotToVanilla<WorldConfigParams['snapshot']> & {[key: string]: any} {
     return this.internalData.userFriendlySnapshot;
   }
   public forceAssetReload(): Promise<void> {
@@ -499,7 +499,7 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
    * @description A function to be called every frame
    */
   public set onFrame(
-    f: (this: any, snapshot?: SnapshotToVanilla<WorldConfigParams['snapshot']>, data?: onFramePerformanceData) => void,
+    f: (this: any, snapshot?: SnapshotToVanilla<WorldConfigParams['snapshot']> & {[key: string]: any}, data?: onFramePerformanceData) => void,
   ) {
     if (typeof f == 'function') {
       this.internalData.onFrame = f;
@@ -511,7 +511,7 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
   /**
    * @description A function to be called after the class has fully loaded all it's data. `Volts.World.init` has executed successfully
    */
-  public set onLoad(f: (this: any, snapshot?: SnapshotToVanilla<WorldConfigParams['snapshot']>) => void) {
+  public set onLoad(f: (this: any, snapshot?: SnapshotToVanilla<WorldConfigParams['snapshot']> & {[key: string]: any}) => void) {
     if (typeof f == 'function') {
       this.internalData.onLoad = f;
     } else {

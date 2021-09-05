@@ -6,7 +6,7 @@ An extensive non-reactive Typescript framework that eases the development experi
 
 [![CI](https://github.com/tomaspietravallo/sparkar-volts/actions/workflows/test.yml/badge.svg?branch=beta)](https://github.com/tomaspietravallo/sparkar-volts/actions/workflows/test.yml) ![](coverage/badge.svg)
 
-Please don't use this on serious projects. This is a development branch.
+Needless to say, use at your own risk
 
 ## Install
 
