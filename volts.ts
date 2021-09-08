@@ -249,7 +249,7 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
     VoltsWorld.instance = undefined;
   }
 
-  private async init(assets: any[], states: State<any>[]): Promise<void> {
+  private async init(assets: WorldConfig['assets'], states: State<any>[]): Promise<void> {
     this.internalData.Camera = (await Scene.root.findFirst('Camera')) as Camera;
     this.addToSnapshot({
       __volts__internal__focalDistance: this.internalData.Camera.focalPlane.distance,
@@ -285,7 +285,7 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
     // Fun fact: Time.setTimeoutWithSnapshot will run even if the Studio is paused
     // Meaning this would keep executing, along with any onFrame function
     // For DEV purposes, the function will not execute if it detects the studio is on pause
-    // This won't be the case when the mode is set to PROD, in case some device has undoc.b. within the margin of error (3 frames)
+    // This won't be the case when the mode is set to PROD, in case some device has undocumented behaviour within the margin of error (3 frames)
     const lastThreeFrames: number[] = [];
     let offset = 0;
 
