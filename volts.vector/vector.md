@@ -57,6 +57,8 @@ const fromSigleArg = new Vector(1); // Vector<3> [1,1,1]
 
 const vector2 = new Vector(1,2);    // Vector<2> [1, 2]
 const vector3 = new Vector(1,2,3);  // Vector<3> [1, 2, 3]
+
+const vectorN = new Vector([0,1,2, ...[]]); // Vector<N> [1, 2, 3, ...]
 ```
 {% endtab %}
 
