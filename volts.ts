@@ -245,8 +245,10 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
       config.snapshot = config.snapshot || {};
       VoltsWorld.userConfig = config;
       VoltsWorld.instance = new VoltsWorld();
-    } else if (config){
-      Diagnostics.warn(`@ VoltsWorld.getInstance: 'config' was provided (attempted to create new instance) but there's already an instance running`);
+    } else if (config) {
+      Diagnostics.warn(
+        `@ VoltsWorld.getInstance: 'config' was provided (attempted to create new instance) but there's already an instance running`,
+      );
     }
     return VoltsWorld.instance;
   }
@@ -573,7 +575,7 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
       const name = keys[i];
       const [dim, uuid] = signals[name];
 
-      if (!Number.isFinite(dim) || ( dim == 0 || dim > 4))
+      if (!Number.isFinite(dim) || dim == 0 || dim > 4)
         throw new Error(
           `@ Volts.World.formattedSnapshotToUserFriendly: dimension of signals[name] not 1|2|3|4. Dim: ${dim}. Name: ${name}.\n\nPlease report this on Github as an issue\n\nExtra data:\nKeys: ${keys}`,
         );
