@@ -36,9 +36,9 @@ type getDimsOfSignal<S> = S extends Vec4Signal
   ? 'X1'
   : never;
 
-type ObjectToSnapshot_able<Obj> = {
+type ObjectToSnapshotable<Obj> = {
   [Property in keyof Obj as `${Obj[Property] extends ISignal
-    ? `CONVERTED::${Property extends string ? Property : never}::${getDimsOfSignal<Obj[Property]>}::UUID`
+    ? `CONVERTED::${Property extends string ? Property : never}::${getDimsOfSignal<Obj[Property]>}::UUID` & string
     : never}`]: Obj[Property] extends Vec2Signal | VectorSignal | Vec4Signal ? ScalarSignal : Obj[Property];
 };
 
@@ -143,22 +143,26 @@ export enum PRODUCTION_MODES {
 interface InternalSignals {
   __volts__internal__time: number;
   __volts__internal__focalDistance: number;
-  __volts__internal__screen: Vector;
+  __volts__internal__screen: Vector<2>;
+}
+
+interface Events<S extends Snapshot> {
+  load: (snapshot?: SnapshotToVanilla<S>) => void;
+  frameUpdate: (snapshot?: SnapshotToVanilla<S>, data?: onFramePerformanceData) => void;
+  [event: string]: (...args: any) => void;
 }
 
 interface InternalWorldData {
   initPromise: () => Promise<void>;
   loaded: boolean;
   running: boolean;
-  events: { [key: string]: Function[] };
+  events: Partial<{ [E in keyof Events]: Events[E][] }>;
   timedEvents: TimedEvent[];
   elapsedTime: number;
   frameCount: number;
   FLAGS: { stopTimeout: boolean; lockInternalSnapshotOverride: boolean };
-  formattedValuesToSnapshot: ObjectToSnapshot_able<Snapshot>;
+  formattedValuesToSnapshot: ObjectToSnapshotable<Snapshot>;
   userFriendlySnapshot: SnapshotToVanilla<Snapshot> & InternalSignals;
-  onLoad: (snapshot?: SnapshotToVanilla<Snapshot>, data?: onFramePerformanceData) => void;
-  onFrame: (snapshot?: SnapshotToVanilla<Snapshot>, data?: onFramePerformanceData) => void;
   Camera: Camera;
 }
 
@@ -201,8 +205,6 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
         stopTimeout: false,
         lockInternalSnapshotOverride: false,
       },
-      onLoad: null,
-      onFrame: null,
       Camera: null,
     };
     // Making the promise public makes it easier to test with Jest
@@ -291,7 +293,7 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
 
     const loop = () => {
       Time.setTimeoutWithSnapshot(
-        this.internalData.formattedValuesToSnapshot,
+        this.internalData.formattedValuesToSnapshot as { [key: string]: any },
         (_: number, snapshot: any) => {
           //#region Snapshot
           snapshot = this.formattedSnapshotToUserFriendly(snapshot);
@@ -321,23 +323,21 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
           if (
             lastThreeFrames[0] === lastThreeFrames[1] &&
             lastThreeFrames[1] === lastThreeFrames[2] &&
-            this.mode == PRODUCTION_MODES.DEV
+            this.mode !== PRODUCTION_MODES.PRODUCTION
           )
             return loop();
           //#endregion
 
           //#region onLoad function
-          this.internalData.onLoad &&
-            this.mode !== PRODUCTION_MODES.NO_AUTO &&
+          this.mode !== PRODUCTION_MODES.NO_AUTO &&
             this.internalData.frameCount === 0 &&
-            this.internalData.onLoad.apply(this, this.internalData.userFriendlySnapshot);
+            this.emitEvent('load', this.internalData.userFriendlySnapshot);
           //#endregion
 
           //#region onRun/onFrame
           const onFramePerformanceData = { fps, delta, frameCount: this.internalData.frameCount };
           this.runTimedEvents(onFramePerformanceData);
-          this.internalData.onFrame &&
-            this.internalData.onFrame.apply(this, [this.internalData.userFriendlySnapshot, onFramePerformanceData]);
+          this.emitEvent('frameUpdate', this.internalData.userFriendlySnapshot, onFramePerformanceData);
           this.internalData.frameCount += 1;
           //#endregion
 
@@ -382,7 +382,12 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
    * @see https://github.com/ai/nanoevents
    */
   public emitEvent(event: string, ...args: any[]): void {
-    (this.internalData.events[event] || []).forEach((i) => i(...args));
+    const shouldBind = ['load', 'frameUpdate'].some((e) => e === event);
+    if (!shouldBind) {
+      (this.internalData.events[event] || []).forEach((i) => i(...args));
+    } else {
+      (this.internalData.events[event] || []).forEach((i) => i.bind(this)(...args));
+    }
   }
   /**
    * @author Andrey Sitnik
@@ -391,7 +396,7 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
    * @returns Unbind listener from event.
    * @see https://github.com/ai/nanoevents
    */
-  public onEvent(event: string, cb: (...args: any[]) => void): () => void {
+  public onEvent<K extends keyof Events<SnapshotToVanilla<WorldConfigParams['snapshot']> & { [key: string]: any }>>(event: K, cb: Events<SnapshotToVanilla<WorldConfigParams['snapshot']> & { [key: string]: any }>[K]): () => void {
     (this.internalData.events[event] = this.internalData.events[event] || []).push(cb);
     return () => (this.internalData.events[event] = (this.internalData.events[event] || []).filter((i) => i !== cb));
   }
@@ -486,45 +491,8 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
       }
     }
   }
-  // this: InstanceType<typeof World> / any
-  // Technically, the onFrame function can have access to the private & protected properties,
-  // as long as it's declared as an arrow function, but typing it out that way would mean
-  // users would be presented to the raw/non abstracted code, which might be confusing.
-  // I do not personally think completely isolating the onFrame/onLoad function calls is a good idea,
-  // since this way, an arrow function would allow more advanced users access to the private/protected fields,
-  // while the type makes it unlikely that anyone not familiar with the code base might accidentally change something.
-  // To get the type of the context an arrow function would have, the line below can be changed to
-  // this: typeof Volts.World.prototype
-  /**
-   * @description A function to be called every frame
-   */
-  public set onFrame(
-    f: (
-      this: any,
-      snapshot?: SnapshotToVanilla<WorldConfigParams['snapshot']> & { [key: string]: any },
-      data?: onFramePerformanceData,
-    ) => void,
-  ) {
-    if (typeof f == 'function') {
-      this.internalData.onFrame = f;
-    } else {
-      throw new Error(`@ Volts.World.onFrame (set). The value provided is not a function`);
-    }
-  }
 
-  /**
-   * @description A function to be called after the class has fully loaded all it's data. `Volts.World.init` has executed successfully
-   */
-  public set onLoad(
-    f: (this: any, snapshot?: SnapshotToVanilla<WorldConfigParams['snapshot']> & { [key: string]: any }) => void,
-  ) {
-    if (typeof f == 'function') {
-      this.internalData.onLoad = f;
-    } else {
-      throw new Error(`@ Volts.World.onLoad (set). The value provided is not a function`);
-    }
-  }
-  protected signalsToSnapshot_able<values extends Snapshot>(values: values): ObjectToSnapshot_able<values> {
+  protected signalsToSnapshot_able<values extends Snapshot>(values: values): ObjectToSnapshotable<values> {
     // The purpose of the prefix & suffix is to ensure any signal values added to the snapshot don't collide.
     // Eg. were vec3 'V1' to be broken up into 'V1x' 'V1y' 'V1z', it'd collide with any signals named 'V1x' 'V1y' 'V1z'
     // Here the names would get converted to 'CONVERTED::V1::x|y|z|w:[UUID]', later pieced back together into a number[]
@@ -533,7 +501,7 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
     const suffix = getUUIDv4();
     const getKey = (k: string, e: string) => `${prefix}::${k}::${e}::${suffix}`;
     // @ts-ignore
-    const tmp: ObjectToSnapshot_able<values> = {};
+    const tmp: { [key: string]: any } = {};
     const keys = Object.keys(values);
     for (let i = 0; i < keys.length; i++) {
       const key = keys[i];
@@ -564,10 +532,11 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
       }
     }
 
+    // @ts-ignore
     return tmp;
   }
 
-  protected formattedSnapshotToUserFriendly(snapshot: ObjectToSnapshot_able<Snapshot>): SnapshotToVanilla<Snapshot> {
+  protected formattedSnapshotToUserFriendly(snapshot: ObjectToSnapshotable<Snapshot>): SnapshotToVanilla<Snapshot> {
     let keys = Object.keys(snapshot);
     const signals: { [key: string]: [number, string] } = {}; // name, dimension
     for (let i = 0; i < keys.length; i++) {
@@ -584,35 +553,23 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
       signals[name] = [Number(dimension), uuid];
     }
     keys = Object.keys(signals);
-    const result = {};
+    const result: { [key: string]: any } = {};
     for (let i = 0; i < keys.length; i++) {
       const name = keys[i];
       const [dim, uuid] = signals[name];
-      if (dim == 4) {
-        result[name] = new Vector(
-          snapshot[`CONVERTED::${name}::X${dim}::${uuid}`],
-          snapshot[`CONVERTED::${name}::Y${dim}::${uuid}`],
-          snapshot[`CONVERTED::${name}::Z${dim}::${uuid}`],
-          snapshot[`CONVERTED::${name}::W${dim}::${uuid}`],
-        );
-      } else if (dim == 3) {
-        result[name] = new Vector(
-          snapshot[`CONVERTED::${name}::X${dim}::${uuid}`],
-          snapshot[`CONVERTED::${name}::Y${dim}::${uuid}`],
-          snapshot[`CONVERTED::${name}::Z${dim}::${uuid}`],
-        );
-      } else if (dim == 2) {
-        result[name] = new Vector(
-          snapshot[`CONVERTED::${name}::X${dim}::${uuid}`],
-          snapshot[`CONVERTED::${name}::Y${dim}::${uuid}`],
-        );
-      } else if (dim == 1) {
-        result[name] = snapshot[`CONVERTED::${name}::X${dim}::${uuid}`];
-      } else {
+
+      if (dim == 0)
         throw new Error(
           `@ Volts.World.formattedSnapshotToUserFriendly: dimension of signals[name] not 1|2|3|4. Dim: ${dim}. Name: ${name}.\n\nPlease report this on Github as an issue\n\nExtra data:\nKeys: ${keys}`,
         );
+
+      const arr: any[] = [];
+      const letters = ['X', 'Y', 'Z', 'W'];
+      for (let index = 0; index < dim; index++) {
+        arr.push(snapshot[`CONVERTED::${name}::${letters[index]}${dim}::${uuid}`]);
       }
+
+      result[name] = dim >= 2 ? new Vector(arr) : arr[0];
     }
     // @ts-ignore
     return result;
@@ -733,6 +690,7 @@ export const Vector = function <D extends number, args extends VectorArgRest = [
   ...args: args
 ): Vector<D> {
   if (args[0] instanceof Vector) {
+    // @ts-ignore
     return args[0].copy();
   } else if (Array.isArray(args[0])) {
     this.values = args[0];
@@ -743,8 +701,8 @@ export const Vector = function <D extends number, args extends VectorArgRest = [
   } else {
     this.values = args as number[];
   }
-  if (!this.values.every((v) => typeof v == 'number') || this.values.length === 0)
-    throw new Error(`@ Vector.constructor: Values provided are not valid`);
+  if (!this.values.every((v) => typeof v === 'number') || this.values.length === 0)
+    throw new Error(`@ Vector.constructor: Values provided are not valid. args: ${args}. this.values: ${this.values}`);
   // @ts-expect-error
   this.dimension = this.values.length;
 
@@ -772,6 +730,7 @@ Vector.convertToSameDimVector = function <D extends number>(dim: D, ...args: Vec
   if (!args) throw new Error('@ Vector.convertToSameDimVector: No values provided');
   if (args.length == 1) {
     if (args[0] instanceof Vector) {
+      // @ts-ignore
       if (args[0].dimension == dim) return args[0]; // returns the same vector that was provided
       if (args[0].dimension > dim) return new Vector(args[0].values.slice(0, dim)); // returns a vector that's swizzled to match
       throw new Error(
