@@ -49,6 +49,11 @@ describe('vector utils', () => {
     expect(Vector.convertToSameDimVector(a3.dimension, [1, 2, 3]).values).toEqual([1, 2, 3]);
     expect(() => Vector.convertToSameDimVector(a3.dimension, [1, 2])).toThrow();
     expect(Vector.convertToSameDimVector(a3.dimension, [1, 2, 3, 4, 5, 6]).values).toEqual([1, 2, 3]);
+
+    // @ts-expect-error
+    expect(() => {
+      Vector.convertToSameDimVector(a3.dimension, [1, '2', 3]);
+    }).toThrow();
   });
 });
 
@@ -112,6 +117,11 @@ describe('math operations', () => {
     expect(new Vector([2]).mag()).toEqual(2);
     expect(new Vector([1, 2, 3]).mag()).toEqual(Math.sqrt(14));
   });
+  test('abs', () => {
+    expect(new Vector([-1]).abs().values).toEqual([1]);
+    expect(new Vector([1, -2]).abs().values).toEqual([1, 2]);
+    expect(new Vector([1, 2, 3]).abs().values).toEqual([1, 2, 3]);
+  });
   test('normalize', () => {
     expect(new Vector([-1]).normalize().values).toEqual([-1]);
     expect(new Vector([1]).normalize().values).toEqual([1]);
@@ -125,6 +135,17 @@ describe('math operations', () => {
     expect(a).not.toEqual(b);
     a.add(0.1);
     expect(a).toEqual(b);
+  });
+  test('equals', () => {
+    expect(new Vector().equals(new Vector())).toEqual(true);
+    expect(new Vector([0]).equals(new Vector([0, 0]))).toEqual(false);
+    expect(new Vector(-1, 2).equals(new Vector(-1, 2))).toEqual(true);
+    expect(new Vector(0, 0).equals(undefined)).toEqual(false);
+  });
+
+  test('heading', () => {
+    expect(new Vector(1, 1).heading()).toBeCloseTo(0.785398163);
+    expect(new Vector(0, 0).heading()).toBeCloseTo(0);
   });
 });
 

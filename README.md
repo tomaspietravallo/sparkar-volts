@@ -4,7 +4,7 @@ An extensive non-reactive Typescript framework that eases the development experi
 
 ## WIP x BETA branch
 
-[![CI](https://github.com/tomaspietravallo/sparkar-volts/actions/workflows/test.yml/badge.svg?branch=beta)](https://github.com/tomaspietravallo/sparkar-volts/actions/workflows/test.yml) ![](coverage/badge.svg)
+![](https://img.shields.io/npm/v/sparkar-volts/beta?color=informational&label=npm)[![CI](https://github.com/tomaspietravallo/sparkar-volts/actions/workflows/test.yml/badge.svg?branch=beta)](https://github.com/tomaspietravallo/sparkar-volts/actions/workflows/test.yml) ![](coverage/badge.svg)
 
 Needless to say, use at your own risk
 
@@ -81,29 +81,7 @@ interface InternalSignals {
    - Creates a `VoltsWorld` instance
      - `mode` is set
      - `internalData` is created
-     <!-- ```ts
-     this.internalData = {
-         initPromise: this.init.bind(this, VoltsWorld.userConfig.assets, VoltsWorld.userConfig.loadStates),
-         running: false,
-         loaded: false,
-         events: {},
-         elapsedTime: 0,
-         frameCount: 0,
-         timedEvents: [],
-         // @ts-ignore missing props are assigned at runtime
-         userFriendlySnapshot: {},
-         formattedValuesToSnapshot: this.signalsToSnapshot_able(VoltsWorld.userConfig.snapshot),
-         FLAGS: {
-             stopTimeout: false,
-             lockInternalSnapshotOverride: false,
-         },
-         onLoad: null,
-         onFrame: null,
-         Camera: null,
-     };
-     ```-->
      - `VoltsWorld.internalData.initPromise()` (calls VoltsWorld.init)
-     ```
 
 2. `VoltsWorld.init`
    - `VoltsWorld.internalData.Camera = (await Scene.root.findFirst('Camera')) as Camera;`
@@ -123,9 +101,9 @@ interface InternalSignals {
    - Formats and stores the snapshot
    - Calculates the FPS and stores the new `elapsedTime`
    - (Only in DEV mode): skips if it detects the Studio is paused
-   - (Only on the first frame): `onLoad` function gets called
+   - (Only on the first frame): `load` event(s) get called
    - `VoltsWorld.runTimedEvents`
-   - `onFrame` function gets called
+   - `frameUpdate` event(s) get called
    - `frameCount += 1;`
    - loop() `if (!this.internalData.FLAGS.stopTimeout) return loop();`
 5. All subsequent VOLTS.World.getInstance calls return the instance created in step (1.)

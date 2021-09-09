@@ -1,4 +1,4 @@
-import { World, Vector, PublicOnly, PRODUCTION_MODES } from '../volts';
+import { World, Vector, PublicOnly, PRODUCTION_MODES, privates } from '../volts';
 import Scene, { SceneObjectBase } from './__mocks__/Scene';
 import Reactive from './__mocks__/Reactive';
 import Time from './__mocks__/Time';
@@ -10,29 +10,29 @@ describe('world construction', () => {
     const world = World.getInstance({ mode: PRODUCTION_MODES.NO_AUTO });
     expect(world.mode).toEqual(PRODUCTION_MODES.NO_AUTO);
 
-    World.devClear();
+    privates.clearVoltsWorld();
     // @ts-ignore
     expect(() => World.getInstance({})).toThrow();
 
-    World.devClear();
+    privates.clearVoltsWorld();
     // @ts-ignore
     expect(() => World.getInstance()).toThrow();
   });
   test('incorrect dev mode', () => {
-    World.devClear();
+    privates.clearVoltsWorld();
     // @ts-ignore
     expect(() => World.getInstance({ mode: 'not-a-mode' })).toThrow();
 
-    World.devClear();
+    privates.clearVoltsWorld();
     // @ts-ignore
     expect(() => World.getInstance({ mode: true })).toThrow();
 
-    World.devClear();
+    privates.clearVoltsWorld();
     // @ts-ignore
     expect(() => World.getInstance({ mode: { dev: true } })).toThrow();
   });
   test('run/stop functions', () => {
-    World.devClear();
+    privates.clearVoltsWorld();
     const world = World.getInstance({
       mode: 'NO_AUTO',
     });
@@ -49,7 +49,7 @@ describe('load assets', () => {
   });
 
   test('valid objects', async () => {
-    World.devClear();
+    privates.clearVoltsWorld();
     // This one is actually doing the entire set up
     await expect(
       World.getInstance({
@@ -60,10 +60,12 @@ describe('load assets', () => {
         // @ts-ignore
       }).rawInitPromise,
     ).resolves.not.toThrow();
+
+    await expect(World.getInstance().forceAssetReload()).resolves.toBeUndefined();
   });
 
   test('invalid objects', async () => {
-    World.devClear();
+    privates.clearVoltsWorld();
     await expect(
       () =>
         World.getInstance({
@@ -75,13 +77,15 @@ describe('load assets', () => {
           // @ts-ignore
         }).rawInitPromise,
     ).rejects.toThrow();
+
+    await expect(() => World.getInstance().forceAssetReload()).rejects.toThrow();
   });
 });
 
 describe('test real world use cases', () => {
   test('load objects - mode.no_auto', async () => {
     expect.assertions(4);
-    World.devClear();
+    privates.clearVoltsWorld();
     const world = World.getInstance({
       mode: PRODUCTION_MODES.NO_AUTO,
       assets: {
@@ -99,7 +103,7 @@ describe('test real world use cases', () => {
 
   test('run - mode.dev', async () => {
     // expect.assertions(6);
-    World.devClear();
+    privates.clearVoltsWorld();
     const world = World.getInstance({
       mode: PRODUCTION_MODES.DEV,
       assets: {
@@ -131,7 +135,7 @@ describe('test real world use cases', () => {
   }, 500);
 
   test('snapshot', async () => {
-    World.devClear();
+    privates.clearVoltsWorld();
     const W = World.getInstance({
       mode: 'DEV',
       snapshot: {
@@ -144,6 +148,8 @@ describe('test real world use cases', () => {
     });
 
     W.addToSnapshot({ added: Reactive.point2d(1, 2) });
+
+    expect(() => W.addToSnapshot({ notSupported: { definitelyNotASignal: null } })).toThrow();
 
     // @ts-ignore
     await W.rawInitPromise.then(() => {
@@ -162,8 +168,9 @@ describe('test real world use cases', () => {
       expect(W.snapshot.added).not.toBeDefined();
     });
   }, 500);
-  test('events - onEvent/emitEvent', async () => {
-    World.devClear();
+  test('onEvent & emitEvent', async () => {
+    privates.clearVoltsWorld();
+
     const W = World.getInstance({
       mode: 'NO_AUTO',
     });
@@ -175,5 +182,47 @@ describe('test real world use cases', () => {
     W.onEvent('evt', fn);
     W.emitEvent('evt');
     expect(i).toEqual(1);
+  }, 500);
+  test('setTimeout & setInterval', async () => {
+    privates.clearVoltsWorld();
+
+    const W = World.getInstance({
+      mode: 'DEV',
+    });
+
+    expect(() =>
+      W.setTimeout(() => {
+        /**/
+      }, 100),
+    ).toThrow();
+    expect(() =>
+      W.setInterval(() => {
+        /**/
+      }, 100),
+    ).toThrow();
+
+    let i = 0;
+    const fn = function () {
+      i++;
+    }.bind(this);
+
+    // Technically just a warning, not a throw
+    // W.setTimeout(fn, 100);
+
+    // @ts-ignore
+    await W.rawInitPromise.then(() => {
+      W.setTimeout(fn, 100);
+
+      jest.advanceTimersByTime(150);
+      expect(i).toEqual(1);
+
+      W.setInterval(fn, 100);
+      jest.advanceTimersByTime(1000);
+
+      expect(i).toBeGreaterThan(5);
+
+      W.stop();
+      privates.clearVoltsWorld();
+    });
   }, 500);
 });

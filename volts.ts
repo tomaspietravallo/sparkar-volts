@@ -218,9 +218,12 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
   }
 
   // @todo add uglier but user-friendlier long-form type
-  static getInstance<WorldConfigParams extends WorldConfig>(config?: WorldConfigParams): VoltsWorld<WorldConfigParams> {
+  static getInstance<WorldConfigParams extends WorldConfig>(
+    config?: WorldConfigParams | boolean,
+  ): VoltsWorld<WorldConfigParams> {
+    if (config === false) return VoltsWorld.instance;
     if (!VoltsWorld.instance) {
-      if (!config)
+      if (typeof config !== 'object' || config === null)
         throw new Error(
           `@ VoltsWorld.getInstance: 'config' was not provided, but is required when creating the first instance`,
         );
@@ -396,7 +399,10 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
    * @returns Unbind listener from event.
    * @see https://github.com/ai/nanoevents
    */
-  public onEvent<K extends keyof Events<SnapshotToVanilla<WorldConfigParams['snapshot']> & { [key: string]: any }>>(event: K, cb: Events<SnapshotToVanilla<WorldConfigParams['snapshot']> & { [key: string]: any }>[K]): () => void {
+  public onEvent<K extends keyof Events<SnapshotToVanilla<WorldConfigParams['snapshot']> & { [key: string]: any }>>(
+    event: K,
+    cb: Events<SnapshotToVanilla<WorldConfigParams['snapshot']> & { [key: string]: any }>[K],
+  ): () => void {
     (this.internalData.events[event] = this.internalData.events[event] || []).push(cb);
     return () => (this.internalData.events[event] = (this.internalData.events[event] || []).filter((i) => i !== cb));
   }
@@ -407,6 +413,8 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
    * @returns The `clear` function, with which you can clear the timeout, preventing any future executions
    */
   public setTimeout(cb: TimedEventFunction, ms: number): { clear: () => void } {
+    if (!this.internalData.running)
+      Diagnostics.warn('Warning @ Volts.World.setTimeout: created a timeout while the current instance is not running');
     return this.setTimedEvent(cb, ms, false);
   }
   /**
@@ -416,6 +424,10 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
    * @returns The `clear` function, with which you can clear the interval, preventing any future executions
    */
   public setInterval(cb: TimedEventFunction, ms: number): { clear: () => void } {
+    if (!this.internalData.running)
+      Diagnostics.warn(
+        'Warning @ Volts.World.setInterval: created an interval while the current instance is not running',
+      );
     return this.setTimedEvent(cb, ms, true);
   }
   /**
@@ -430,7 +442,7 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
     trailing = false,
   ): (...args: argTypes) => void {
     if (!this.internalData.running)
-      Diagnostics.log(
+      Diagnostics.warn(
         'Warning @ Volts.World.setDebounce: created a debounce while the current instance is not running',
       );
     let timer: { clear: () => void };
@@ -622,7 +634,7 @@ interface NDVectorInstance<D extends number> {
   abs(): Vector<D>;
   copy(): Vector<D>;
   normalize(): Vector<D>;
-  equals(b: Vector<D>): boolean;
+  equals(b: Vector<any>): boolean;
   toString(): string;
 }
 
@@ -754,7 +766,7 @@ Vector.convertToSameDimVector = function <D extends number>(dim: D, ...args: Vec
   }
 };
 Vector.screenToWorld = function (x: number, y: number, focalPlane = true): Vector<3> {
-  const Instance = VoltsWorld.getInstance();
+  const Instance = VoltsWorld.getInstance(false);
   if (!(Instance && Instance.running)) {
     throw new Error(`Vector.screenToWorld can only be called when there's a Volts.World instance running`);
   }
@@ -822,8 +834,8 @@ Vector.prototype.copy = function <D extends number>(this: Vector<D>): Vector<D> 
   return new Vector(this.values);
 };
 /** @description Test whether two Vectors are equal to each other */
-Vector.prototype.equals = function <D extends number>(this: Vector<D>, b: Vector<number>) {
-  return b && this.dimension === b.dimension && this.values.every((v, i) => v === b.values[i]);
+Vector.prototype.equals = function <D extends number>(this: Vector<D>, b: Vector<number>): boolean {
+  return !!b && this.dimension === b.dimension && this.values.every((v, i) => v === b.values[i]);
 };
 Vector.prototype.toString = function <D extends number>(): string {
   return `Vector<${this.dimension}> [${this.values.toString()}]`;
@@ -971,9 +983,27 @@ export class State<Data extends { [key: string]: Vector<number> | number | strin
 
 //#region exports
 
+// prettier-ignore
+
+interface Privates {
+  clearVoltsWorld: ()=>void;
+}
+
+export const privates = Object.defineProperties(
+  {},
+  {
+    clearVoltsWorld: {
+      value: jest
+        ? VoltsWorld.devClear
+        : () => {
+            throw `Cannot read 'private.clear' in the current environment. To be read by jest/testing env only`;
+          },
+    },
+  },
+) as Privates;
+
 export const World = {
   getInstance: VoltsWorld.getInstance,
-  devClear: VoltsWorld.devClear,
 };
 
 export default {
