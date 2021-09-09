@@ -48,13 +48,33 @@ describe('vector utils', () => {
     expect(Vector.convertToSameDimVector(a3.dimension, 5).values).toEqual([5, 5, 5]);
     expect(Vector.convertToSameDimVector(a3.dimension, [1, 2, 3]).values).toEqual([1, 2, 3]);
     expect(() => Vector.convertToSameDimVector(a3.dimension, [1, 2])).toThrow();
+    expect(() => Vector.convertToSameDimVector(a3.dimension, new Vector(1, 2))).toThrow();
     expect(Vector.convertToSameDimVector(a3.dimension, [1, 2, 3, 4, 5, 6]).values).toEqual([1, 2, 3]);
+    expect(Vector.convertToSameDimVector(a3.dimension, new Vector(1, 2, 3, 4, 5, 6)).values).toEqual([1, 2, 3]);
 
-    // @ts-expect-error
     expect(() => {
+      // @ts-expect-error
       Vector.convertToSameDimVector(a3.dimension, [1, '2', 3]);
     }).toThrow();
+
+    expect(() => {
+      Vector.convertToSameDimVector(100, 1, 2, 3);
+    }).toThrow();
+
+    expect(() => {
+      Vector.convertToSameDimVector(undefined, 1, 2, 3);
+    }).toThrow();
+
+    expect(() => {
+      // @ts-expect-error
+      Vector.convertToSameDimVector(100, {x: 1, y: 2});
+    }).toThrow();
+
   });
+  test('toString', ()=>{
+    const vec = new Vector();
+    expect(vec.toString()).toEqual(`Vector<3> [0,0,0]`)
+  })
 });
 
 describe('math operations', () => {
@@ -147,6 +167,15 @@ describe('math operations', () => {
     expect(new Vector(1, 1).heading()).toBeCloseTo(0.785398163);
     expect(new Vector(0, 0).heading()).toBeCloseTo(0);
   });
+
+  test('rotate', ()=>{
+    const vec = new Vector(1,0);
+    expect(vec.heading()).toBeCloseTo(0);
+    vec.rotate(Math.PI / -2);
+    expect(vec.heading()).toBeCloseTo(Math.PI / -2);
+    expect(vec.x).toBeCloseTo(0);
+    expect(vec.y).toBeCloseTo(-1);
+  })
 });
 
 describe('accessors', () => {

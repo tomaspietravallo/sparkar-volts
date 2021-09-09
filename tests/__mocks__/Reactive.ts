@@ -91,6 +91,10 @@ export class Vector {
   mag(): number {
     return this.values.map((v) => v * v).reduce((acc, val) => acc + val) ** 0.5;
   }
+  abs(): Vector {
+    this.values = this.values.map((v) => (v < 0 ? -v : v));
+    return this;
+  };
   copy(): Vector {
     return new Vector(this.values);
   }
@@ -128,6 +132,18 @@ export class Vector {
   }
   toString(): string {
     return `vec${this.dimension}: [${this.values.toString()}]`;
+  }
+  get x(): number {
+    return this.values[0];
+  }
+  get y(): number {
+    return this.values[1];
+  }
+  get z(): number {
+    return this.values[2];
+  }
+  get w(): number {
+    return this.values[3];
   }
 }
 
@@ -168,7 +184,7 @@ class NDVectorSignal {
       res[op[0]](...op[1]);
     }
     return res;
-  }
+  };
 }
 
 export class ScalarSignal extends NDVectorSignal {
@@ -181,12 +197,27 @@ export class Vec2Signal extends NDVectorSignal {
   constructor(...args: number[] | [() => number[]]) {
     super(...args);
   }
+  get x(): ScalarSignal {
+    return new ScalarSignal(this._vector.x);
+  };
+  get y(): ScalarSignal {
+    return new ScalarSignal(this._vector.y);
+  };
 }
 
 export class VectorSignal extends NDVectorSignal {
   constructor(...args: number[] | [() => number[]]) {
     super(...args);
   }
+  get x(): ScalarSignal {
+    return new ScalarSignal(this._vector.x);
+  };
+  get y(): ScalarSignal {
+    return new ScalarSignal(this._vector.y);
+  };
+  get z(): ScalarSignal {
+    return new ScalarSignal(this._vector.z);
+  };
 }
 
 export class Vec4Signal extends NDVectorSignal {

@@ -53,7 +53,7 @@ describe('loadState', () => {
   test('load Vector', async () => {
     //
     const data = new Vector(1, 2, 3);
-    const state = new State<{ someData: Vector }>('key');
+    const state = new State<{ someData: Vector<3> }>('key');
     state.setKey('someData', data);
     // @ts-ignore
     state.wipe();

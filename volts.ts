@@ -93,7 +93,7 @@ interface TimedEvent {
 /**
  * @see https://stackoverflow.com/a/2117523/14899497
  */
-function getUUIDv4() {
+function getUUIDv4(): string {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
     const r = (Math.random() * 16) | 0,
       v = c == 'x' ? r : (r & 0x3) | 0x8;
@@ -143,7 +143,7 @@ export enum PRODUCTION_MODES {
 interface InternalSignals {
   __volts__internal__time: number;
   __volts__internal__focalDistance: number;
-  __volts__internal__screen: Vector<2>;
+  __volts__internal__screen: Vector<3>;
 }
 
 interface Events<S extends Snapshot> {
@@ -156,7 +156,7 @@ interface InternalWorldData {
   initPromise: () => Promise<void>;
   loaded: boolean;
   running: boolean;
-  events: Partial<{ [E in keyof Events]: Events[E][] }>;
+  events: Partial<{ [E in keyof Events<Snapshot>]: Events<Snapshot>[E][] }>;
   timedEvents: TimedEvent[];
   elapsedTime: number;
   frameCount: number;
@@ -245,11 +245,14 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
       config.snapshot = config.snapshot || {};
       VoltsWorld.userConfig = config;
       VoltsWorld.instance = new VoltsWorld();
+    } else if (config){
+      Diagnostics.warn(`@ VoltsWorld.getInstance: 'config' was provided (attempted to create new instance) but there's already an instance running`);
     }
     return VoltsWorld.instance;
   }
 
   static devClear() {
+    const Instance = VoltsWorld.getInstance(false);
     VoltsWorld.userConfig = undefined;
     VoltsWorld.instance = undefined;
   }
@@ -385,7 +388,7 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
    * @see https://github.com/ai/nanoevents
    */
   public emitEvent(event: string, ...args: any[]): void {
-    const shouldBind = ['load', 'frameUpdate'].some((e) => e === event);
+    const shouldBind = ['load', 'frameUpdate', 'testing'].some((e) => e === event);
     if (!shouldBind) {
       (this.internalData.events[event] || []).forEach((i) => i(...args));
     } else {
@@ -570,7 +573,7 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
       const name = keys[i];
       const [dim, uuid] = signals[name];
 
-      if (dim == 0)
+      if (!Number.isFinite(dim) || ( dim == 0 || dim > 4))
         throw new Error(
           `@ Volts.World.formattedSnapshotToUserFriendly: dimension of signals[name] not 1|2|3|4. Dim: ${dim}. Name: ${name}.\n\nPlease report this on Github as an issue\n\nExtra data:\nKeys: ${keys}`,
         );
@@ -608,9 +611,9 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
   /**
    * @description Returns a 2D Vector representing the bottom right of the screen, in world space coordinates
    */
-  public getWorldSpaceScreenBounds(): Vector<2> {
+  public getWorldSpaceScreenBounds(): Vector<3> {
     // ask the spark team about this :D, at the time of writing (v119), this didn't output consistent results
-    return this.internalData.userFriendlySnapshot.__volts__internal__screen.copy().abs().mul(1, -1);
+    return this.internalData.userFriendlySnapshot.__volts__internal__screen.copy().abs().mul(1, -1, 0);
   }
 }
 
@@ -748,21 +751,21 @@ Vector.convertToSameDimVector = function <D extends number>(dim: D, ...args: Vec
       throw new Error(
         `@ Vector.convertToVector: values provided are not valid. Dimensions do not match. dim: ${dim}. args(s): ${args}`,
       );
-    } else if (typeof args[0] == 'number') {
-      return new Vector(new Array(dim).fill(args[0])); // returns a vector filled with the given number
     } else if (Array.isArray(args[0])) {
       if (args[0].length == dim) return new Vector(args[0]); // returns a vector with the given array as components
       if (args[0].length > dim) return new Vector(args[0].slice(0, dim)); // returns a vector with the given array as components (swizzled)
       throw new Error(
         `@ Vector.convertToVector: values provided are not valid. Dimensions do not match. dim: ${dim}. args(s): ${args}`,
       );
+    } else if (typeof args[0] == 'number') {
+      return new Vector(new Array(dim).fill(args[0])); // returns a vector filled with the given number
     } else {
       throw new Error(`@ Vector.convertToVector: values provided are not valid. dim: ${dim}. args(s): ${args}`);
     }
   } else {
-    if (!(Array.isArray(args) && (args as any[]).every((a) => typeof a === 'number')))
+    if (!(Array.isArray(args) && (args as any[]).every((a) => typeof a === 'number')) || args.length < dim)
       throw new Error(`@ Vector.convertToVector: values provided are not valid. dim: ${dim}. args(s): ${args}`);
-    return new Vector(args as unknown as number[]);
+    return new Vector(args.splice(0, dim) as unknown as number[]);
   }
 };
 Vector.screenToWorld = function (x: number, y: number, focalPlane = true): Vector<3> {
@@ -857,7 +860,7 @@ Vector.prototype.heading = function <D extends number>(): number {
   return Math.atan2(this.values[1], this.values[0]);
 };
 Vector.prototype.rotate = function <D extends number>(a: number): Vector<D> {
-  const newHeading = this.heading() + a;
+  const newHeading = Math.atan2(this.values[1], this.values[0]) + a;
   const mag = this.mag();
   this.values[0] = Math.cos(newHeading) * mag;
   this.values[1] = Math.sin(newHeading) * mag;
@@ -879,7 +882,7 @@ Vector.prototype.rotate = function <D extends number>(a: number): Vector<D> {
  * This feature is still on an early state
  * @see https://github.com/tomaspietravallo/sparkar-volts/issues/4
  */
-export class State<Data extends { [key: string]: Vector<number> | number | string | boolean }> {
+export class State<Data extends { [key: string]: Vector<any> | number | string | boolean }> {
   protected _data: { [Property in keyof Data]+?: Data[Property] };
   protected key: string;
   protected loaded: boolean;
@@ -967,7 +970,7 @@ export class State<Data extends { [key: string]: Vector<number> | number | strin
    * @todo Add support for Reactive values
    * @body Improve the use experience by allowing Reactive values to be used as values
    */
-  setKey(key: keyof Data, value: Vector<number> | number | string | boolean): void {
+  setKey(key: keyof Data, value: Vector<any> | number | string | boolean): void {
     // @ts-ignore
     this.data[key] = value instanceof Vector ? value.copy() : value;
     // rate limit (?)
