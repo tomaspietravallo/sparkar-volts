@@ -39,7 +39,7 @@ Or use [this download link](https://github.com/tomaspietravallo/sparkar-volts/re
 // main.ts
 // using sparkar-volts@2.0.0
 import Diagnostics from 'Diagnostics';
-import Volts from './volts';
+import Volts, { PublicOnly } from './volts';
 
 const World = Volts.World.getInstance({
   mode: 'DEV',
@@ -48,11 +48,11 @@ const World = Volts.World.getInstance({
   loadStates: undefined,
 });
 
-World.onEvent('load', function (snapshot) {
+World.onEvent('load', function (this: PublicOnly<typeof World>, snapshot) {
   Diagnostics.log(`Loaded 🧪.\nAssets: ${Object.keys(World.assets) || 'no assets were loaded'}`);
 });
 
-World.onEvent('frameUpdate', function (snapshot) {
+World.onEvent('frameUpdate', function (this: PublicOnly<typeof World>, snapshot, data) {
   if (data.frameCount == 0) Diagnostics.log(`Running... 🚀\n`);
 });
 ```
