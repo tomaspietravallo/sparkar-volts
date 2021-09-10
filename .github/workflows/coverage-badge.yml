@@ -22,6 +22,7 @@ jobs:
           node-version: 14
       - name: npm install
         run: |
+          npm install -g npm@latest
           npm i --quiet --no-progress
           npm t
       - name: badge
@@ -49,6 +50,7 @@ jobs:
           node-version: 14
       - name: npm install
         run: |
+          npm install -g npm@latest
           npm i --quiet --no-progress
           npm t
       - name: badge
