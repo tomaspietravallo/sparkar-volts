@@ -1,7 +1,10 @@
+//#region imports
+
 import Scene from 'Scene';
 import Diagnostics from 'Diagnostics';
 import Reactive from 'Reactive';
 import Time from 'Time';
+// Persistence may be dynamically imported using `require`
 let Persistence: {
   userScope: {
     get: (s: string) => Promise<object>;
@@ -10,8 +13,16 @@ let Persistence: {
   };
 };
 
-//#region types & interfaces
+//#endregion
+
+//#region types
 export type PublicOnly<T> = Pick<T, keyof T>;
+
+// https://github.com/microsoft/TypeScript/issues/26223#issuecomment-410642988
+interface FixedLengthArray<T extends any, L extends number> extends Array<T> {
+  '0': T;
+  length: L;
+}
 
 type Snapshot = { [key: string]: ScalarSignal | Vec2Signal | VectorSignal | Vec4Signal | StringSignal | BoolSignal };
 
@@ -25,15 +36,19 @@ type getDimsOfSignal<S> = S extends Vec4Signal
   ? 'X1'
   : never;
 
-type ObjectToSnapshot_able<Obj> = {
+type ObjectToSnapshotable<Obj> = {
   [Property in keyof Obj as `${Obj[Property] extends ISignal
-    ? `CONVERTED::${Property extends string ? Property : never}::${getDimsOfSignal<Obj[Property]>}::UUID`
+    ? `CONVERTED::${Property extends string ? Property : never}::${getDimsOfSignal<Obj[Property]>}::UUID` & string
     : never}`]: Obj[Property] extends Vec2Signal | VectorSignal | Vec4Signal ? ScalarSignal : Obj[Property];
 };
 
 type SnapshotToVanilla<Obj> = {
-  [Property in keyof Obj]: Obj[Property] extends Vec2Signal | VectorSignal | Vec4Signal
-    ? number[]
+  [Property in keyof Obj]: Obj[Property] extends Vec2Signal
+    ? Vector<2>
+    : Obj[Property] extends VectorSignal
+    ? Vector<3>
+    : Obj[Property] extends Vec4Signal
+    ? Vector<4>
     : Obj[Property] extends ScalarSignal
     ? number
     : Obj[Property] extends StringSignal
@@ -54,11 +69,11 @@ interface onFramePerformanceData {
  * @param count The amount of times the timeout/interval has been called.
  * Note this is incremented after the function is called, so it will always be 0 for any timeout
  * @param lastCall The last time the function was called. `let deltaBetweenCalls = elapsedTime-lastCall;`
- * @param created The time (in elapsed VOLTS.World time, not UNIX) when the function was created
+ * @param created The time (in elapsed Volts.World time, not UNIX) when the function was created
  * @param onFramePerformanceData onFramePerformanceData corresponding to the frame when the function was called
  */
 type TimedEventFunction = (
-  this: InstanceType<typeof World>,
+  this: any,
   timedEventFunctionArguments: { elapsedTime: number; count: number; lastCall: number; created: number },
   onFramePerformanceData: onFramePerformanceData,
 ) => void;
@@ -72,22 +87,19 @@ interface TimedEvent {
   count: number;
 }
 
-type VectorArgRest = [number] | [number[]] | number[] | [Vector];
-
 //#endregion
 
 //#region utils
 /**
  * @see https://stackoverflow.com/a/2117523/14899497
  */
-function getUUIDv4() {
+function getUUIDv4(): string {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
     const r = (Math.random() * 16) | 0,
       v = c == 'x' ? r : (r & 0x3) | 0x8;
     return v.toString(16);
   });
 }
-
 /**
  * @param vec The 3D VectorSignal to be transformed
  * @param vecSpace The parent space in which `vec` is located
@@ -120,7 +132,7 @@ export function transformAcrossSpaces(
 }
 //#endregion
 
-export let __globalVoltsWorldInstance: typeof World.prototype;
+//#region World
 
 export enum PRODUCTION_MODES {
   'PRODUCTION' = 'PRODUCTION',
@@ -128,155 +140,143 @@ export enum PRODUCTION_MODES {
   'NO_AUTO' = 'NO_AUTO',
 }
 
-/**
- * @classdesc The main building block of VOLTS. This class functions as the internal clock that keeps things running
- *
- * @example ```typescript
- * const WORLD = new World({mode: 'DEV'});
- *
- * WORLD.setTimeout(()=>{
- *              Diagnostics.log('5s have passed!')
- * }, 5000);
- * ```
- */
-export class World<
-  LazyLoaded extends { [key: string]: any } = {},
-  ObjectTypes extends { [key: string]: Promise<any | any[]> } = {},
-  SnapshotObjType extends Snapshot = {},
-> {
-  public readonly MODE: keyof typeof PRODUCTION_MODES;
-  public assets: { [Prop in keyof ObjectTypes]: ObjectTypes[Prop] extends PromiseLike<infer C> ? C : never };
-  public lazyAssets: {
-    [Prop in keyof LazyLoaded]+?: LazyLoaded[Prop] extends PromiseLike<infer C> ? C : LazyLoaded[Prop];
+interface InternalSignals {
+  __volts__internal__time: number;
+  __volts__internal__focalDistance: number;
+  __volts__internal__screen: Vector<3>;
+}
+
+interface Events<S extends Snapshot> {
+  load: (snapshot?: SnapshotToVanilla<S>) => void;
+  frameUpdate: (snapshot?: SnapshotToVanilla<S>, data?: onFramePerformanceData) => void;
+  [event: string]: (...args: any) => void;
+}
+
+interface InternalWorldData {
+  initPromise: () => Promise<void>;
+  loaded: boolean;
+  running: boolean;
+  events: Partial<{ [E in keyof Events<Snapshot>]: Events<Snapshot>[E][] }>;
+  timedEvents: TimedEvent[];
+  elapsedTime: number;
+  frameCount: number;
+  FLAGS: { stopTimeout: boolean; lockInternalSnapshotOverride: boolean };
+  formattedValuesToSnapshot: ObjectToSnapshotable<Snapshot>;
+  userFriendlySnapshot: SnapshotToVanilla<Snapshot> & InternalSignals;
+  Camera: Camera;
+}
+
+interface WorldConfig {
+  mode: keyof typeof PRODUCTION_MODES;
+  assets?: { [key: string]: Promise<any | any[]> };
+  snapshot?: Snapshot;
+  loadStates?: State<any> | State<any>[];
+}
+
+class VoltsWorld<WorldConfigParams extends WorldConfig> {
+  private static instance: VoltsWorld<any>;
+  private static userConfig: WorldConfig;
+  protected internalData: InternalWorldData;
+  public assets: {
+    [Prop in keyof WorldConfigParams['assets']]: WorldConfigParams['assets'][Prop] extends PromiseLike<infer C>
+      ? C extends ArrayLike<any>
+        ? C
+        : Array<C>
+      : never;
   };
-  protected __sensitive: {
-    initPromise: () => Promise<void>;
-    loaded: boolean;
-    running: boolean;
-    events: {};
-    timedEvents: TimedEvent[];
-    elapsedTime: number;
-    timeoutStopFlag: boolean;
-    frameCount: number;
-    valuesToSnapshot: SnapshotObjType;
-    formattedValuesToSnapshot: ObjectToSnapshot_able<SnapshotObjType>;
-    userFriendlySnapshot: SnapshotToVanilla<SnapshotObjType>;
-    onLoad: (snapshot?: SnapshotToVanilla<SnapshotObjType>, data?: onFramePerformanceData) => void;
-    onFrame: (snapshot?: SnapshotToVanilla<SnapshotObjType>, data?: onFramePerformanceData) => void;
-    Camera: Camera;
-  };
+  public mode: keyof typeof PRODUCTION_MODES;
 
-  constructor({
-    assets,
-    lazyAssets,
-    snapshot,
-    mode,
-    loadStates,
-  }: {
-    assets?: ObjectTypes;
-    lazyAssets?: LazyLoaded;
-    snapshot?: SnapshotObjType;
-    mode: keyof typeof PRODUCTION_MODES;
-    loadStates?: State<any> | State<any>[];
-  }) {
-    if (__globalVoltsWorldInstance)
-      throw new Error(
-        `@ VOLTS.World.constructor: An instance of World already exists.\n\nSome features may break, as they rely on the __globalVoltsWorldInstance instance.\n\nYou can override this error by setting __globalVoltsWorldInstance to false before creating a new class`,
-      );
-    if (typeof arguments[0] !== 'object')
-      throw new Error(
-        `@ VOLTS.World.constructor: The argument provided to the World constructor is undefined, or is not of type 'object'`,
-      );
-
-    // mode argument
-    switch (mode) {
-      case PRODUCTION_MODES.PRODUCTION:
-      case PRODUCTION_MODES.NO_AUTO:
-      case PRODUCTION_MODES.DEV:
-        this.MODE = mode;
-        break;
-
-      default:
-        throw new Error(`@ VOLTS.World.constructor: 'mode' parameter was not set, or was set incorrectly.`);
-    }
-
-    __globalVoltsWorldInstance = this;
-    this.lazyAssets = lazyAssets || {};
+  private constructor() {
+    this.mode = VoltsWorld.userConfig.mode;
     // @ts-ignore
-    this.assets = assets || {};
-    // @ts-ignore
-    snapshot = snapshot || {};
-    loadStates = loadStates || [];
-    loadStates = Array.isArray(loadStates) ? loadStates : [loadStates];
-    // @ts-ignore
-    // prettier-ignore
-    // eslint-disable-line no-alert
-    this.__sensitive = Object.defineProperties({},
-      {
-        initPromise: { value: this.init.bind(this, this.assets, loadStates), writable: false, configurable: false },
-        running: { value: false, writable: true, configurable: false },
-        loaded: { value: false, writable: true, configurable: false },
-        events: { value: {}, writable: true, configurable: false },
-        timedEvents: { value: [], writable: true, configurable: false },
-        elapsedTime: { value: 0, writable: true, configurable: false },
-        timeMSSubscription: { value: null, writable: true, configurable: false },
-        frameCount: { value: 0, writable: true, configurable: false },
-        valuesToSnapshot: { value: snapshot, writable: true, configurable: false },
-
-        // Some extra signals for internal use. Eg. Unprojected screen size
-        // Prepend the signal name with '__volts__internal__' to prevent collisions with user generated ones
-
-        formattedValuesToSnapshot: {
-          value: this.signalsToSnapshot_able(
-            Object.assign({
-              __volts__internal__time: Time.ms,
-              __volts__internal__screen: Scene.unprojectToFocalPlane(Reactive.point2d(0,0)),
-            }, snapshot)
-          ),
-          writable: true,
-          configurable: false,
-        },
-
-        userFriendlySnapshot: { value: {}, writable: true, configurable: false },
-        onLoad: { value: null, writable: true, configurable: false },
-        onFrame: { value: null, writable: true, configurable: false },
-        Camera: { value: null, writable: true, configurable: false }
+    this.assets = {};
+    this.internalData = {
+      initPromise: this.init.bind(this, VoltsWorld.userConfig.assets, VoltsWorld.userConfig.loadStates),
+      running: false,
+      loaded: false,
+      events: {},
+      elapsedTime: 0,
+      frameCount: 0,
+      timedEvents: [],
+      // @ts-ignore missing props are assigned at runtime
+      userFriendlySnapshot: {},
+      formattedValuesToSnapshot: this.signalsToSnapshot_able(VoltsWorld.userConfig.snapshot),
+      FLAGS: {
+        stopTimeout: false,
+        lockInternalSnapshotOverride: false,
       },
-    );
-
+      Camera: null,
+    };
+    // Making the promise public makes it easier to test with Jest
+    // Using Object.define so it doesn't show on the type def & doesn't raise ts errors
     Object.defineProperty(this, 'rawInitPromise', {
-      value: this.__sensitive.initPromise(),
+      value: this.internalData.initPromise(),
       enumerable: false,
       writable: false,
       configurable: false,
     });
-    // this.__sensitive.initPromise()
   }
 
-  /**
-   * @description Initializes the class with any data required. Called as part of the constructor, to load/fetch async data
-   */
-  private async init(assets: any[], states: State<any>[]): Promise<void> {
-    // Camera & focal distance 👇
-    this.__sensitive.Camera = (await Scene.root.findFirst('Camera')) as Camera;
-    this.__sensitive.formattedValuesToSnapshot = Object.assign(
-      this.signalsToSnapshot_able({ __volts__internal__focalDistance: this.__sensitive.Camera.focalPlane.distance }),
-      this.__sensitive.formattedValuesToSnapshot,
-    );
+  // @todo add uglier but user-friendlier long-form type
+  static getInstance<WorldConfigParams extends WorldConfig>(
+    config?: WorldConfigParams | boolean,
+  ): VoltsWorld<WorldConfigParams> {
+    if (config === false) return VoltsWorld.instance;
+    if (!VoltsWorld.instance) {
+      if (typeof config !== 'object' || config === null)
+        throw new Error(
+          `@ VoltsWorld.getInstance: 'config' was not provided, but is required when creating the first instance`,
+        );
+      if (!config.mode)
+        throw new Error(
+          `@ VoltsWorld.getInstance: 'config.mode' was not provided, but is required when creating the first instance`,
+        );
+      // @ts-ignore
+      if (!Object.values(PRODUCTION_MODES).includes(config.mode))
+        throw new Error(
+          `@ VoltsWorld.getInstance: 'config.mode' was provided, but was not valid.\n\nAvailable modes are: ${Object.values(
+            PRODUCTION_MODES,
+          )}`,
+        );
+
+      config.loadStates = config.loadStates || [];
+      Array.isArray(config.loadStates) ? config.loadStates : [config.loadStates];
+      config.assets = config.assets || {};
+      config.snapshot = config.snapshot || {};
+      VoltsWorld.userConfig = config;
+      VoltsWorld.instance = new VoltsWorld();
+    } else if (config) {
+      Diagnostics.warn(
+        `@ VoltsWorld.getInstance: 'config' was provided (attempted to create new instance) but there's already an instance running`,
+      );
+    }
+    return VoltsWorld.instance;
+  }
+
+  static devClear() {
+    const Instance = VoltsWorld.getInstance(false);
+    VoltsWorld.userConfig = undefined;
+    VoltsWorld.instance = undefined;
+  }
+
+  private async init(assets: WorldConfig['assets'], states: State<any>[]): Promise<void> {
+    this.internalData.Camera = (await Scene.root.findFirst('Camera')) as Camera;
+    this.addToSnapshot({
+      __volts__internal__focalDistance: this.internalData.Camera.focalPlane.distance,
+      __volts__internal__time: Time.ms,
+      __volts__internal__screen: Scene.unprojectToFocalPlane(Reactive.point2d(0, 0)),
+    });
+    this.internalData.FLAGS.lockInternalSnapshotOverride = true;
 
     // load states
     // States are automatically loaded when created
-    // @ts-ignore key is purposely not part of the type
+    // @ts-ignore loadState is purposely not part of the type
     const loadStateArr = await Promise.all(states.map((s: State<any>) => s.loadState()));
 
     const keys = Object.keys(assets);
-    // World.init: Add support for loading a SceneObject with it's material(s)
-    // Use cases might be limited, but it would be nice to have
-    const getAssets: ObjectTypes[keyof ObjectTypes][] = await Promise.all([
-      ...keys.map((n) => assets[n][0] || assets[n]),
-    ]);
+    const getAssets: any[] = await Promise.all([...keys.map((n) => assets[n])]);
     for (let k = 0; k < keys.length; k++) {
-      if (!getAssets[k]) throw new Error(`@ VOLTS.World.init: Object(s) not found. Key: "${keys[k]}"`);
+      if (!getAssets[k]) throw new Error(`@ Volts.World.init: Object(s) not found. Key: "${keys[k]}"`);
       // @ts-ignore
       // To be properly typed out. Unfortunately, i think loading everything at once with an array ([...keys.map((n) =>...) would make it very challenging...
       // Might be best to ts-ignore or `as unknown` in this case
@@ -285,98 +285,104 @@ export class World<
       });
       // .map(objBody=>{ return new Object3D(objBody) });
     }
-
-    this.__sensitive.loaded = true;
-    if (this.MODE !== PRODUCTION_MODES.NO_AUTO) this.run();
+    this.internalData.loaded = true;
+    if (this.mode !== PRODUCTION_MODES.NO_AUTO) this.run();
   }
+  public run(): boolean {
+    if (this.internalData.running) return false;
 
-  /**
-   * @description Gets the internal clock ticking ⏱. This will run any onFrame function, calculate the current FPS, check for any timeout/interval(s) that need to be called, and much more
-   */
-  public run(): void {
-    this.__sensitive.running = true;
-    this.__sensitive.timeoutStopFlag = false;
+    this.internalData.running = true;
     // Fun fact: Time.setTimeoutWithSnapshot will run even if the Studio is paused
     // Meaning this would keep executing, along with any onFrame function
     // For DEV purposes, the function will not execute if it detects the studio is on pause
-    // This won't be the case when the mode is set to PROD, in case some device has undoc.b. within the margin of error (3 frames)
+    // This won't be the case when the mode is set to PROD, in case some device has undocumented behaviour within the margin of error (3 frames)
     const lastThreeFrames: number[] = [];
+    let offset = 0;
 
-    function Rec() {
+    const loop = () => {
       Time.setTimeoutWithSnapshot(
-        this.__sensitive.formattedValuesToSnapshot,
-        (_, snapshot) => {
-          // Snapshot
-          this.__sensitive.userFriendlySnapshot = this.formattedSnapshotToUserFriendly(snapshot);
-          snapshot = this.__sensitive.userFriendlySnapshot;
+        this.internalData.formattedValuesToSnapshot as { [key: string]: any },
+        (_: number, snapshot: any) => {
+          //#region Snapshot
+          snapshot = this.formattedSnapshotToUserFriendly(snapshot);
+          this.internalData.userFriendlySnapshot = snapshot;
+          //#endregion
 
-          // Capture data & analytics
+          //#region Capture data & analytics
+          if (!lastThreeFrames[0]) offset = this.internalData.userFriendlySnapshot.__volts__internal__time || 0;
           const delta =
-            (this.__sensitive.userFriendlySnapshot.__volts__internal__time || 0) - this.__sensitive.elapsedTime;
+            (this.internalData.userFriendlySnapshot.__volts__internal__time || 0) -
+            offset -
+            this.internalData.elapsedTime;
           const fps = Math.round((1000 / delta) * 10) / 10;
-          this.__sensitive.elapsedTime += delta;
+          this.internalData.elapsedTime += delta;
 
           if (lastThreeFrames.length > 2) {
             lastThreeFrames[0] = lastThreeFrames[1];
             lastThreeFrames[1] = lastThreeFrames[2];
-            lastThreeFrames[2] = this.__sensitive.userFriendlySnapshot.__volts__internal__time;
+            lastThreeFrames[2] = this.internalData.userFriendlySnapshot.__volts__internal__time;
           } else {
-            lastThreeFrames.push(this.__sensitive.userFriendlySnapshot.__volts__internal__time);
+            lastThreeFrames.push(this.internalData.userFriendlySnapshot.__volts__internal__time);
           }
+          //#endregion
 
+          //#region Duct tape
           // For DEV purposes, the function will not execute if it detects the studio is on pause
           if (
             lastThreeFrames[0] === lastThreeFrames[1] &&
             lastThreeFrames[1] === lastThreeFrames[2] &&
-            !this.__sensitive.timeoutStopFlag &&
-            this.MODE == PRODUCTION_MODES.DEV
+            this.mode !== PRODUCTION_MODES.PRODUCTION
           )
-            return Rec.apply(this);
+            return loop();
+          //#endregion
 
-          // onLoad function
-          this.__sensitive.onLoad &&
-            this.MODE !== PRODUCTION_MODES.NO_AUTO &&
-            this.__sensitive.frameCount === 0 &&
-            this.__sensitive.onLoad.apply(this, this.__sensitive.userFriendlySnapshot);
+          //#region onLoad function
+          this.mode !== PRODUCTION_MODES.NO_AUTO &&
+            this.internalData.frameCount === 0 &&
+            this.emitEvent('load', this.internalData.userFriendlySnapshot);
+          //#endregion
 
-          // onRun
-          const onFramePerformanceData = { fps, delta, frameCount: this.__sensitive.frameCount };
+          //#region onRun/onFrame
+          const onFramePerformanceData = { fps, delta, frameCount: this.internalData.frameCount };
           this.runTimedEvents(onFramePerformanceData);
-          this.__sensitive.onFrame &&
-            this.__sensitive.onFrame.apply(this, [this.__sensitive.userFriendlySnapshot, onFramePerformanceData]);
-          this.__sensitive.frameCount++;
+          this.emitEvent('frameUpdate', this.internalData.userFriendlySnapshot, onFramePerformanceData);
+          this.internalData.frameCount += 1;
+          //#endregion
 
-          // till the end of time
-          if (!this.__sensitive.timeoutStopFlag) Rec.apply(this);
+          if (!this.internalData.FLAGS.stopTimeout) return loop();
         },
         0,
       );
-    }
-    Rec.apply(this);
-  }
+    };
 
-  /**
-   * @description This method forces the instance to reload all data loaded during the `VOLTS.World.init` function. This will override and replace any existing assets, and reload all States. lazyAssets are not reloaded nor deleted
-   *
-   * Note, this might break if not used properly. It is not a function meant to be called multiple times -- or even at all -- it is just a utility that allows reloading data
-   *
-   * This function is bound in the constructor `value: this.init.bind(this, [this.assets, loadStates])`, meaning it cannot be used to load **new** assets. lazyAssets are preferred for that
-   */
+    loop();
+
+    return true;
+  }
+  get loaded(): boolean {
+    return this.internalData.loaded;
+  }
+  get running(): boolean {
+    return this.internalData.running;
+  }
+  get frameCount(): number {
+    return this.internalData.frameCount;
+  }
+  get snapshot(): SnapshotToVanilla<WorldConfigParams['snapshot']> & { [key: string]: any } {
+    return this.internalData.userFriendlySnapshot;
+  }
   public forceAssetReload(): Promise<void> {
-    return this.__sensitive.initPromise();
+    return this.internalData.initPromise();
   }
+  public stop({ clearTimedEvents = false } = { clearTimedEvents: false }): boolean {
+    if (!this.internalData.running) return false;
 
-  /**
-   * @description Stops the internal clock. This will stop the execution of the onFrame function, stop FPS monitoring, prevent timeouts/intervals from getting called, etc.
-   *
-   * All timeouts and intervals will resume normally (using the internal instance clock), unless clearTimedEvents is true, `stop({clearTimedEvents: true})`, which will permanently erase them
-   */
-  public stop({ clearTimedEvents = false } = { clearTimedEvents: false }): void {
-    this.__sensitive.running = false;
-    if (clearTimedEvents) this.__sensitive.timedEvents = [];
-    this.__sensitive.timeoutStopFlag = true;
+    this.internalData.running = false;
+    if (clearTimedEvents) this.internalData.timedEvents = [];
+    this.internalData.FLAGS.stopTimeout = true;
+
+    return true;
   }
-
   /**
    * @author Andrey Sitnik
    * @param event The event name.
@@ -384,9 +390,13 @@ export class World<
    * @see https://github.com/ai/nanoevents
    */
   public emitEvent(event: string, ...args: any[]): void {
-    (this.__sensitive.events[event] || []).forEach((i) => i(...args));
+    const shouldBind = ['load', 'frameUpdate', 'testing'].some((e) => e === event);
+    if (!shouldBind) {
+      (this.internalData.events[event] || []).forEach((i) => i(...args));
+    } else {
+      (this.internalData.events[event] || []).forEach((i) => i.bind(this)(...args));
+    }
   }
-
   /**
    * @author Andrey Sitnik
    * @param event The event name.
@@ -394,11 +404,13 @@ export class World<
    * @returns Unbind listener from event.
    * @see https://github.com/ai/nanoevents
    */
-  public onEvent(event: string, cb: (...args: any[]) => void): () => void {
-    (this.__sensitive.events[event] = this.__sensitive.events[event] || []).push(cb);
-    return () => (this.__sensitive.events[event] = (this.__sensitive.events[event] || []).filter((i) => i !== cb));
+  public onEvent<K extends keyof Events<SnapshotToVanilla<WorldConfigParams['snapshot']> & { [key: string]: any }>>(
+    event: K,
+    cb: Events<SnapshotToVanilla<WorldConfigParams['snapshot']> & { [key: string]: any }>[K],
+  ): () => void {
+    (this.internalData.events[event] = this.internalData.events[event] || []).push(cb);
+    return () => (this.internalData.events[event] = (this.internalData.events[event] || []).filter((i) => i !== cb));
   }
-
   /**
    * @description Creates a timeout that executes the function after a given number of milliseconds
    * @param cb The function to be executed
@@ -406,9 +418,10 @@ export class World<
    * @returns The `clear` function, with which you can clear the timeout, preventing any future executions
    */
   public setTimeout(cb: TimedEventFunction, ms: number): { clear: () => void } {
+    if (!this.internalData.running)
+      Diagnostics.warn('Warning @ Volts.World.setTimeout: created a timeout while the current instance is not running');
     return this.setTimedEvent(cb, ms, false);
   }
-
   /**
    * @description Creates an interval that executes the function every [X] milliseconds
    * @param cb The function to be executed
@@ -416,9 +429,12 @@ export class World<
    * @returns The `clear` function, with which you can clear the interval, preventing any future executions
    */
   public setInterval(cb: TimedEventFunction, ms: number): { clear: () => void } {
+    if (!this.internalData.running)
+      Diagnostics.warn(
+        'Warning @ Volts.World.setInterval: created an interval while the current instance is not running',
+      );
     return this.setTimedEvent(cb, ms, true);
   }
-
   /**
    * @param cb The function to be called
    * @param ms The amount of ms
@@ -430,9 +446,9 @@ export class World<
     ms: number,
     trailing = false,
   ): (...args: argTypes) => void {
-    if (!this.__sensitive.running)
-      Diagnostics.log(
-        'Warning @ VOLTS.World.setDebounce: created a debounce while the current instance is not running',
+    if (!this.internalData.running)
+      Diagnostics.warn(
+        'Warning @ Volts.World.setDebounce: created a debounce while the current instance is not running',
       );
     let timer: { clear: () => void };
     if (trailing)
@@ -454,85 +470,46 @@ export class World<
       }, ms);
     };
   }
-
   protected setTimedEvent(cb: TimedEventFunction, ms: number, recurring: boolean): { clear: () => void } {
     const event: TimedEvent = {
-      created: this.__sensitive.elapsedTime,
-      lastCall: this.__sensitive.elapsedTime,
+      created: this.internalData.elapsedTime,
+      lastCall: this.internalData.elapsedTime,
       count: 0,
       delay: ms,
       recurring,
       cb,
     };
-    this.__sensitive.timedEvents.push(event);
+    this.internalData.timedEvents.push(event);
     return {
-      clear: () => (this.__sensitive.timedEvents = (this.__sensitive.timedEvents || []).filter((i) => i !== event)),
+      clear: () => (this.internalData.timedEvents = (this.internalData.timedEvents || []).filter((i) => i !== event)),
     };
   }
-
   private runTimedEvents(onFramePerformanceData: onFramePerformanceData) {
-    this.__sensitive.timedEvents = this.__sensitive.timedEvents.sort(
+    this.internalData.timedEvents = this.internalData.timedEvents.sort(
       (e1, e2) => e1.lastCall + e1.delay - (e2.lastCall + e2.delay),
     );
-    let i = this.__sensitive.timedEvents.length;
+    let i = this.internalData.timedEvents.length;
     while (i--) {
-      const event = this.__sensitive.timedEvents[i];
-      if (event.lastCall + event.delay < this.__sensitive.elapsedTime) {
+      const event = this.internalData.timedEvents[i];
+      if (event.lastCall + event.delay < this.internalData.elapsedTime) {
         event.cb.apply(this, [
-          this.__sensitive.elapsedTime - event.created,
+          this.internalData.elapsedTime - event.created,
           event.count,
           event.lastCall,
           event.created,
           onFramePerformanceData,
         ]);
-        this.__sensitive.timedEvents[i].count++;
+        this.internalData.timedEvents[i].count++;
         if (event.recurring) {
-          this.__sensitive.timedEvents[i].lastCall = this.__sensitive.elapsedTime;
+          this.internalData.timedEvents[i].lastCall = this.internalData.elapsedTime;
         } else {
-          this.__sensitive.timedEvents.splice(i, 1);
+          this.internalData.timedEvents.splice(i, 1);
         }
       }
     }
   }
 
-  // this: InstanceType<typeof World>
-  // Technically, the onFrame function can have access to the private & protected properties,
-  // as long as it's declared as an arrow function, but typing it out that way would mean
-  // users would be presented to the raw/non abstracted code, which might be confusing.
-  // I do not personally think completely isolating the onFrame/onLoad function calls is a good idea,
-  // since this way, an arrow function would allow more advanced users access to the private/protected fields,
-  // while the type makes it unlikely that anyone not familiar with the code base might accidentally change something.
-  // To get the type of the context an arrow function would have, the line below can be changed to
-  // this: typeof VOLTS.World.prototype
-  /**
-   * @description A function to be called every frame
-   */
-  public set onFrame(
-    f: (
-      this: InstanceType<typeof World>,
-      snapshot?: SnapshotToVanilla<SnapshotObjType>,
-      data?: onFramePerformanceData,
-    ) => void,
-  ) {
-    if (typeof f == 'function') {
-      this.__sensitive.onFrame = f;
-    } else {
-      throw new Error(`@ VOLTS.World.onFrame (set). The value provided is not a function`);
-    }
-  }
-
-  /**
-   * @description A function to be called after the class has fully loaded all it's data. `VOLTS.World.init` has executed successfully
-   */
-  public set onLoad(f: (this: InstanceType<typeof World>, snapshot?: SnapshotToVanilla<SnapshotObjType>) => void) {
-    if (typeof f == 'function') {
-      this.__sensitive.onLoad = f;
-    } else {
-      throw new Error(`@ VOLTS.World.onLoad (set). The value provided is not a function`);
-    }
-  }
-
-  protected signalsToSnapshot_able<values extends Snapshot>(values: values): ObjectToSnapshot_able<values> {
+  protected signalsToSnapshot_able<values extends Snapshot>(values: values): ObjectToSnapshotable<values> {
     // The purpose of the prefix & suffix is to ensure any signal values added to the snapshot don't collide.
     // Eg. were vec3 'V1' to be broken up into 'V1x' 'V1y' 'V1z', it'd collide with any signals named 'V1x' 'V1y' 'V1z'
     // Here the names would get converted to 'CONVERTED::V1::x|y|z|w:[UUID]', later pieced back together into a number[]
@@ -541,7 +518,7 @@ export class World<
     const suffix = getUUIDv4();
     const getKey = (k: string, e: string) => `${prefix}::${k}::${e}::${suffix}`;
     // @ts-ignore
-    const tmp: ObjectToSnapshot_able<values> = {};
+    const tmp: { [key: string]: any } = {};
     const keys = Object.keys(values);
     for (let i = 0; i < keys.length; i++) {
       const key = keys[i];
@@ -563,7 +540,7 @@ export class World<
         tmp[getKey(key, 'Y2')] = signal.y;
         tmp[getKey(key, 'X2')] = signal.x;
       } else if (signal.xor || signal.concat || signal.pinLastValue) {
-        // bool // string // scalar, this very likely unintentionally catches any and all other signal types, even non-scalar(s)
+        // bool // string // scalar, this very likely unintentionally catches any and all other signal types, even the ones that can't be snapshot'ed
         tmp[getKey(key, 'X1')] = signal;
       } else {
         throw new Error(
@@ -572,12 +549,11 @@ export class World<
       }
     }
 
+    // @ts-ignore
     return tmp;
   }
 
-  protected formattedSnapshotToUserFriendly(
-    snapshot: ObjectToSnapshot_able<SnapshotObjType>,
-  ): SnapshotToVanilla<SnapshotObjType> {
+  protected formattedSnapshotToUserFriendly(snapshot: ObjectToSnapshotable<Snapshot>): SnapshotToVanilla<Snapshot> {
     let keys = Object.keys(snapshot);
     const signals: { [key: string]: [number, string] } = {}; // name, dimension
     for (let i = 0; i < keys.length; i++) {
@@ -585,7 +561,7 @@ export class World<
       const parts: string[] = key.split('::');
       if (parts.length !== 4 || parts[0] !== 'CONVERTED')
         throw new Error(
-          `@ VOLTS.World.formattedSnapshotToUserFriendly: Signal is missing the correct prefix, or is missing parts. Key: ${key}. Parts: ${parts}`,
+          `@ Volts.World.formattedSnapshotToUserFriendly: Signal is missing the correct prefix, or is missing parts. Key: ${key}. Parts: ${parts}`,
         );
       const name = parts[1];
       // eslint-disable-line no-alert
@@ -594,318 +570,309 @@ export class World<
       signals[name] = [Number(dimension), uuid];
     }
     keys = Object.keys(signals);
-    const result = {};
+    const result: { [key: string]: any } = {};
     for (let i = 0; i < keys.length; i++) {
       const name = keys[i];
       const [dim, uuid] = signals[name];
-      if (dim == 4) {
-        result[name] = [
-          snapshot[`CONVERTED::${name}::X${dim}::${uuid}`],
-          snapshot[`CONVERTED::${name}::Y${dim}::${uuid}`],
-          snapshot[`CONVERTED::${name}::Z${dim}::${uuid}`],
-          snapshot[`CONVERTED::${name}::W${dim}::${uuid}`],
-        ];
-      } else if (dim == 3) {
-        result[name] = [
-          snapshot[`CONVERTED::${name}::X${dim}::${uuid}`],
-          snapshot[`CONVERTED::${name}::Y${dim}::${uuid}`],
-          snapshot[`CONVERTED::${name}::Z${dim}::${uuid}`],
-        ];
-      } else if (dim == 2) {
-        result[name] = [
-          snapshot[`CONVERTED::${name}::X${dim}::${uuid}`],
-          snapshot[`CONVERTED::${name}::Y${dim}::${uuid}`],
-        ];
-      } else if (dim == 1) {
-        result[name] = snapshot[`CONVERTED::${name}::X${dim}::${uuid}`];
-      } else {
+
+      if (!Number.isFinite(dim) || dim == 0 || dim > 4)
         throw new Error(
-          `@ VOLTS.World.formattedSnapshotToUserFriendly: dimension of signals[name] not 1|2|3|4. Dim: ${dim}. Name: ${name}.\n\nPlease report this on Github as an issue\n\nExtra data:\nKeys: ${keys}`,
+          `@ Volts.World.formattedSnapshotToUserFriendly: dimension of signals[name] not 1|2|3|4. Dim: ${dim}. Name: ${name}.\n\nPlease report this on Github as an issue\n\nExtra data:\nKeys: ${keys}`,
         );
+
+      const arr: any[] = [];
+      const letters = ['X', 'Y', 'Z', 'W'];
+      for (let index = 0; index < dim; index++) {
+        arr.push(snapshot[`CONVERTED::${name}::${letters[index]}${dim}::${uuid}`]);
       }
+
+      result[name] = dim >= 2 ? new Vector(arr) : arr[0];
     }
     // @ts-ignore
     return result;
   }
 
   public addToSnapshot(obj: Snapshot): void {
-    this.__sensitive.formattedValuesToSnapshot = Object.assign(
-      this.__sensitive.formattedValuesToSnapshot,
+    this.internalData.formattedValuesToSnapshot = Object.assign(
+      this.internalData.formattedValuesToSnapshot,
       this.signalsToSnapshot_able(obj),
     );
   }
 
   public removeFromSnapshot(keys: string | string[]): void {
     const keysToRemove = Array.isArray(keys) ? keys : [keys];
-    const snapKeys = Object.keys(this.__sensitive.formattedValuesToSnapshot);
+    const snapKeys = Object.keys(this.internalData.formattedValuesToSnapshot);
     const matches = snapKeys.filter((k) => keysToRemove.indexOf(k.split('::')[1]) !== -1);
 
     for (let index = 0; index < matches.length; index++) {
       const match = matches[index];
-      delete this.__sensitive.formattedValuesToSnapshot[match];
+      delete this.internalData.formattedValuesToSnapshot[match];
     }
   }
 
   /**
    * @description Returns a 2D Vector representing the bottom right of the screen, in world space coordinates
    */
-  public getWorldSpaceScreenBounds(): Vector {
-    const sv = (this.__sensitive.userFriendlySnapshot.__volts__internal__screen as number[]).slice(0, 2);
+  public getWorldSpaceScreenBounds(): Vector<3> {
     // ask the spark team about this :D, at the time of writing (v119), this didn't output consistent results
-    sv[0] = Math.abs(sv[0]);
-    sv[1] = -Math.abs(sv[1]);
-    return new Vector(sv);
-  }
-
-  /**
-   * @description Returns the focal distance of the camera
-   */
-  public get focalDistance(): number {
-    const d = this.snapshot.__volts__internal__focalDistance as number;
-    if (d < 0.001) Diagnostics.log('Warning! Using the focal distance during onLoad ');
-    return d;
-  }
-
-  /**
-   * @description Get the total amount of ms elapsed since the instance started running. Note, stopping and resuming the instance means the value won't be in sync with the TimeModule.ms signal value
-   */
-  public get elapsedTime(): number {
-    return this.__sensitive.elapsedTime;
-  }
-
-  /**
-   * @description A boolean representing whether the instance has successfully loaded
-   */
-  public get loaded(): boolean {
-    return this.__sensitive.loaded;
-  }
-  /**
-   * @description A boolean representing whether the instance is actively running
-   */
-  public get running(): boolean {
-    return this.__sensitive.running;
-  }
-
-  public get frameCount(): number {
-    return this.__sensitive.frameCount;
-  }
-
-  public get snapshot(): SnapshotToVanilla<SnapshotObjType> {
-    return this.__sensitive.userFriendlySnapshot;
-  }
-
-  protected set snapshot(newSnapshot: SnapshotToVanilla<SnapshotObjType>) {
-    this.__sensitive.userFriendlySnapshot = newSnapshot;
+    return this.internalData.userFriendlySnapshot.__volts__internal__screen.copy().abs().mul(1, -1, 0);
   }
 }
 
-/**
- * @description The purpose of this function is to be an accessible interface between VOLTS.World & a creator, using the Spark AR Studio command line
- */
-export function RUN(): void {
-  if (__globalVoltsWorldInstance) {
-    __globalVoltsWorldInstance.run();
-  } else {
-    Diagnostics.log(
-      '@ RUN (volts.ts export). __globalVoltsWorldInstance is not defined, meaning no VOLTS.World instance was found',
-    );
-  }
+//#endregion
+
+//#region Vector
+
+type VectorArgRest<D extends number = any> = [number] | [number[]] | number[] | [Vector<D>];
+
+interface NDVectorInstance<D extends number> {
+  values: number[];
+  readonly dimension: number;
+  add(...args: VectorArgRest): Vector<D>;
+  sub(...args: VectorArgRest): Vector<D>;
+  mul(...args: VectorArgRest): Vector<D>;
+  div(...args: VectorArgRest): Vector<D>;
+  dot(...args: VectorArgRest): number;
+  distance(...other: VectorArgRest): number;
+  magSq(): number;
+  mag(): number;
+  abs(): Vector<D>;
+  copy(): Vector<D>;
+  normalize(): Vector<D>;
+  equals(b: Vector<any>): boolean;
+  toString(): string;
 }
 
-/**
- * @description The purpose of this function is to be an accessible interface between VOLTS.World & a creator, using the Spark AR Studio command line
- */
-export function STOP(): void {
-  if (__globalVoltsWorldInstance) {
-    __globalVoltsWorldInstance.stop();
-  } else {
-    Diagnostics.log(
-      '@ STOP (volts.ts export). __globalVoltsWorldInstance is not defined, meaning no VOLTS.World instance was found',
-    );
-  }
+interface Vector2DInstance {
+  get x(): number;
+  set x(x: number);
+  get y(): number;
+  set y(y: number);
+  heading(): number;
+  rotate(a: number): Vector<2>;
 }
 
-export function __clearGlobalInstance(): void {
-  __globalVoltsWorldInstance = null;
+interface Vector3DInstance {
+  get z(): number;
+  set z(z: number);
+  cross(...args: VectorArgRest<3>): Vector<3>;
 }
+
+interface Vector4DInstance {
+  get w(): number;
+  set w(w: number);
+}
+
+interface NDVector {
+  new <uD extends number, args extends VectorArgRest = FixedLengthArray<number, uD> | [number[]]>(
+    ...args: args
+  ): args extends undefined[]
+    ? Vector<3>
+    : args extends [number[]]
+    ? Vector<uD>
+    : args extends FixedLengthArray<number, infer D>
+    ? // typeof args[0] extends Array<any> ? Vector<uD> :
+      D extends uD
+      ? Vector<D>
+      : never
+    : args extends [Vector<infer D>]
+    ? D extends uD
+      ? Vector<D>
+      : never
+    : never;
+  convertToSameDimVector<D extends number>(dim: D, ...args: VectorArgRest): Vector<D>;
+  screenToWorld(x: number, y: number, focalPlane: true): Vector<3>;
+}
+
+type getVecTypeForD<D extends number> = D extends 1
+  ? {}
+  : D extends 2
+  ? Vector2DInstance
+  : D extends 3
+  ? Vector3DInstance
+  : D extends 4
+  ? Vector4DInstance
+  : Vector2DInstance & Vector3DInstance & Vector4DInstance;
+
+export type Vector<D extends number> = NDVectorInstance<D> & getVecTypeForD<D>;
 
 /**
  * @classdesc A flexible, easy to use, N-D vector class
  *
- * Note: this is not optimized for incredible performance, but this gives greater flexibility to users of the framework/lib
+ * Note: this is not optimized for incredible performance, but it provides a lot of flexibility to users of the framework/lib
  */
-export class Vector {
-  values: number[];
-  readonly dimension: number;
-  constructor(...args: [number[]] | [Vector] | number[]) {
+
+export const Vector = function <D extends number, args extends VectorArgRest = []>(
+  this: Vector<number>,
+  ...args: args
+): Vector<D> {
+  if (args[0] instanceof Vector) {
+    // @ts-ignore
+    return args[0].copy();
+  } else if (Array.isArray(args[0])) {
+    this.values = args[0];
+  } else if (args.length === 1) {
+    this.values = [args[0], args[0], args[0]];
+  } else if (!args[0]) {
+    this.values = [0, 0, 0];
+  } else {
+    this.values = args as number[];
+  }
+  if (!this.values.every((v) => typeof v === 'number') || this.values.length === 0)
+    throw new Error(`@ Vector.constructor: Values provided are not valid. args: ${args}. this.values: ${this.values}`);
+  // @ts-expect-error
+  this.dimension = this.values.length;
+
+  // prettier-ignore
+  Object.defineProperties(this, {
+    x: {
+      get:    () =>{                                                                                    return this.values[0]},
+      set:    (x)=>{                                                                                    this.values[0] = x}},
+    y: {
+      get:    () =>{if (this.dimension < 2) throw new Error(`Cannot get Vector.y, vector is a scalar`); return this.values[1]},
+      set:    (y)=>{if (this.dimension < 2) throw new Error(`Cannot get Vector.y, vector is a scalar`); this.values[1] = y}},
+    z: {
+      get:    () =>{if (this.dimension < 3) throw new Error(`Cannot get Vector.z, vector is not 3D`);   return this.values[2]},
+      set:    (z)=>{if (this.dimension < 3) throw new Error(`Cannot get Vector.z, vector is not 3D`);   this.values[2] = z}},
+    w: {
+      get:    () =>{if (this.dimension < 4) throw new Error(`Cannot get Vector.w, vector is not 4D`);   return this.values[3]},
+      set:    (w)=>{if (this.dimension < 4) throw new Error(`Cannot get Vector.w, vector is not 4D`);   this.values[3] = w}},
+  });
+
+  return this;
+} as unknown as NDVector;
+
+//#region static
+Vector.convertToSameDimVector = function <D extends number>(dim: D, ...args: VectorArgRest): Vector<D> {
+  if (!args) throw new Error('@ Vector.convertToSameDimVector: No values provided');
+  if (args.length == 1) {
     if (args[0] instanceof Vector) {
-      return args[0].copy();
+      // @ts-ignore
+      if (args[0].dimension == dim) return args[0]; // returns the same vector that was provided
+      if (args[0].dimension > dim) return new Vector(args[0].values.slice(0, dim)); // returns a vector that's swizzled to match
+      throw new Error(
+        `@ Vector.convertToVector: values provided are not valid. Dimensions do not match. dim: ${dim}. args(s): ${args}`,
+      );
     } else if (Array.isArray(args[0])) {
-      this.values = args[0];
-    } else if (!args[0]) {
-      this.values = [0, 0, 0];
+      if (args[0].length == dim) return new Vector(args[0]); // returns a vector with the given array as components
+      if (args[0].length > dim) return new Vector(args[0].slice(0, dim)); // returns a vector with the given array as components (swizzled)
+      throw new Error(
+        `@ Vector.convertToVector: values provided are not valid. Dimensions do not match. dim: ${dim}. args(s): ${args}`,
+      );
+    } else if (typeof args[0] == 'number') {
+      return new Vector(new Array(dim).fill(args[0])); // returns a vector filled with the given number
     } else {
-      this.values = args as number[];
+      throw new Error(`@ Vector.convertToVector: values provided are not valid. dim: ${dim}. args(s): ${args}`);
     }
-    if (!this.values.every((v) => typeof v == 'number') || this.values.length === 0)
-      throw new Error(`@ Vector.constructor: Values provided are not valid`);
-    this.dimension = this.values.length;
+  } else {
+    if (!(Array.isArray(args) && (args as any[]).every((a) => typeof a === 'number')) || args.length < dim)
+      throw new Error(`@ Vector.convertToVector: values provided are not valid. dim: ${dim}. args(s): ${args}`);
+    return new Vector(args.splice(0, dim) as unknown as number[]);
   }
+};
+Vector.screenToWorld = function (x: number, y: number, focalPlane = true): Vector<3> {
+  const Instance = VoltsWorld.getInstance(false);
+  if (!(Instance && Instance.running)) {
+    throw new Error(`Vector.screenToWorld can only be called when there's a Volts.World instance running`);
+  }
+  if (!(typeof x == 'number' && typeof y == 'number')) {
+    throw new Error(`@ Vector.screenToWorld: values provided are not valid. Values: x: ${x}, y: ${y}`);
+  }
+  x = (x - 0.5) * 2;
+  y = (y - 0.5) * 2;
+  const bounds = Instance.getWorldSpaceScreenBounds();
+  return new Vector(
+    bounds.values[0] * x,
+    bounds.values[1] * y,
+    focalPlane ? (Instance.snapshot.__volts__internal__focalDistance as unknown as number) : 0,
+  );
+};
+//#endregion
+//#region common
+Vector.prototype.add = function <D extends number>(this: Vector<D>, ...args: VectorArgRest): Vector<D> {
+  const b = Vector.convertToSameDimVector(this.dimension, ...args).values;
+  this.values = this.values.map((v, i) => v + b[i]);
+  return this;
+};
+Vector.prototype.sub = function <D extends number>(this: Vector<D>, ...args: VectorArgRest): Vector<D> {
+  const b = Vector.convertToSameDimVector(this.dimension, ...args).values;
+  this.values = this.values.map((v, i) => v - b[i]);
+  return this;
+};
+Vector.prototype.mul = function <D extends number>(this: Vector<D>, ...args: VectorArgRest): Vector<D> {
+  const b = Vector.convertToSameDimVector(this.dimension, ...args).values;
+  this.values = this.values.map((v, i) => v * b[i]);
+  return this;
+};
+Vector.prototype.div = function <D extends number>(this: Vector<D>, ...args: VectorArgRest): Vector<D> {
+  const b = Vector.convertToSameDimVector(this.dimension, ...args).values;
+  if (![...this.values, ...b].every((v) => typeof v === 'number' && Number.isFinite(v) && v !== 0)) {
+    throw new Error(`@ Vector.div: values provided are not valid. this value(s): ${this.values}\n\nb value(s): ${b}`);
+  }
+  this.values = this.values.map((v, i) => v / b[i]);
+  return this;
+};
+Vector.prototype.dot = function <D extends number>(this: Vector<D>, ...args: VectorArgRest): number {
+  const b = Vector.convertToSameDimVector(this.dimension, ...args).values;
+  return this.values.map((x, i) => this.values[i] * b[i]).reduce((acc, val) => acc + val);
+};
+Vector.prototype.distance = function <D extends number>(this: Vector<D>, ...other: VectorArgRest): number {
+  const b = Vector.convertToSameDimVector(this.dimension, ...other);
+  return b.copy().sub(this).mag();
+};
+Vector.prototype.magSq = function <D extends number>(this: Vector<D>): number {
+  return this.values.reduce((acc, val) => acc + val * val);
+};
+Vector.prototype.mag = function <D extends number>(this: Vector<D>): number {
+  return this.values.map((v) => v * v).reduce((acc, val) => acc + val) ** 0.5;
+};
+Vector.prototype.abs = function <D extends number>(this: Vector<D>): Vector<D> {
+  this.values = this.values.map((v) => (v < 0 ? -v : v));
+  return this;
+};
+Vector.prototype.normalize = function <D extends number>(this: Vector<D>): Vector<D> {
+  const len = this.mag();
+  len !== 0 && this.mul(1 / len);
+  return this;
+};
+Vector.prototype.copy = function <D extends number>(this: Vector<D>): Vector<D> {
+  return new Vector(this.values);
+};
+/** @description Test whether two Vectors are equal to each other */
+Vector.prototype.equals = function <D extends number>(this: Vector<D>, b: Vector<number>): boolean {
+  return !!b && this.dimension === b.dimension && this.values.every((v, i) => v === b.values[i]);
+};
+Vector.prototype.toString = function <D extends number>(): string {
+  return `Vector<${this.dimension}> [${this.values.toString()}]`;
+};
+//#endregion
+//#region Vector<3>
+Vector.prototype.cross = function (this: Vector<3>, ...args: VectorArgRest): Vector<3> {
+  if (this.dimension !== 3) throw `Attempting to use Vector<3>.cross on non 3D vector. Dim: ${this.dimension}`;
+  const b = Vector.convertToSameDimVector(3, ...args);
+  return new Vector(
+    this.values[1] * b.values[2] - this.values[2] * b.values[1],
+    this.values[2] * b.values[0] - this.values[0] * b.values[2],
+    this.values[0] * b.values[1] - this.values[1] * b.values[0],
+  );
+};
+//#endregion
+//#region Vector<2>
+Vector.prototype.heading = function <D extends number>(): number {
+  return Math.atan2(this.values[1], this.values[0]);
+};
+Vector.prototype.rotate = function <D extends number>(a: number): Vector<D> {
+  const newHeading = Math.atan2(this.values[1], this.values[0]) + a;
+  const mag = this.mag();
+  this.values[0] = Math.cos(newHeading) * mag;
+  this.values[1] = Math.sin(newHeading) * mag;
+  return this;
+};
+//#endregion
 
-  public static convertToSameDimVector(v: Vector, ...args: VectorArgRest): Vector {
-    if (!args) throw new Error('@ Vector.convertToSameDimVector: No values provided');
-    if (args.length == 1) {
-      if (args[0] instanceof Vector) {
-        if (args[0].dimension == v.dimension) return args[0]; // returns the same vector that was provided
-        if (args[0].dimension > v.dimension) return new Vector(args[0].values.slice(0, v.dimension)); // returns a vector that's swizzled to match
-        throw new Error(
-          `@ Vector.convertToVector: values provided are not valid. Dimensions do not match. v.values: ${v.values}.Value(s): ${args}`,
-        );
-      } else if (typeof args[0] == 'number') {
-        return new Vector(new Array(v.dimension).fill(args[0])); // returns a vector filled with the given number
-      } else if (Array.isArray(args[0])) {
-        if (args[0].length == v.dimension) return new Vector(args[0]); // returns a vector with the given array as components
-        if (args[0].length > v.dimension) return new Vector(args[0].slice(0, v.dimension)); // returns a vector with the given array as components (swizzled)
-        throw new Error(
-          `@ Vector.convertToVector: values provided are not valid. Dimensions do not match. v.values: ${v.values}.Value(s): ${args}`,
-        );
-      } else {
-        throw new Error(
-          `@ Vector.convertToVector: values provided are not valid. v.values: ${v.values}.Value(s): ${args}`,
-        );
-      }
-    } else {
-      if (!(Array.isArray(args) && (args as any[]).every((a) => typeof a === 'number')))
-        throw new Error(
-          `@ Vector.convertToVector: values provided are not valid. v.values: ${v.values}.Value(s): ${args}`,
-        );
-      return new Vector(args as unknown as number[]);
-    }
-  }
+//#endregion
 
-  public static screenToWorld2D(x: number, y: number, focalPlane = true): Vector {
-    if (!(__globalVoltsWorldInstance && __globalVoltsWorldInstance.running)) {
-      throw new Error(`Vector.screenToWorld can only be called when there's a VOLTS.World instance running`);
-    }
-    if (!(typeof x == 'number' && typeof y == 'number')) {
-      throw new Error(`@ Vector.screenToWorld: values provided are not valid. Values: x: ${x}, y: ${y}`);
-    }
-    x = (x - 0.5) * 2;
-    y = (y - 0.5) * 2;
-    const bounds = __globalVoltsWorldInstance.getWorldSpaceScreenBounds();
-    return new Vector(
-      bounds.values[0] * x,
-      bounds.values[1] * y,
-      focalPlane ? (__globalVoltsWorldInstance.snapshot.__volts__internal__focalDistance as unknown as number) : 0,
-    );
-  }
-
-  add(...args: VectorArgRest): Vector {
-    const b = Vector.convertToSameDimVector(this, ...args).values;
-    this.values = this.values.map((v, i) => v + b[i]);
-    return this;
-  }
-  sub(...args: VectorArgRest): Vector {
-    const b = Vector.convertToSameDimVector(this, ...args).values;
-    this.values = this.values.map((v, i) => v - b[i]);
-    return this;
-  }
-  mul(...args: VectorArgRest): Vector {
-    const b = Vector.convertToSameDimVector(this, ...args).values;
-    this.values = this.values.map((v, i) => v * b[i]);
-    return this;
-  }
-  div(...args: VectorArgRest): Vector {
-    const b = Vector.convertToSameDimVector(this, ...args).values;
-    if (![...this.values, ...b].every((v) => typeof v === 'number' && Number.isFinite(v) && v !== 0)) {
-      throw new Error(`@ Vector.div: values provided are not valid. this value(s): ${this.values}\n\nb value(s): ${b}`);
-    }
-    this.values = this.values.map((v, i) => v / b[i]);
-    return this;
-  }
-  dot(...args: VectorArgRest): number {
-    const b = Vector.convertToSameDimVector(this, ...args).values;
-    return this.values.map((x, i) => this.values[i] * b[i]).reduce((acc, val) => acc + val);
-  }
-  distance(...other: VectorArgRest): number {
-    const b = Vector.convertToSameDimVector(this, ...other);
-    return b.copy().sub(this).mag();
-  }
-  magSq(): number {
-    return this.values.reduce((acc, val) => acc + val * val);
-  }
-  mag(): number {
-    return this.values.map((v) => v * v).reduce((acc, val) => acc + val) ** 0.5;
-  }
-  copy(): Vector {
-    return new Vector(this.values);
-  }
-  normalize(): Vector {
-    const len = this.mag();
-    len !== 0 && this.mul(1 / len);
-    return this;
-  }
-  // https://stackoverflow.com/a/243984/14899497
-  // cross2D(){}
-  cross3D(...args: VectorArgRest): Vector {
-    if (this.dimension !== 3) throw `Attempting to use Vector.cross3D on non 3D vector. Dim: ${this.dimension}`;
-    const b = Vector.convertToSameDimVector(this, ...args);
-    return new Vector(
-      this.values[1] * b.values[2] - this.values[2] * b.values[1],
-      this.values[2] * b.values[0] - this.values[0] * b.values[2],
-      this.values[0] * b.values[1] - this.values[1] * b.values[0],
-    );
-  }
-  /** @description 2D Vectors only. Angles in RADIANS*/
-  heading(): number {
-    return Math.atan2(this.values[1], this.values[0]);
-  }
-  /** @description 2D Vectors only. Angles in RADIANS @param a Angle in RADIANS to rotate the vector by*/
-  rotate(a: number): Vector {
-    const newHeading = this.heading() + a;
-    const mag = this.mag();
-    this.values[0] = Math.cos(newHeading) * mag;
-    this.values[1] = Math.sin(newHeading) * mag;
-    return this;
-  }
-  /** @description Test whether two Vectors are equal to each other */
-  equals(b: Vector): boolean {
-    return b && this.dimension === b.dimension && this.values.every((v, i) => v === b.values[i]);
-  }
-  toString(): string {
-    return `vec${this.dimension}: [${this.values.toString()}]`;
-  }
-  public get x(): number {
-    return this.values[0];
-  }
-  public set x(x: number) {
-    this.values[0] = x;
-  }
-  public get y(): number {
-    if (this.dimension < 2) throw new Error(`Cannot get Vector.y, vector is a scalar`);
-    return this.values[1];
-  }
-  public set y(y: number) {
-    if (this.dimension < 2) throw new Error(`Cannot set Vector.y, vector is a scalar`);
-    this.values[1] = y;
-  }
-  public get z(): number {
-    if (this.dimension < 3) throw new Error(`Cannot get Vector.z, vector is not 3D`);
-    return this.values[2];
-  }
-  public set z(z: number) {
-    if (this.dimension < 3) throw new Error(`Cannot set Vector.z, vector is not 3D`);
-    this.values[2] = z;
-  }
-  public get w(): number {
-    if (this.dimension < 4) throw new Error(`Cannot get Vector.w, vector is not 4D`);
-    return this.values[3];
-  }
-  public set w(w: number) {
-    if (this.dimension < 4) throw new Error(`Cannot set Vector.w, vector is not 4D`);
-    this.values[3] = w;
-  }
-}
+//#region State
 
 /**
  * @description Provides an easy interface to the Persistence module
@@ -917,13 +884,13 @@ export class Vector {
  * This feature is still on an early state
  * @see https://github.com/tomaspietravallo/sparkar-volts/issues/4
  */
-export class State<State extends { [key: string]: Vector | number | string | boolean }> {
-  public data: { [Property in keyof State]+?: State[Property] };
+export class State<Data extends { [key: string]: Vector<any> | number | string | boolean }> {
+  protected _data: { [Property in keyof Data]+?: Data[Property] };
   protected key: string;
   protected loaded: boolean;
   constructor(persistenceKey: string) {
     if (!persistenceKey) {
-      throw new Error(`@ VOLTS.State: argument persistenceKey is not defined`);
+      throw new Error(`@ Volts.State: argument 'persistenceKey' is not defined`);
     } else {
       this.key = persistenceKey;
     }
@@ -931,67 +898,124 @@ export class State<State extends { [key: string]: Vector | number | string | boo
       if (!Persistence) Persistence = require('Persistence');
     } catch {
       throw new Error(
-        `@ VOLTS.State: Persistence is not enabled as a capability, or is not available in the current target platforms.\n\nTo use VOLTS.State, please go to your project capabilities, inspect the target platforms, and remove the ones that don't support "Persistence"`,
+        `@ Volts.State: Persistence is not enabled as a capability, or is not available in the current target platforms.\n\nTo use Volts.State, please go to your project capabilities, inspect the target platforms, and remove the ones that don't support "Persistence"`,
       );
     }
     // @ts-ignore
-    this.data = {};
+    this._data = {};
 
     // don't show as part of the loadState type, while remaining public
     Object.defineProperty(this, 'loadState', {
-      value: (): void => {
-        // Explanation for the use of Promise.race
+      value: async (): Promise<void> => {
+        // Brief explanation for the use of Promise.race
         // https://github.com/tomaspietravallo/sparkar-volts/issues/4
-        const promise = Promise.race([
+        const loadedDataFromPersistence: { data?: string } = await Promise.race([
           // persistence
-          Persistence.userScope.get(this.key),
+          Persistence.userScope.get(this.key).catch(() => {
+            return new Error(
+              `@ Volts.State: The key provided: "${this.key}" is not whitelisted.\n\ngo to Project > Capabilities > Persistence > then write the key into the field (case sensitive). If there are multiple keys, separate them with spaces`,
+            );
+          }),
           // timeout
           new Promise((resolve) => {
             Time.setTimeout(resolve, 350);
           }),
-        ]) as Promise<State>;
-        promise.then((d) => {
-          if (d && d.data) this.data = JSON.parse(d.data as string);
-          this.loaded = true;
-        });
+        ]);
+
+        // Avoid an unhandled promise rejection (👆 .catch)
+        if (loadedDataFromPersistence instanceof Error) {
+          throw loadedDataFromPersistence;
+        }
+
+        if (loadedDataFromPersistence && loadedDataFromPersistence.data) {
+          this._data = JSON.parse(loadedDataFromPersistence.data);
+          const keys = Object.keys(this._data);
+          for (let index = 0; index < keys.length; index++) {
+            const key = keys[index];
+            // @ts-ignore
+            if (this._data[key].dimension && Array.isArray(this._data[key].values)) {
+              // @ts-ignore
+              this._data[key] = new Vector(this._data[key].values);
+            }
+          }
+        }
+        this.loaded = true;
       },
       enumerable: false,
       writable: false,
       configurable: false,
     });
 
-    try {
-      /**
-       * @todo State: Format vectors
-       * @body `State.constructor` & `State.loadState`: Format JSON.stringified vectors into a `VOLTS.Vector` instance
-       */
-      this.loadState();
-    } catch {
-      throw new Error(
-        `@ VOLTS.State: The key provided: "${this.key}" is not whitelisted.\n\ngo to Project > Capabilities > Persistence > then write the key into the field (case sensitive). If there are multiple keys, separate them with spaces`,
-      );
-    }
+    Object.defineProperty(this, 'rawConstructorPromise', {
+      // @ts-ignore
+      value: this.loadState(),
+      enumerable: false,
+      writable: false,
+      configurable: false,
+    });
+
+    Object.defineProperty(this, 'wipe', {
+      value: () => {
+        this._data = {};
+      },
+      enumerable: false,
+      writable: false,
+      configurable: false,
+    });
   }
 
   protected setPersistenceAPI(): void {
-    Persistence.userScope.set(this.key, { data: JSON.stringify(this.data) });
+    Persistence.userScope.set(this.key, { data: JSON.stringify(this._data) });
   }
 
   /**
    * @todo Add support for Reactive values
    * @body Improve the use experience by allowing Reactive values to be used as values
    */
-  setKey(key: keyof State, value: Vector | number | string | boolean): void {
+  setKey(key: keyof Data, value: Vector<any> | number | string | boolean): void {
     // @ts-ignore
     this.data[key] = value instanceof Vector ? value.copy() : value;
     // rate limit (?)
     this.setPersistenceAPI();
   }
+
+  get data(): { [Property in keyof Data]+?: Data[Property] } {
+    return this._data;
+  }
 }
 
-/**
- * @description Alias of `State`. Maintains backwards compatibility
- * @deprecated Name change on the road for v2.0.0, the use of `State` is preferred
- * @alias createState
- */
-export const createState = State;
+//#endregion
+
+//#region exports
+
+// prettier-ignore
+
+interface Privates {
+  clearVoltsWorld: ()=>void;
+}
+
+export const privates = Object.defineProperties(
+  {},
+  {
+    clearVoltsWorld: {
+      value: jest
+        ? VoltsWorld.devClear
+        : () => {
+            throw `Cannot read 'private.clear' in the current environment. To be read by jest/testing env only`;
+          },
+    },
+  },
+) as Privates;
+
+export const World = {
+  getInstance: VoltsWorld.getInstance,
+};
+
+export default {
+  World: World,
+  Vector: Vector,
+  State: State,
+  PRODUCTION_MODES: PRODUCTION_MODES,
+};
+
+//#endregion

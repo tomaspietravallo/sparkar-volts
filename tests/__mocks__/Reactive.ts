@@ -91,6 +91,10 @@ export class Vector {
   mag(): number {
     return this.values.map((v) => v * v).reduce((acc, val) => acc + val) ** 0.5;
   }
+  abs(): Vector {
+    this.values = this.values.map((v) => (v < 0 ? -v : v));
+    return this;
+  }
   copy(): Vector {
     return new Vector(this.values);
   }
@@ -129,6 +133,18 @@ export class Vector {
   toString(): string {
     return `vec${this.dimension}: [${this.values.toString()}]`;
   }
+  get x(): number {
+    return this.values[0];
+  }
+  get y(): number {
+    return this.values[1];
+  }
+  get z(): number {
+    return this.values[2];
+  }
+  get w(): number {
+    return this.values[3];
+  }
 }
 
 class NDVectorSignal {
@@ -145,6 +161,7 @@ class NDVectorSignal {
       // @ts-ignore
       this._vector = new Vector(args);
     }
+    this._ops = [];
   }
   add(...args: number[]): NDVectorSignal {
     this._ops.push(['add', args]);
@@ -159,7 +176,8 @@ class NDVectorSignal {
     if (!this.isReactive) {
       res = this._vector.copy();
     } else {
-      res = this._vector = this._vector = new Vector(this.f());
+      this._vector = new Vector(this.f());
+      res = this._vector;
     }
     for (let index = 0; index < this._ops.length; index++) {
       const op = this._ops[index];
@@ -179,11 +197,26 @@ export class Vec2Signal extends NDVectorSignal {
   constructor(...args: number[] | [() => number[]]) {
     super(...args);
   }
+  get x(): ScalarSignal {
+    return new ScalarSignal(this._vector.x);
+  }
+  get y(): ScalarSignal {
+    return new ScalarSignal(this._vector.y);
+  }
 }
 
 export class VectorSignal extends NDVectorSignal {
   constructor(...args: number[] | [() => number[]]) {
     super(...args);
+  }
+  get x(): ScalarSignal {
+    return new ScalarSignal(this._vector.x);
+  }
+  get y(): ScalarSignal {
+    return new ScalarSignal(this._vector.y);
+  }
+  get z(): ScalarSignal {
+    return new ScalarSignal(this._vector.z);
   }
 }
 
@@ -199,8 +232,19 @@ export class Quaternion extends NDVectorSignal {
   }
 }
 
+export class StringSignal {
+  private val: string;
+  constructor(string) {
+    this.val = string;
+  }
+  pinLastValue(): string {
+    return this.val;
+  }
+}
+
 declare global {
   namespace Reactive {
+    export type StringSignal = typeof StringSignal.prototype;
     export type ScalarSignal = typeof ScalarSignal.prototype;
     export type Vec2Signal = typeof Vec2Signal.prototype;
     export type VectorSignal = typeof VectorSignal.prototype;
@@ -210,8 +254,10 @@ declare global {
 }
 
 export default {
+  stringSignal: (x: string) => new StringSignal(x),
   val: (x: any): ScalarSignal => new ScalarSignal(x),
   point2d: (...args: [number, number]): Vec2Signal => new Vec2Signal(...args),
   vector: (...args: [number, number, number]): VectorSignal => new VectorSignal(...args),
+  pack4: (...args: [number, number, number, number]): Vec4Signal => new Vec4Signal(...args),
   quaternion: (...args: [number, number, number, number]): Quaternion => new Quaternion(...args),
 };

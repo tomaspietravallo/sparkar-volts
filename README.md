@@ -8,32 +8,36 @@ An extensive non-reactive Typescript framework that eases the development experi
 
 ## Highlights
 
-* Non-reactive: This framework takes an imperative approach, and tries to abstract away the SparkAR Reactive API as much as possible
-* Typescript: You'll have a smoother and richer experience while developing. [Use VSC to take full advantage, with autocompletions and intellisense](https://sparkar.facebook.com/ar-studio/learn/scripting/scripting-basics/#scripting-fundamentals)
+- Non-reactive: This framework takes an imperative approach, and tries to abstract away the SparkAR Reactive API as much as possible
+- Typescript: You'll have a smoother and richer experience while developing. [Use VSC to take full advantage, with autocompletion and intellisense](https://sparkar.facebook.com/ar-studio/learn/scripting/scripting-basics/#scripting-fundamentals)
 
 > Please make sure to read this list of reasons why you should prefer the ReactiveAPI over vanilla js: [Reactive programming, SparkAR](https://sparkar.facebook.com/ar-studio/learn/scripting/reactive/) before using `volts`, as it might not be the right thing for every project
 
-## How to add VOLTS to your project
+## Documentation
 
-[Read this installation guide](https://tomaspietravallo.gitbook.io/sparkar-volts/)
+[Check out our documentation!](https://tomaspietravallo.gitbook.io/sparkar-volts/)
 
-## How to use?
+### How to add VOLTS to your project
+
+[Read this installation guide](https://tomaspietravallo.gitbook.io/sparkar-volts/install)
+
+### How to use?
 
 [Read this guide on getting started with VOLTS](https://tomaspietravallo.gitbook.io/sparkar-volts/how-to-use-volts)
 
 ## Template
 
-Use this template as a quick start if you're already familiar with the library
+You can use this template as a quick start if you're already familiar with the library
 
 ```bash
-npm i sparkar-volts@beta
+npm i sparkar-volts
 ```
 
 Or use [this download link](https://github.com/tomaspietravallo/sparkar-volts/releases/latest/download/volts.ts)
 
 ```typescript
 // main.ts
-// using sparkar-volts@2.0.0-beta.3
+// using sparkar-volts@2.0.0
 import Diagnostics from 'Diagnostics';
 import Volts from './volts';
 
@@ -41,16 +45,16 @@ const World = Volts.World.getInstance({
   mode: 'DEV',
   snapshot: {},
   assets: {},
-  loadStates: undefined
+  loadStates: undefined,
 });
 
-World.onLoad = function(snapshot){
+World.onEvent('load', function (snapshot) {
   Diagnostics.log(`Loaded 🧪.\nAssets: ${Object.keys(World.assets) || 'no assets were loaded'}`);
-}
+});
 
-World.onFrame = function(snapshot, data){
+World.onEvent('frameUpdate', function (snapshot) {
   if (data.frameCount == 0) Diagnostics.log(`Running... 🚀\n`);
-}
+});
 ```
 
 ## Contributing ❤️
@@ -66,4 +70,3 @@ Check the [issues](https://github.com/tomaspietravallo/sparkar-volts/issues) to 
 > Please check the [contributing.md](contributing.md) file if you wish to contribute to the development of the project.
 >
 > If you want to open a PR/Issue, please make sure to read the [code-of-conduct.md](code-of-conduct.md) before doing so.
-

@@ -1,3 +1,3 @@
-{"total": {"lines":{"total":301,"covered":104,"skipped":0,"pct":34.55},"statements":{"total":346,"covered":121,"skipped":0,"pct":34.97},"functions":{"total":95,"covered":31,"skipped":0,"pct":32.63},"branches":{"total":204,"covered":56,"skipped":0,"pct":27.45}}
-,"/home/runner/work/sparkar-volts/sparkar-volts/volts.ts": {"lines":{"total":301,"covered":104,"skipped":0,"pct":34.55},"functions":{"total":95,"covered":31,"skipped":0,"pct":32.63},"statements":{"total":346,"covered":121,"skipped":0,"pct":34.97},"branches":{"total":204,"covered":56,"skipped":0,"pct":27.45}}
+{"total": {"lines":{"total":327,"covered":306,"skipped":0,"pct":93.58},"statements":{"total":386,"covered":354,"skipped":0,"pct":91.71},"functions":{"total":97,"covered":90,"skipped":0,"pct":92.78},"branches":{"total":221,"covered":178,"skipped":0,"pct":80.54}}
+,"/home/runner/work/sparkar-volts/sparkar-volts/volts.ts": {"lines":{"total":327,"covered":306,"skipped":0,"pct":93.58},"functions":{"total":97,"covered":90,"skipped":0,"pct":92.78},"statements":{"total":386,"covered":354,"skipped":0,"pct":91.71},"branches":{"total":221,"covered":178,"skipped":0,"pct":80.54}}
 }
