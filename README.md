@@ -21,7 +21,7 @@ An extensive non-reactive Typescript framework that eases the development experi
 
 [Read this installation guide](https://tomaspietravallo.gitbook.io/sparkar-volts/install)
 
-### How to use?
+### How to use
 
 [Read this guide on getting started with VOLTS](https://tomaspietravallo.gitbook.io/sparkar-volts/how-to-use-volts)
 
