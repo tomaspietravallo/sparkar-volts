@@ -94,7 +94,7 @@ export class Vector {
   abs(): Vector {
     this.values = this.values.map((v) => (v < 0 ? -v : v));
     return this;
-  };
+  }
   copy(): Vector {
     return new Vector(this.values);
   }
@@ -184,7 +184,7 @@ class NDVectorSignal {
       res[op[0]](...op[1]);
     }
     return res;
-  };
+  }
 }
 
 export class ScalarSignal extends NDVectorSignal {
@@ -199,10 +199,10 @@ export class Vec2Signal extends NDVectorSignal {
   }
   get x(): ScalarSignal {
     return new ScalarSignal(this._vector.x);
-  };
+  }
   get y(): ScalarSignal {
     return new ScalarSignal(this._vector.y);
-  };
+  }
 }
 
 export class VectorSignal extends NDVectorSignal {
@@ -211,13 +211,13 @@ export class VectorSignal extends NDVectorSignal {
   }
   get x(): ScalarSignal {
     return new ScalarSignal(this._vector.x);
-  };
+  }
   get y(): ScalarSignal {
     return new ScalarSignal(this._vector.y);
-  };
+  }
   get z(): ScalarSignal {
     return new ScalarSignal(this._vector.z);
-  };
+  }
 }
 
 export class Vec4Signal extends NDVectorSignal {

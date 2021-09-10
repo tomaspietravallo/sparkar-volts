@@ -8,12 +8,13 @@ An extensive non-reactive Typescript framework that eases the development experi
 
 ## Highlights
 
-* Non-reactive: This framework takes an imperative approach, and tries to abstract away the SparkAR Reactive API as much as possible
-* Typescript: You'll have a smoother and richer experience while developing. [Use VSC to take full advantage, with autocompletion and intellisense](https://sparkar.facebook.com/ar-studio/learn/scripting/scripting-basics/#scripting-fundamentals)
+- Non-reactive: This framework takes an imperative approach, and tries to abstract away the SparkAR Reactive API as much as possible
+- Typescript: You'll have a smoother and richer experience while developing. [Use VSC to take full advantage, with autocompletion and intellisense](https://sparkar.facebook.com/ar-studio/learn/scripting/scripting-basics/#scripting-fundamentals)
 
 > Please make sure to read this list of reasons why you should prefer the ReactiveAPI over vanilla js: [Reactive programming, SparkAR](https://sparkar.facebook.com/ar-studio/learn/scripting/reactive/) before using `volts`, as it might not be the right thing for every project
 
 ## Documentation
+
 [Check out our documentation!](https://tomaspietravallo.gitbook.io/sparkar-volts/)
 
 ### How to add VOLTS to your project
@@ -26,10 +27,10 @@ An extensive non-reactive Typescript framework that eases the development experi
 
 ## Template
 
-Use this template as a quick start if you're already familiar with the library
+You can use this template as a quick start if you're already familiar with the library
 
 ```bash
-npm i sparkar-volts@beta
+npm i sparkar-volts
 ```
 
 Or use [this download link](https://github.com/tomaspietravallo/sparkar-volts/releases/latest/download/volts.ts)
@@ -44,14 +45,14 @@ const World = Volts.World.getInstance({
   mode: 'DEV',
   snapshot: {},
   assets: {},
-  loadStates: undefined
+  loadStates: undefined,
 });
 
-World.onEvent('load', function(snapshot){
+World.onEvent('load', function (snapshot) {
   Diagnostics.log(`Loaded 🧪.\nAssets: ${Object.keys(World.assets) || 'no assets were loaded'}`);
 });
 
-World.onEvent('frameUpdate', function(snapshot){
+World.onEvent('frameUpdate', function (snapshot) {
   if (data.frameCount == 0) Diagnostics.log(`Running... 🚀\n`);
 });
 ```
