@@ -998,11 +998,14 @@ export const privates = Object.defineProperties(
   {},
   {
     clearVoltsWorld: {
-      value: jest
-        ? VoltsWorld.devClear
-        : () => {
-            throw `Cannot read 'private.clear' in the current environment. To be read by jest/testing env only`;
-          },
+      value: () => {
+        try {
+          jest;
+          return VoltsWorld.devClear();
+        } catch {
+          throw `Cannot read 'private.clear' in the current environment. To be read by jest/testing env only`;
+        }
+      },
     },
   },
 ) as Privates;
