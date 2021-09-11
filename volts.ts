@@ -641,6 +641,8 @@ interface NDVectorInstance<D extends number> {
   normalize(): Vector<D>;
   equals(b: Vector<any>): boolean;
   toString(): string;
+  get x(): number;
+  set x(x: number);
 }
 
 interface Vector2DInstance {
@@ -653,12 +655,22 @@ interface Vector2DInstance {
 }
 
 interface Vector3DInstance {
+  get x(): number;
+  set x(x: number);
+  get y(): number;
+  set y(y: number);
   get z(): number;
   set z(z: number);
   cross(...args: VectorArgRest<3>): Vector<3>;
 }
 
 interface Vector4DInstance {
+  get x(): number;
+  set x(x: number);
+  get y(): number;
+  set y(y: number);
+  get z(): number;
+  set z(z: number);
   get w(): number;
   set w(w: number);
 }
@@ -999,13 +1011,13 @@ export const privates = Object.defineProperties(
   {
     clearVoltsWorld: {
       value: () => {
-        try {
-          jest;
-          return VoltsWorld.devClear();
-        } catch {
-          throw `Cannot read 'private.clear' in the current environment. To be read by jest/testing env only`;
-        }
-      },
+          try {
+            jest;
+            return VoltsWorld.devClear();
+          } catch {
+            throw `Cannot read 'private.clear' in the current environment. To be read by jest/testing env only`;
+          }
+        },
     },
   },
 ) as Privates;
