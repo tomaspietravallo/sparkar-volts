@@ -245,8 +245,10 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
       config.snapshot = config.snapshot || {};
       VoltsWorld.userConfig = config;
       VoltsWorld.instance = new VoltsWorld();
-    } else if (config){
-      Diagnostics.warn(`@ VoltsWorld.getInstance: 'config' was provided (attempted to create new instance) but there's already an instance running`);
+    } else if (config) {
+      Diagnostics.warn(
+        `@ VoltsWorld.getInstance: 'config' was provided (attempted to create new instance) but there's already an instance running`,
+      );
     }
     return VoltsWorld.instance;
   }
@@ -573,7 +575,7 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
       const name = keys[i];
       const [dim, uuid] = signals[name];
 
-      if (!Number.isFinite(dim) || ( dim == 0 || dim > 4))
+      if (!Number.isFinite(dim) || dim == 0 || dim > 4)
         throw new Error(
           `@ Volts.World.formattedSnapshotToUserFriendly: dimension of signals[name] not 1|2|3|4. Dim: ${dim}. Name: ${name}.\n\nPlease report this on Github as an issue\n\nExtra data:\nKeys: ${keys}`,
         );
@@ -639,6 +641,8 @@ interface NDVectorInstance<D extends number> {
   normalize(): Vector<D>;
   equals(b: Vector<any>): boolean;
   toString(): string;
+  get x(): number;
+  set x(x: number);
 }
 
 interface Vector2DInstance {
@@ -651,12 +655,22 @@ interface Vector2DInstance {
 }
 
 interface Vector3DInstance {
+  get x(): number;
+  set x(x: number);
+  get y(): number;
+  set y(y: number);
   get z(): number;
   set z(z: number);
   cross(...args: VectorArgRest<3>): Vector<3>;
 }
 
 interface Vector4DInstance {
+  get x(): number;
+  set x(x: number);
+  get y(): number;
+  set y(y: number);
+  get z(): number;
+  set z(z: number);
   get w(): number;
   set w(w: number);
 }
@@ -996,11 +1010,14 @@ export const privates = Object.defineProperties(
   {},
   {
     clearVoltsWorld: {
-      value: jest
-        ? VoltsWorld.devClear
-        : () => {
+      value: () => {
+          try {
+            jest;
+            return VoltsWorld.devClear();
+          } catch {
             throw `Cannot read 'private.clear' in the current environment. To be read by jest/testing env only`;
-          },
+          }
+        },
     },
   },
 ) as Privates;
