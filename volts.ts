@@ -884,6 +884,77 @@ Vector.prototype.rotate = function <D extends number>(a: number): Vector<D> {
 
 //#endregion
 
+//#region Quaternion
+
+type QuaternionArgRest = [number, number, number, number] | [number[]] | [Quaternion] | []
+
+export class Quaternion {
+  values: number[];
+  constructor(...args: QuaternionArgRest){
+    if (!args || !args[0]) {
+      // Quaternion.identity()
+      this.values = [0,0,0,1]
+    } else if (args[0] instanceof Quaternion) {
+      this.values = args[0].values;
+    } else if (Array.isArray(args[0])){
+      this.values = args[0];
+    } else {
+      this.values = <number[]> args;
+    }
+  };
+  static convertToQuaternion(...args: QuaternionArgRest): Quaternion {
+    let tmp = [];
+    if (args[0] instanceof Quaternion) {
+      tmp = args[0].values;
+    } else if (Array.isArray(args[0])){
+      tmp = args[0];
+    } else {
+      tmp = args;
+    }
+    if (!tmp.every((v) => typeof v === 'number' && Number.isFinite(v)) || tmp.length !== 4)
+      throw new Error(`@ Vector.constructor: Values provided are not valid. args: ${args}. tmp: ${tmp}`);
+
+    return new Quaternion(tmp);
+  }
+  static identity(): Quaternion {
+    return new Quaternion(0,0,0,1);
+  }
+  toQuaternionSignal(): QuaternionSignal {
+    return Reactive.quaternion(this.values[0], this.values[1], this.values[2], this.values[3])
+  }
+  add(...other: QuaternionArgRest): Quaternion {
+    const b = Quaternion.convertToQuaternion(...other);
+    this.values = this.values.map((v, i)=>v+b.values[i]);
+    return this
+  };
+  get w(): number {
+    return this.values[0];
+  }
+  set w(w: number) {
+    this.values[0] = w;
+  }
+  get x(): number {
+    return this.values[1];
+  }
+  set x(x: number) {
+    this.values[1] = x;
+  }
+  get y(): number {
+    return this.values[2];
+  }
+  set y(y: number) {
+    this.values[2] = y;
+  }
+  get z(): number {
+    return this.values[3];
+  }
+  set z(z: number) {
+    this.values[3] = z;
+  }
+}
+
+//#endregion
+
 //#region State
 
 /**
