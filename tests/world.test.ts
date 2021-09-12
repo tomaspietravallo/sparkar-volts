@@ -2,6 +2,7 @@ import { World, Vector, PublicOnly, PRODUCTION_MODES, privates } from '../volts'
 import Scene, { SceneObjectBase } from './__mocks__/Scene';
 import Reactive from './__mocks__/Reactive';
 import Time from './__mocks__/Time';
+import Diagnostics from './__mocks__/Diagnostics';
 
 jest.useFakeTimers();
 
@@ -50,9 +51,8 @@ describe('world construction', () => {
     expect(world.mode).toEqual(PRODUCTION_MODES.NO_AUTO);
 
     // would overwrite
-    expect(() =>
-      World.getInstance({ mode: 'NO_AUTO', snapshot: { thisIsAnInvalidConfig: Reactive.val(1) } }),
-    ).toThrow();
+    World.getInstance({ mode: 'NO_AUTO', snapshot: { thisIsAnInvalidConfig: Reactive.val(1) } });
+    expect(Diagnostics.warn).toHaveBeenCalledTimes(1);
 
     expect(World.getInstance()).toEqual(world);
   });
@@ -283,8 +283,9 @@ describe('test real world use cases', () => {
       /* eslint */
     };
 
-    expect(() => W.setTimeout(empty, 100)).toThrow();
-    expect(() => W.setInterval(empty, 100)).toThrow();
+    W.setTimeout(empty, 100);
+    W.setInterval(empty, 100);
+    expect(Diagnostics.warn).toHaveBeenCalledTimes(2);
 
     let i = 0;
     const fn = function () {
@@ -325,7 +326,8 @@ describe('test real world use cases', () => {
       /**/
     };
 
-    expect(() => W.setDebounce(empty, 200)).toThrow();
+    W.setDebounce(empty, 200);
+    expect(Diagnostics.warn).toHaveBeenCalledTimes(1);
 
     // @ts-ignore
     await W.rawInitPromise.then(() => {
