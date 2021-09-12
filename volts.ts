@@ -110,13 +110,13 @@ interface Reporters {
   asIssue: (lvl?: LogLevels) => void;
 }
 
-type reportFn = (() => Reporters) & {
+type reportFn = ((...msg: string[] | [object]) => Reporters) & {
   getSceneInfo: ({
     getMaterial,
     getTexture,
     getIdentifiers,
     getPosition,
-  }: {
+  }?: {
     getMaterial?: boolean;
     getTexture?: boolean;
     getIdentifiers?: boolean;
@@ -163,7 +163,7 @@ report.getSceneInfo = async function (
     getIdentifiers: true,
     getPosition: true,
   },
-): Promise<Object> {
+): Promise<string> {
   const Instance = World.getInstance(false);
   let info;
   if (Instance && Instance.loaded) {
@@ -1230,7 +1230,7 @@ export class State<Data extends { [key: string]: Vector<any> | number | string |
 
 interface Privates {
   clearVoltsWorld: () => void;
-  getReport: () => (...msg: string[] | [object]) => Reporters;
+  getReport: () => reportFn;
 }
 
 export const privates: Privates = {

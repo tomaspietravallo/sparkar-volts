@@ -1,5 +1,6 @@
-import { privates } from '../volts';
+import { World, privates } from '../volts';
 import Diagnostics from './__mocks__/Diagnostics';
+import Scene from './__mocks__/Scene';
 
 describe('report', () => {
   const report = privates.getReport();
@@ -30,4 +31,26 @@ describe('report', () => {
     expect(() => reps.asIssue('anyString')).not.toThrow();
     expect(Diagnostics.warn).toHaveBeenCalledTimes(1);
   });
+});
+
+describe('getSceneInfo', () => {
+  const report = privates.getReport();
+  test('empty scene', async ()=>{
+    expect.assertions(1);
+    const info = report.getSceneInfo({});
+    await expect(info).resolves.toMatch('no instance')
+  });
+  test('default', async ()=>{
+    expect.assertions(1);
+    const W = World.getInstance({
+      mode: 'NO_AUTO',
+      assets: {
+        coolAssetArray: Scene.root.findByPath('a-path')
+      }
+    });
+    // @ts-expect-error
+    await W.rawInitPromise.then(()=>{
+      expect(report.getSceneInfo()).resolves.not.toThrow();
+    });
+  })
 });

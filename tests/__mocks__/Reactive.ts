@@ -237,7 +237,6 @@ export class Vec4Signal extends NDVectorSignal {
   get w(): ScalarSignal {
     return new ScalarSignal(this._vector.w);
   }
-  
 }
 
 export class Quaternion extends NDVectorSignal {

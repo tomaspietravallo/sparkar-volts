@@ -3,12 +3,14 @@ import Reactive, { ScalarSignal, VectorSignal } from './Reactive';
 export class SceneObjectBase {
   name: string;
   transform: { position: Reactive.VectorSignal; rotation: Reactive.Quaternion };
+  identifier: string;
   constructor(name: string) {
     this.name = name;
     this.transform = {
       position: Reactive.vector(0, 0, 0),
       rotation: Reactive.quaternion(0, 0, 0, 0),
     };
+    this.identifier = 'a-unique-identifier'
   }
 }
 

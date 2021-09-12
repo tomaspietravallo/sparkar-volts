@@ -76,12 +76,12 @@ describe('vector utils', () => {
     expect(vec.toString()).toEqual(`Vector<3> [0,0,0]`);
     expect(vec.toString(5)).toEqual(`Vector<3> [0.00000,0.00000,0.00000]`);
   });
-  test('fromSignal', ()=>{
+  test('fromSignal', () => {
     const Scalar = Reactive.val(1);
-    const Vec4Signal = Reactive.pack4(1,2,3,4);
+    const Vec4Signal = Reactive.pack4(1, 2, 3, 4);
     expect(Vector.fromSignal(Scalar).values).toEqual([1]);
-    expect(Vector.fromSignal(Vec4Signal).values).toEqual([1,2,3,4]);
-  })
+    expect(Vector.fromSignal(Vec4Signal).values).toEqual([1, 2, 3, 4]);
+  });
 });
 
 describe('math operations', () => {
