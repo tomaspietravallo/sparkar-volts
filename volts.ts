@@ -115,10 +115,12 @@ type reportFn = (() => Reporters) & {
     getMaterial,
     getTexture,
     getIdentifiers,
-  }?: {
+    getPosition,
+  }: {
     getMaterial?: boolean;
     getTexture?: boolean;
     getIdentifiers?: boolean;
+    getPosition?: boolean;
   }) => Promise<Object>;
 };
 
@@ -155,7 +157,12 @@ export const report: reportFn = function report(...msg: string[] | [object]): Re
 } as any;
 
 report.getSceneInfo = async function (
-  { getMaterial, getTexture, getIdentifiers } = { getMaterial: true, getTexture: true, getIdentifiers: true },
+  { getMaterial, getTexture, getIdentifiers, getPosition } = {
+    getMaterial: true,
+    getTexture: true,
+    getIdentifiers: true,
+    getPosition: true,
+  },
 ): Promise<Object> {
   const Instance = World.getInstance(false);
   let info;
@@ -165,12 +172,16 @@ report.getSceneInfo = async function (
     for (let index = 0; index < keys.length; index++) {
       const key = keys[index];
       const element = Instance.assets[key];
-      const getElementData = async (e: PlanarImage) => {
-        const data = {};
+      const getElementData = async (e: any) => {
+        const data: { [key: string]: any } = {};
         let mat, tex;
         data['name'] = e.name;
 
         if (getIdentifiers) data['identifier'] = e.identifier;
+
+        if (getPosition) {
+          data['position'] = Vector.fromSignal(e.transform.position).toString(5);
+        }
 
         if (getMaterial || getTexture) {
           mat = e.getMaterial ? (await e.getMaterial()) || {} : {};
@@ -740,7 +751,7 @@ interface NDVectorInstance<D extends number> {
   copy(): Vector<D>;
   normalize(): Vector<D>;
   equals(b: Vector<any>): boolean;
-  toString(): string;
+  toString(toFixed?: number): string;
   get x(): number;
   set x(x: number);
 }
@@ -794,6 +805,19 @@ interface NDVector {
     : never;
   convertToSameDimVector<D extends number>(dim: D, ...args: VectorArgRest): Vector<D>;
   screenToWorld(x: number, y: number, focalPlane: true): Vector<3>;
+  fromSignal<sT extends ScalarSignal | Vec2Signal | VectorSignal | Vec4Signal>(
+    s: sT,
+  ): Vector<
+    sT extends ScalarSignal
+      ? 1
+      : sT extends Vec2Signal
+      ? 2
+      : sT extends VectorSignal
+      ? 3
+      : sT extends Vec4Signal
+      ? 4
+      : number
+  >;
 }
 
 type getVecTypeForD<D extends number> = D extends 1
@@ -899,6 +923,19 @@ Vector.screenToWorld = function (x: number, y: number, focalPlane = true): Vecto
     focalPlane ? (Instance.snapshot.__volts__internal__focalDistance as unknown as number) : 0,
   );
 };
+Vector.fromSignal = function (s: any) {
+  if (!s) throw new Error(`@ Volts.Vector.fromSignal: s is not defined`);
+  const tmp = [];
+  const _ = ['x', 'y', 'z', 'w'];
+  // returns a scalar
+  if (!s.x) return new Vector([s.pinLastValue()]);
+  for (let index = 0; index < _.length; index++) {
+    const e = s[_[index]];
+    if (!e) continue;
+    tmp.push(e.pinLastValue());
+  }
+  return new Vector(tmp);
+};
 //#endregion
 //#region common
 Vector.prototype.add = function <D extends number>(this: Vector<D>, ...args: VectorArgRest): Vector<D> {
@@ -954,8 +991,11 @@ Vector.prototype.copy = function <D extends number>(this: Vector<D>): Vector<D> 
 Vector.prototype.equals = function <D extends number>(this: Vector<D>, b: Vector<number>): boolean {
   return !!b && this.dimension === b.dimension && this.values.every((v, i) => v === b.values[i]);
 };
-Vector.prototype.toString = function <D extends number>(): string {
-  return `Vector<${this.dimension}> [${this.values.toString()}]`;
+Vector.prototype.toString = function (toFixed?: number): string {
+  return `Vector<${this.dimension}> [${(toFixed
+    ? this.values.map((v) => v.toFixed(toFixed))
+    : this.values
+  ).toString()}]`;
 };
 //#endregion
 //#region Vector<3>

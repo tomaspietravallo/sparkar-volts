@@ -1,4 +1,5 @@
 import { Vector } from '../volts';
+import Reactive from './__mocks__/Reactive';
 
 describe('vector construction', () => {
   test('default vector', () => {
@@ -73,7 +74,14 @@ describe('vector utils', () => {
   test('toString', () => {
     const vec = new Vector();
     expect(vec.toString()).toEqual(`Vector<3> [0,0,0]`);
+    expect(vec.toString(5)).toEqual(`Vector<3> [0.00000,0.00000,0.00000]`);
   });
+  test('fromSignal', ()=>{
+    const Scalar = Reactive.val(1);
+    const Vec4Signal = Reactive.pack4(1,2,3,4);
+    expect(Vector.fromSignal(Scalar).values).toEqual([1]);
+    expect(Vector.fromSignal(Vec4Signal).values).toEqual([1,2,3,4]);
+  })
 });
 
 describe('math operations', () => {
@@ -208,12 +216,5 @@ describe('accessors', () => {
     expect(fourD.w).toEqual(4);
     expect((fourD.w += 1)).toEqual(5);
     expect(fourD.w).toEqual(5);
-  });
-});
-
-describe('testing doc', () => {
-  test('doc', () => {
-    const a = new Vector(3);
-    expect(a.values).toEqual([3, 3, 3]);
   });
 });

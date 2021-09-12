@@ -171,7 +171,7 @@ class NDVectorSignal {
     this._ops.push(['mul', args]);
     return this;
   }
-  public pinLastValue(): Vector {
+  public pinLastValue(): Vector | number {
     let res;
     if (!this.isReactive) {
       res = this._vector.copy();
@@ -183,6 +183,7 @@ class NDVectorSignal {
       const op = this._ops[index];
       res[op[0]](...op[1]);
     }
+    if (res.values.length === 1) return res.values[0];
     return res;
   }
 }
@@ -224,6 +225,19 @@ export class Vec4Signal extends NDVectorSignal {
   constructor(...args: number[] | [() => number[]]) {
     super(...args);
   }
+  get x(): ScalarSignal {
+    return new ScalarSignal(this._vector.x);
+  }
+  get y(): ScalarSignal {
+    return new ScalarSignal(this._vector.y);
+  }
+  get z(): ScalarSignal {
+    return new ScalarSignal(this._vector.z);
+  }
+  get w(): ScalarSignal {
+    return new ScalarSignal(this._vector.w);
+  }
+  
 }
 
 export class Quaternion extends NDVectorSignal {
