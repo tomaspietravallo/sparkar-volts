@@ -6,13 +6,13 @@ import Reactive from 'Reactive';
 import Time from 'Time';
 // Persistence may be dynamically imported using `require`
 let Persistence: {
-  userScope: {
-    get: (s: string) => Promise<object>;
-    set: (s: string, o: Object) => Promise<boolean>;
-    remove: (s: string) => Promise<boolean>;
-  };
-};
-
+    userScope: {
+      get: (s: string) => Promise<object>;
+      set: (s: string, o: Object) => Promise<boolean>;
+      remove: (s: string) => Promise<boolean>;
+    };
+  },
+  Multipeer: {};
 //#endregion
 
 //#region types
@@ -112,19 +112,19 @@ interface Reporters {
 
 type reportFn = ((...msg: string[] | [object]) => Reporters) & {
   getSceneInfo: ({
-    getMaterial,
-    getTexture,
+    getMaterials,
+    getTextures,
     getIdentifiers,
-    getPosition,
+    getPositions,
   }?: {
-    getMaterial?: boolean;
-    getTexture?: boolean;
+    getMaterials?: boolean;
+    getTextures?: boolean;
     getIdentifiers?: boolean;
-    getPosition?: boolean;
+    getPositions?: boolean;
   }) => Promise<Object>;
 };
 
-const prettifyJSON = (obj: object, spacing = 2) => JSON.stringify(obj, null, spacing);
+const prettifyJSON = (obj: Object, spacing = 2) => JSON.stringify(obj, null, spacing);
 
 // (!) doesn't get hoisted up
 export const report: reportFn = function report(...msg: string[] | [object]): Reporters {
@@ -157,18 +157,19 @@ export const report: reportFn = function report(...msg: string[] | [object]): Re
 } as any;
 
 report.getSceneInfo = async function (
-  { getMaterial, getTexture, getIdentifiers, getPosition } = {
-    getMaterial: true,
-    getTexture: true,
+  { getMaterials, getTextures, getIdentifiers, getPositions } = {
+    getMaterials: true,
+    getTextures: true,
     getIdentifiers: true,
-    getPosition: true,
+    getPositions: true,
   },
 ): Promise<string> {
   const Instance = World.getInstance(false);
   let info;
   if (Instance && Instance.loaded) {
-    const res = {};
+    const sceneData: { [key: string]: any } = {};
     const keys = Object.keys(Instance.assets);
+    // loop over all assets, may include scene objects/textures/materials/others
     for (let index = 0; index < keys.length; index++) {
       const key = keys[index];
       const element = Instance.assets[key];
@@ -179,17 +180,17 @@ report.getSceneInfo = async function (
 
         if (getIdentifiers) data['identifier'] = e.identifier;
 
-        if (getPosition) {
+        if (getPositions) {
           data['position'] = Vector.fromSignal(e.transform.position).toString(5);
         }
 
-        if (getMaterial || getTexture) {
+        if (getMaterials || getTextures) {
           mat = e.getMaterial ? (await e.getMaterial()) || {} : {};
-          if (getMaterial) data['material'] = mat.name || 'undefined';
+          if (getMaterials) data['material'] = mat.name || 'undefined';
           if (getIdentifiers) data['material-id'] = mat.identifier || 'undefined';
         }
 
-        if (getTexture) {
+        if (getTextures) {
           tex = mat && mat.getDiffuse ? (await mat.getDiffuse()) || {} : {};
           data['texture'] = tex.name || 'undefined';
           if (getIdentifiers) data['texture-id'] = tex.identifier || 'undefined';
@@ -197,18 +198,18 @@ report.getSceneInfo = async function (
         return data;
       };
       if (Array.isArray(element) && element.length > 1) {
-        res[key] = await Promise.all(element.map((e) => getElementData(e)));
+        sceneData[key] = await Promise.all(element.map((e) => getElementData(e)));
       } else if (element) {
-        res[key] = await getElementData(element[0]);
+        sceneData[key] = await getElementData(element[0]);
       } else {
-        res[key] = `obj[key] is possibly undefined. key: ${key}`;
+        sceneData[key] = `obj[key] is possibly undefined. key: ${key}`;
       }
     }
-    info = prettifyJSON(res);
+    info = { scene: sceneData };
   } else {
     info = 'no instance was found, or the current instance has not loaded yet';
   }
-  return info;
+  return prettifyJSON(info);
 };
 
 //#endregion
@@ -505,7 +506,7 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
    * @see https://github.com/ai/nanoevents
    */
   public emitEvent(event: string, ...args: any[]): void {
-    const shouldBind = ['load', 'frameUpdate', 'testing'].some((e) => e === event);
+    const shouldBind = ['load', 'frameUpdate', 'internal'].some((e) => e === event);
     if (!shouldBind) {
       (this.internalData.events[event] || []).forEach((i) => i(...args));
     } else {
@@ -725,6 +726,11 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
    * @description Returns a 2D Vector representing the bottom right of the screen, in world space coordinates
    */
   public getWorldSpaceScreenBounds(): Vector<3> {
+    if (!this.internalData.running) {
+      throw new Error(
+        `Vector.getWorldSpaceScreenBounds can only be called when there's a Volts.World instance running`,
+      );
+    }
     // ask the spark team about this :D, at the time of writing (v119), this didn't output consistent results
     return this.internalData.userFriendlySnapshot.__volts__internal__screen.copy().abs().mul(1, -1, 0);
   }
@@ -804,7 +810,7 @@ interface NDVector {
       : never
     : never;
   convertToSameDimVector<D extends number>(dim: D, ...args: VectorArgRest): Vector<D>;
-  screenToWorld(x: number, y: number, focalPlane: true): Vector<3>;
+  screenToWorld(x: number, y: number, focalPlane: boolean): Vector<3>;
   fromSignal<sT extends ScalarSignal | Vec2Signal | VectorSignal | Vec4Signal>(
     s: sT,
   ): Vector<
@@ -1230,27 +1236,37 @@ export class State<Data extends { [key: string]: Vector<any> | number | string |
 
 interface Privates {
   clearVoltsWorld: () => void;
-  getReport: () => reportFn;
+  report: reportFn;
+  isDevEnv?: boolean;
 }
 
-export const privates: Privates = {
-  clearVoltsWorld: () => {
-    try {
-      jest;
-      return VoltsWorld.devClear();
-    } catch {
-      throw `Cannot read 'private.clearVoltsWorld' in the current environment. To be read by jest/testing env only`;
-    }
-  },
-  getReport: () => {
-    try {
-      jest;
-      return report;
-    } catch {
-      throw `Cannot read 'private.getReport' in the current environment. To be read by jest/testing env only`;
-    }
-  },
+const makeDevEnvOnly = (d: any) => {
+  try {
+    if (jest && privates.isDevEnv) throw `privates.isDevEnv`;
+    return d;
+  } catch {
+    throw `Cannot read 'private.clearVoltsWorld' in the current environment. To be read by jest/testing env only`;
+  }
 };
+
+function execOnRead<T extends { [key: string]: any }>(obj: T): T {
+  const tmp = {};
+  const keys = Object.keys(obj);
+  for (let index = 0; index < keys.length; index++) {
+    const k = keys[index];
+    Object.defineProperty(tmp, k, {
+      get: () => makeDevEnvOnly(obj[k]),
+    });
+  }
+  return obj;
+}
+
+export const privates: Privates = execOnRead({
+  clearVoltsWorld: VoltsWorld.devClear,
+  report: report,
+});
+
+privates.isDevEnv = true;
 
 export const World = {
   getInstance: VoltsWorld.getInstance,

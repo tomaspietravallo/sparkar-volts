@@ -77,6 +77,6 @@ interface InternalSignals {
 4. begins a `setTimeoutWithSnapshot` loop, calls `onEvent('frameUpdate')` function(s)
 5. All subsequent VOLTS.World.getInstance calls return the instance created in step (1.)
 
-    /// ...
+   /// ...
 
 6. `VoltsWorld.stop()` the loop stops recursing, this **does not** free up the memory, just pauses/freezes execution until resumed \(`VoltsWorld.run`\)

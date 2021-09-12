@@ -1,4 +1,8 @@
+import { Vector } from '../../volts';
 import Reactive, { ScalarSignal, VectorSignal } from './Reactive';
+
+const FOCAL_DISTANCE = 0.586;
+const SCREEN_SIZE = [Math.random(), Math.random()];
 
 export class SceneObjectBase {
   name: string;
@@ -10,7 +14,7 @@ export class SceneObjectBase {
       position: Reactive.vector(0, 0, 0),
       rotation: Reactive.quaternion(0, 0, 0, 0),
     };
-    this.identifier = 'a-unique-identifier'
+    this.identifier = 'a-unique-identifier';
   }
 }
 
@@ -58,6 +62,12 @@ export default {
     },
   },
   unprojectToFocalPlane: (p: Reactive.Vec2Signal): VectorSignal => {
-    return new VectorSignal(Math.random(), Math.random(), 0.586);
+    // @ts-ignore
+    // not actually how unprojectToFocalPlane works in Spark, good enough for testing
+    return new VectorSignal(SCREEN_SIZE[0], SCREEN_SIZE[1], FOCAL_DISTANCE).mul(
+      <number>p.x.pinLastValue(),
+      <number>p.y.pinLastValue(),
+      1,
+    );
   },
 };

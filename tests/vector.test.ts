@@ -1,5 +1,8 @@
-import { Vector } from '../volts';
+import { Vector, World, privates } from '../volts';
 import Reactive from './__mocks__/Reactive';
+import { Camera } from './__mocks__/Scene';
+
+jest.useFakeTimers();
 
 describe('vector construction', () => {
   test('default vector', () => {
@@ -81,6 +84,23 @@ describe('vector utils', () => {
     const Vec4Signal = Reactive.pack4(1, 2, 3, 4);
     expect(Vector.fromSignal(Scalar).values).toEqual([1]);
     expect(Vector.fromSignal(Vec4Signal).values).toEqual([1, 2, 3, 4]);
+  });
+  test('screenToWorld', async () => {
+    privates.clearVoltsWorld();
+
+    const W = World.getInstance({
+      mode: 'DEV',
+    });
+
+    // @ts-expect-error
+    await W.rawInitPromise.then(() => {
+      jest.advanceTimersByTime(100);
+      const vecOnFocal = Vector.screenToWorld(0, 1, true);
+      const vecOnZero = Vector.screenToWorld(0.5, 1, false);
+      expect(vecOnFocal.dimension).toEqual(3);
+      expect(vecOnZero.z).toEqual(0);
+      expect(vecOnFocal.z).toEqual(new Camera('camera-mock').focalPlane.distance.pinLastValue());
+    });
   });
 });
 

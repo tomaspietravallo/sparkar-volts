@@ -3,9 +3,8 @@ import Diagnostics from './__mocks__/Diagnostics';
 import Scene from './__mocks__/Scene';
 
 describe('report', () => {
-  const report = privates.getReport();
   const msg = 'this is an important issue';
-  const reps = report(msg);
+  const reps = privates.report(msg);
 
   test('asIssue', () => {
     expect(() => reps.asIssue()).not.toThrow();
@@ -31,26 +30,58 @@ describe('report', () => {
     expect(() => reps.asIssue('anyString')).not.toThrow();
     expect(Diagnostics.warn).toHaveBeenCalledTimes(1);
   });
+  test('makeDevEnvOnly throw', () => {
+    privates.isDevEnv = false;
+    expect(() => privates.report).toThrow;
+    privates.isDevEnv = true;
+  });
 });
 
 describe('getSceneInfo', () => {
-  const report = privates.getReport();
-  test('empty scene', async ()=>{
+  const report = privates.report;
+  test('empty scene', async () => {
     expect.assertions(1);
     const info = report.getSceneInfo({});
-    await expect(info).resolves.toMatch('no instance')
+    await expect(info).resolves.toMatch('no instance');
   });
-  test('default', async ()=>{
+  test('asset array', async () => {
     expect.assertions(1);
     const W = World.getInstance({
       mode: 'NO_AUTO',
       assets: {
-        coolAssetArray: Scene.root.findByPath('a-path')
-      }
+        coolAssetArray: Scene.root.findByPath('a-path'),
+      },
     });
     // @ts-expect-error
-    await W.rawInitPromise.then(()=>{
+    await W.rawInitPromise.then(() => {
       expect(report.getSceneInfo()).resolves.not.toThrow();
     });
-  })
+  });
+  test('single asset', async () => {
+    expect.assertions(1);
+    const W = World.getInstance({
+      mode: 'NO_AUTO',
+      assets: {
+        obj: Scene.root.findFirst('an-object'),
+      },
+    });
+    // @ts-expect-error
+    await W.rawInitPromise.then(() => {
+      expect(report.getSceneInfo()).resolves.not.toThrow();
+    });
+  });
+  test('corrupt', async () => {
+    expect.assertions(1);
+    const W = World.getInstance({
+      mode: 'NO_AUTO',
+      assets: {
+        obj: Scene.root.findFirst('an-object'),
+      },
+    });
+    // @ts-expect-error
+    await W.rawInitPromise.then(() => {
+      W.assets.obj = null;
+      expect(report.getSceneInfo()).resolves.not.toThrow();
+    });
+  });
 });

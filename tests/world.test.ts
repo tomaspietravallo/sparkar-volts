@@ -140,18 +140,18 @@ describe('snapshot', () => {
       snapshot: {},
     });
     expect(() => {
-      W.onEvent('testing', function (this: typeof W) {
-        this.internalData.events['testing'] = null;
+      W.onEvent('internal', function (this: typeof W) {
+        this.internalData.events['internal'] = null;
         this.signalsToSnapshot_able({ value: undefined });
       });
-      W.emitEvent('testing');
+      W.emitEvent('internal');
     }).toThrow();
 
     expect(() => {
-      W.onEvent('testing', function (this: typeof W) {
+      W.onEvent('internal', function (this: typeof W) {
         this.signalsToSnapshot_able({ value: new Map().set('a', 10) });
       });
-      W.emitEvent('testing');
+      W.emitEvent('internal');
     }).toThrow();
   });
   test('formattedSnapshotToUserFriendly', async () => {
@@ -161,25 +161,25 @@ describe('snapshot', () => {
       snapshot: {},
     });
     expect(() => {
-      W.onEvent('testing', function (this: typeof W) {
-        this.internalData.events['testing'] = null;
+      W.onEvent('internal', function (this: typeof W) {
+        this.internalData.events['internal'] = null;
         this.formattedSnapshotToUserFriendly({ 'CONVERTED::name::X1::uuid': 1 });
       });
-      W.emitEvent('testing');
+      W.emitEvent('internal');
     }).not.toThrow();
 
     expect(() => {
-      W.onEvent('testing', function (this: typeof W) {
+      W.onEvent('internal', function (this: typeof W) {
         this.formattedSnapshotToUserFriendly({ 'CONVERTED::name::X::uuid': 1 });
       });
-      W.emitEvent('testing');
+      W.emitEvent('internal');
     }).toThrow();
 
     expect(() => {
-      W.onEvent('testing', function (this: typeof W) {
+      W.onEvent('internal', function (this: typeof W) {
         this.formattedSnapshotToUserFriendly({ 'CONVERTED::name::uuid': 1 });
       });
-      W.emitEvent('testing');
+      W.emitEvent('internal');
     }).toThrow();
   });
   test('corrupted snapshot', async () => {
@@ -322,10 +322,6 @@ describe('test real world use cases', () => {
       i += val;
     }.bind(this);
 
-    const empty = () => {
-      /**/
-    };
-
     // W.setDebounce(empty, 200);
     // expect(Diagnostics.warn).toHaveBeenCalledTimes(1);
 
@@ -361,10 +357,9 @@ describe('test real world use cases', () => {
     const W = World.getInstance({
       mode: 'DEV',
     });
-    // @ts-ignore
+    // @ts-expect-error
     await W.rawInitPromise.then(() => {
       jest.advanceTimersByTime(100);
-      W.emitEvent('testing');
       const vec = W.getWorldSpaceScreenBounds();
       expect(vec.dimension).toEqual(3);
     });
