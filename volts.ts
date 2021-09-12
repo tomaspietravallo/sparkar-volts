@@ -110,8 +110,22 @@ interface Reporters {
   asIssue: (lvl?: LogLevels) => void;
 }
 
-// gets hoisted up
-function report(...msg: string[] | [object]): Reporters {
+type reportFn = (() => Reporters) & {
+  getSceneInfo: ({
+    getMaterial,
+    getTexture,
+    getIdentifiers,
+  }?: {
+    getMaterial?: boolean;
+    getTexture?: boolean;
+    getIdentifiers?: boolean;
+  }) => Promise<Object>;
+};
+
+const prettifyJSON = (obj: object, spacing = 2) => JSON.stringify(obj, null, spacing);
+
+// (!) doesn't get hoisted up
+export const report: reportFn = function report(...msg: string[] | [object]): Reporters {
   let message: any;
   // provides a bit of backwards compatibility, keeps support at (112, 121]
   const toLogLevel = (lvl: LogLevels, msg: string | object) => {
@@ -138,7 +152,54 @@ function report(...msg: string[] | [object]): Reporters {
       toLogLevel(lvl, message);
     },
   };
-}
+} as any;
+
+report.getSceneInfo = async function (
+  { getMaterial, getTexture, getIdentifiers } = { getMaterial: true, getTexture: true, getIdentifiers: true },
+): Promise<Object> {
+  const Instance = World.getInstance(false);
+  let info;
+  if (Instance && Instance.loaded) {
+    const res = {};
+    const keys = Object.keys(Instance.assets);
+    for (let index = 0; index < keys.length; index++) {
+      const key = keys[index];
+      const element = Instance.assets[key];
+      const getElementData = async (e: PlanarImage) => {
+        const data = {};
+        let mat, tex;
+        data['name'] = e.name;
+
+        if (getIdentifiers) data['identifier'] = e.identifier;
+
+        if (getMaterial || getTexture) {
+          mat = e.getMaterial ? (await e.getMaterial()) || {} : {};
+          if (getMaterial) data['material'] = mat.name || 'undefined';
+          if (getIdentifiers) data['material-id'] = mat.identifier || 'undefined';
+        }
+
+        if (getTexture) {
+          tex = mat && mat.getDiffuse ? (await mat.getDiffuse()) || {} : {};
+          data['texture'] = tex.name || 'undefined';
+          if (getIdentifiers) data['texture-id'] = tex.identifier || 'undefined';
+        }
+        return data;
+      };
+      if (Array.isArray(element) && element.length > 1) {
+        res[key] = await Promise.all(element.map((e) => getElementData(e)));
+      } else if (element) {
+        res[key] = await getElementData(element[0]);
+      } else {
+        res[key] = `obj[key] is possibly undefined. key: ${key}`;
+      }
+    }
+    info = prettifyJSON(res);
+  } else {
+    info = 'no instance was found, or the current instance has not loaded yet';
+  }
+  return info;
+};
+
 //#endregion
 
 //#region transformAcrossSpaces
@@ -461,8 +522,8 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
    * @returns The `clear` function, with which you can clear the timeout, preventing any future executions
    */
   public setTimeout(cb: TimedEventFunction, ms: number): { clear: () => void } {
-    if (!this.internalData.running)
-      Diagnostics.warn('Warning @ Volts.World.setTimeout: created a timeout while the current instance is not running');
+    // if (!this.internalData.running)
+    //   Diagnostics.warn('Warning @ Volts.World.setTimeout: created a timeout while the current instance is not running');
     return this.setTimedEvent(cb, ms, false);
   }
   /**
@@ -472,10 +533,8 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
    * @returns The `clear` function, with which you can clear the interval, preventing any future executions
    */
   public setInterval(cb: TimedEventFunction, ms: number): { clear: () => void } {
-    if (!this.internalData.running)
-      Diagnostics.warn(
-        'Warning @ Volts.World.setInterval: created an interval while the current instance is not running',
-      );
+    // if (!this.internalData.running)
+    //   Diagnostics.warn( 'Warning @ Volts.World.setInterval: created an interval while the current instance is not running', );
     return this.setTimedEvent(cb, ms, true);
   }
   /**
@@ -489,10 +548,8 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
     ms: number,
     trailing = false,
   ): (...args: argTypes) => void {
-    if (!this.internalData.running)
-      Diagnostics.warn(
-        'Warning @ Volts.World.setDebounce: created a debounce while the current instance is not running',
-      );
+    // if (!this.internalData.running)
+    //   Diagnostics.warn('Warning @ Volts.World.setDebounce: created a debounce while the current instance is not running', );
     let timer: { clear: () => void };
     if (trailing)
       // trailing
