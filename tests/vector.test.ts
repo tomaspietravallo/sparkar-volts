@@ -67,14 +67,13 @@ describe('vector utils', () => {
 
     expect(() => {
       // @ts-expect-error
-      Vector.convertToSameDimVector(100, {x: 1, y: 2});
+      Vector.convertToSameDimVector(100, { x: 1, y: 2 });
     }).toThrow();
-
   });
-  test('toString', ()=>{
+  test('toString', () => {
     const vec = new Vector();
-    expect(vec.toString()).toEqual(`Vector<3> [0,0,0]`)
-  })
+    expect(vec.toString()).toEqual(`Vector<3> [0,0,0]`);
+  });
 });
 
 describe('math operations', () => {
@@ -168,14 +167,14 @@ describe('math operations', () => {
     expect(new Vector(0, 0).heading()).toBeCloseTo(0);
   });
 
-  test('rotate', ()=>{
-    const vec = new Vector(1,0);
+  test('rotate', () => {
+    const vec = new Vector(1, 0);
     expect(vec.heading()).toBeCloseTo(0);
     vec.rotate(Math.PI / -2);
     expect(vec.heading()).toBeCloseTo(Math.PI / -2);
     expect(vec.x).toBeCloseTo(0);
     expect(vec.y).toBeCloseTo(-1);
-  })
+  });
 });
 
 describe('accessors', () => {

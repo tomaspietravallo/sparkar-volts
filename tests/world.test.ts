@@ -41,19 +41,21 @@ describe('world construction', () => {
     expect(World.getInstance().stop()).toBeTruthy();
     expect(World.getInstance().stop()).toBeFalsy();
   });
-  test('instance already created', ()=>{
+  test('instance already created', () => {
     privates.clearVoltsWorld();
     expect(World.getInstance(false)).toBeUndefined();
-    expect(()=>World.getInstance()).toThrow();
+    expect(() => World.getInstance()).toThrow();
 
     const world = World.getInstance({ mode: PRODUCTION_MODES.NO_AUTO });
     expect(world.mode).toEqual(PRODUCTION_MODES.NO_AUTO);
 
     // would overwrite
-    expect(()=>World.getInstance({mode: 'NO_AUTO', snapshot: { thisIsAnInvalidConfig: Reactive.val(1) }})).toThrow();
+    expect(() =>
+      World.getInstance({ mode: 'NO_AUTO', snapshot: { thisIsAnInvalidConfig: Reactive.val(1) } }),
+    ).toThrow();
 
     expect(World.getInstance()).toEqual(world);
-  })
+  });
 });
 
 describe('load assets', () => {
@@ -96,7 +98,7 @@ describe('load assets', () => {
   });
 });
 
-describe('snapshot', ()=>{
+describe('snapshot', () => {
   test('snapshot', async () => {
     privates.clearVoltsWorld();
     const W = World.getInstance({
@@ -131,68 +133,64 @@ describe('snapshot', ()=>{
       expect(W.snapshot.added).not.toBeDefined();
     });
   }, 500);
-  test('signalToSnapshotable', async ()=>{
+  test('signalToSnapshotable', async () => {
     privates.clearVoltsWorld();
     const W = World.getInstance({
       mode: 'DEV',
       snapshot: {},
     });
-    expect(()=>{
-      W.onEvent('testing', function(this: typeof W){
+    expect(() => {
+      W.onEvent('testing', function (this: typeof W) {
         this.internalData.events['testing'] = null;
-        this.signalsToSnapshot_able({value: undefined,});
-      });
-      W.emitEvent('testing');      
-    }).toThrow();
-
-    expect(()=>{
-      W.onEvent('testing', function(this: typeof W){
-        this.signalsToSnapshot_able({value: (new Map()).set('a', 10),});
+        this.signalsToSnapshot_able({ value: undefined });
       });
       W.emitEvent('testing');
     }).toThrow();
 
-
-  })
-  test('formattedSnapshotToUserFriendly', async ()=>{
+    expect(() => {
+      W.onEvent('testing', function (this: typeof W) {
+        this.signalsToSnapshot_able({ value: new Map().set('a', 10) });
+      });
+      W.emitEvent('testing');
+    }).toThrow();
+  });
+  test('formattedSnapshotToUserFriendly', async () => {
     privates.clearVoltsWorld();
     const W = World.getInstance({
       mode: 'DEV',
       snapshot: {},
     });
-    expect(()=>{
-      W.onEvent('testing', function(this: typeof W){
+    expect(() => {
+      W.onEvent('testing', function (this: typeof W) {
         this.internalData.events['testing'] = null;
-        this.formattedSnapshotToUserFriendly({'CONVERTED::name::X1::uuid': 1,});
+        this.formattedSnapshotToUserFriendly({ 'CONVERTED::name::X1::uuid': 1 });
       });
-      W.emitEvent('testing');      
+      W.emitEvent('testing');
     }).not.toThrow();
 
-    expect(()=>{
-      W.onEvent('testing', function(this: typeof W){
-        this.formattedSnapshotToUserFriendly({'CONVERTED::name::X::uuid': 1,});
+    expect(() => {
+      W.onEvent('testing', function (this: typeof W) {
+        this.formattedSnapshotToUserFriendly({ 'CONVERTED::name::X::uuid': 1 });
       });
       W.emitEvent('testing');
     }).toThrow();
 
-    expect(()=>{
-      W.onEvent('testing', function(this: typeof W){
-        this.formattedSnapshotToUserFriendly({'CONVERTED::name::uuid': 1,});
+    expect(() => {
+      W.onEvent('testing', function (this: typeof W) {
+        this.formattedSnapshotToUserFriendly({ 'CONVERTED::name::uuid': 1 });
       });
       W.emitEvent('testing');
     }).toThrow();
-
-
-  })
+  });
   test('corrupted snapshot', async () => {
     privates.clearVoltsWorld();
     const W = World.getInstance({
       mode: 'DEV',
       snapshot: {},
     });
-    expect(async ()=>{
+    expect(async () => {
       // just proves how hard it is to corrupt
-      W.onEvent('load', function(this: typeof W, ){
+      W.onEvent('load', function (this: typeof W) {
         // const keys = Object.keys(this.internalData.formattedValuesToSnapshot);
         this.internalData.formattedValuesToSnapshot['nonFormattedKey'] = Reactive.val(999);
       });
@@ -201,12 +199,11 @@ describe('snapshot', ()=>{
       await W.rawInitPromise;
       jest.advanceTimersByTime(100);
     }).rejects.toThrow();
-    
+
     W.stop();
     privates.clearVoltsWorld();
-
   }, 500);
-})
+});
 
 describe('test real world use cases', () => {
   test('load objects - mode.no_auto', async () => {
@@ -294,9 +291,6 @@ describe('test real world use cases', () => {
       i++;
     }.bind(this);
 
-    // Technically just a warning, not a throw
-    // W.setTimeout(fn, 100);
-
     // @ts-ignore
     await W.rawInitPromise.then(() => {
       const timeout = W.setTimeout(fn, 100);
@@ -359,18 +353,18 @@ describe('test real world use cases', () => {
       privates.clearVoltsWorld();
     });
   }, 500);
-  test('getWorldSpaceScreenBounds', async ()=>{
+  test('getWorldSpaceScreenBounds', async () => {
     privates.clearVoltsWorld();
 
     const W = World.getInstance({
       mode: 'DEV',
     });
     // @ts-ignore
-    await W.rawInitPromise.then(()=>{
+    await W.rawInitPromise.then(() => {
       jest.advanceTimersByTime(100);
       W.emitEvent('testing');
       const vec = W.getWorldSpaceScreenBounds();
       expect(vec.dimension).toEqual(3);
-    })
-  })
+    });
+  });
 });

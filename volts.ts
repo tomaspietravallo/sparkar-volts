@@ -90,6 +90,7 @@ interface TimedEvent {
 //#endregion
 
 //#region utils
+//#region getUUIDv4
 /**
  * @see https://stackoverflow.com/a/2117523/14899497
  */
@@ -100,6 +101,47 @@ function getUUIDv4(): string {
     return v.toString(16);
   });
 }
+//#endregion
+
+//#region report
+type LogLevels = 'log' | 'warn' | 'error' | 'throw';
+
+interface Reporters {
+  asIssue: (lvl?: LogLevels) => void;
+}
+
+// gets hoisted up
+function report(...msg: string[] | [object]): Reporters {
+  let message: any;
+  // provides a bit of backwards compatibility, keeps support at (112, 121]
+  const toLogLevel = (lvl: LogLevels, msg: string | object) => {
+    if (lvl === 'throw') {
+      throw msg;
+    } else {
+      Diagnostics[lvl] ? Diagnostics[lvl](msg) : Diagnostics.warn(msg + `\n\n[[logger not found: ${lvl}]]`);
+    }
+  };
+
+  if (msg.length > 1) {
+    message = msg.join('\n');
+  } else {
+    message = msg[0];
+  }
+
+  return {
+    asIssue: (lvl: LogLevels = 'warn') => {
+      message = new Error(`${msg}`);
+      const info = `This issue arose during execution.\nIf you believe it's related to VOLTS itself, please report it as a Github issue here: https://github.com/tomaspietravallo/sparkar-volts/issues\nPlease make your report detailed (include this message too!), and if possible, include a package of your current project`;
+      message = `Message: ${message.message ? message.message : message}\n\n.Info: ${info}\n\nStack: ${
+        message.stack ? message.stack : undefined
+      }`;
+      toLogLevel(lvl, message);
+    },
+  };
+}
+//#endregion
+
+//#region transformAcrossSpaces
 /**
  * @param vec The 3D VectorSignal to be transformed
  * @param vecSpace The parent space in which `vec` is located
@@ -130,6 +172,7 @@ export function transformAcrossSpaces(
 
   return targetParentSpace.inverse().applyToPoint(vecParentSpace.applyToPoint(vec));
 }
+//#endregion
 //#endregion
 
 //#region World
@@ -886,27 +929,27 @@ Vector.prototype.rotate = function <D extends number>(a: number): Vector<D> {
 
 //#region Quaternion
 
-type QuaternionArgRest = [number, number, number, number] | [number[]] | [Quaternion] | []
+type QuaternionArgRest = [number, number, number, number] | [number[]] | [Quaternion] | [];
 
 export class Quaternion {
   values: number[];
-  constructor(...args: QuaternionArgRest){
+  constructor(...args: QuaternionArgRest) {
     if (!args || !args[0]) {
       // Quaternion.identity()
-      this.values = [0,0,0,1]
+      this.values = [0, 0, 0, 1];
     } else if (args[0] instanceof Quaternion) {
       this.values = args[0].values;
-    } else if (Array.isArray(args[0])){
+    } else if (Array.isArray(args[0])) {
       this.values = args[0];
     } else {
-      this.values = <number[]> args;
+      this.values = <number[]>args;
     }
-  };
+  }
   static convertToQuaternion(...args: QuaternionArgRest): Quaternion {
     let tmp = [];
     if (args[0] instanceof Quaternion) {
       tmp = args[0].values;
-    } else if (Array.isArray(args[0])){
+    } else if (Array.isArray(args[0])) {
       tmp = args[0];
     } else {
       tmp = args;
@@ -917,16 +960,33 @@ export class Quaternion {
     return new Quaternion(tmp);
   }
   static identity(): Quaternion {
-    return new Quaternion(0,0,0,1);
+    return new Quaternion(0, 0, 0, 1);
   }
   toQuaternionSignal(): QuaternionSignal {
-    return Reactive.quaternion(this.values[0], this.values[1], this.values[2], this.values[3])
+    return Reactive.quaternion(this.values[0], this.values[1], this.values[2], this.values[3]);
+  }
+  protected calcNorm(): number {
+    return (this.values[0] ** 2 + this.values[1] ** 2 + this.values[2] ** 2 + this.values[3] ** 2) ** 0.5;
+  }
+  normalize(): Quaternion {
+    const norm = this.calcNorm();
+    this.values[0] /= norm;
+    this.values[1] /= norm;
+    this.values[2] /= norm;
+    this.values[3] /= norm;
+    return this;
   }
   add(...other: QuaternionArgRest): Quaternion {
-    const b = Quaternion.convertToQuaternion(...other);
-    this.values = this.values.map((v, i)=>v+b.values[i]);
-    return this
-  };
+    const b = Quaternion.convertToQuaternion(...other).values;
+    this.values = this.values.map((v, i) => v + b[i]);
+    return this;
+  }
+  copy(): Quaternion {
+    return new Quaternion(this.values);
+  }
+  get normalized(): Quaternion {
+    return new Quaternion(this.values).normalize();
+  }
   get w(): number {
     return this.values[0];
   }
@@ -1071,27 +1131,29 @@ export class State<Data extends { [key: string]: Vector<any> | number | string |
 
 //#region exports
 
-// prettier-ignore
-
 interface Privates {
-  clearVoltsWorld: ()=>void;
+  clearVoltsWorld: () => void;
+  getReport: () => (...msg: string[] | [object]) => Reporters;
 }
 
-export const privates = Object.defineProperties(
-  {},
-  {
-    clearVoltsWorld: {
-      value: () => {
-          try {
-            jest;
-            return VoltsWorld.devClear();
-          } catch {
-            throw `Cannot read 'private.clear' in the current environment. To be read by jest/testing env only`;
-          }
-        },
-    },
+export const privates: Privates = {
+  clearVoltsWorld: () => {
+    try {
+      jest;
+      return VoltsWorld.devClear();
+    } catch {
+      throw `Cannot read 'private.clearVoltsWorld' in the current environment. To be read by jest/testing env only`;
+    }
   },
-) as Privates;
+  getReport: () => {
+    try {
+      jest;
+      return report;
+    } catch {
+      throw `Cannot read 'private.getReport' in the current environment. To be read by jest/testing env only`;
+    }
+  },
+};
 
 export const World = {
   getInstance: VoltsWorld.getInstance,
@@ -1100,6 +1162,7 @@ export const World = {
 export default {
   World: World,
   Vector: Vector,
+  Quaternion: Quaternion,
   State: State,
   PRODUCTION_MODES: PRODUCTION_MODES,
 };
