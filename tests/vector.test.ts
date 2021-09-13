@@ -5,42 +5,25 @@ import { Camera } from './__mocks__/Scene';
 jest.useFakeTimers();
 
 describe('vector construction', () => {
-  test('default vector', () => {
-    const vector = new Vector();
-    expect(vector.values).toEqual([0, 0, 0]);
-  });
-  test('empty array as argument', () => {
-    const nonValidVec = () => new Vector([]);
-    expect(nonValidVec).toThrow();
-  });
-  test('string as argument', () => {
-    // @ts-ignore
-    const nonValidVec = () => new Vector('1', '2', '3');
-    expect(nonValidVec).toThrow();
-  });
-  test('object as argument', () => {
-    // @ts-ignore
-    const nonValidVec = () => new Vector({ x: 0, y: 1, z: 2 });
-    expect(nonValidVec).toThrow();
-  });
-  test('from another Vector', () => {
-    const firstVec = new Vector([1, 2, 3]);
-    const secondVec = new Vector(firstVec);
-    expect(secondVec.values).toEqual([1, 2, 3]);
-  });
-  test('partially valid arguments', () => {
-    // @ts-ignore
-    const nonValidVec = () => new Vector(1, 2, '3');
-    expect(nonValidVec).toThrow();
+  test('default', () => {
+    const V = new Vector();
+    expect(V.values).toEqual([0,0,0]);
   });
   test('scalar argument', () => {
     expect(new Vector(1).values).toEqual([1, 1, 1]);
   });
-  test('100D vector', () => {
-    const arr = new Array(100).fill(0).map((e, i) => i);
-    const vec = new Vector(arr);
-    expect(vec.dimension).toEqual(100);
-    expect(vec.add(vec).values).toEqual(arr.map((v) => v * 2));
+  test('rest parameters', () => {
+    const V = new Vector(1, 2, 3, 4);
+    expect(V.values).toEqual([1, 2, 3, 4]);
+  });
+  test('from array', () => {
+    const V = new Vector([1, 2, 3, 4]);
+    expect(V.values).toEqual([1, 2, 3, 4]);
+  });
+  test('from Vector', () => {
+    const A = new Vector([1, 2, 3, 4]);
+    const B = new Vector(A);
+    expect(B.values).toEqual(A.values);
   });
 });
 
@@ -91,6 +74,10 @@ describe('vector utils', () => {
     const W = World.getInstance({
       mode: 'DEV',
     });
+
+    expect(()=>Vector.screenToWorld(1,1,true)).toThrow();
+    // @ts-expect-error
+    expect(()=>Vector.screenToWorld(false,undefined,true)).toThrow();
 
     // @ts-expect-error
     await W.rawInitPromise.then(() => {
@@ -189,12 +176,10 @@ describe('math operations', () => {
     expect(new Vector(-1, 2).equals(new Vector(-1, 2))).toEqual(true);
     expect(new Vector(0, 0).equals(undefined)).toEqual(false);
   });
-
   test('heading', () => {
     expect(new Vector(1, 1).heading()).toBeCloseTo(0.785398163);
     expect(new Vector(0, 0).heading()).toBeCloseTo(0);
   });
-
   test('rotate', () => {
     const vec = new Vector(1, 0);
     expect(vec.heading()).toBeCloseTo(0);

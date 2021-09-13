@@ -165,7 +165,7 @@ report.getSceneInfo = async function (
   },
 ): Promise<string> {
   const Instance = World.getInstance(false);
-  let info;
+  const info: {[key: string]: any} = {};
   if (Instance && Instance.loaded) {
     const sceneData: { [key: string]: any } = {};
     const keys = Object.keys(Instance.assets);
@@ -177,6 +177,7 @@ report.getSceneInfo = async function (
         const data: { [key: string]: any } = {};
         let mat, tex;
         data['name'] = e.name;
+        data['hidden'] = e.hidden.pinLastValue();
 
         if (getIdentifiers) data['identifier'] = e.identifier;
 
@@ -205,9 +206,13 @@ report.getSceneInfo = async function (
         sceneData[key] = `obj[key] is possibly undefined. key: ${key}`;
       }
     }
-    info = { scene: sceneData };
+    info['scene'] = sceneData;
   } else {
-    info = 'no instance was found, or the current instance has not loaded yet';
+    info['scene'] = 'no instance was found, or the current instance has not loaded yet';
+  }
+  info['modules'] = {
+    Persistence: !!Persistence,
+    Multipeer: !!Multipeer,
   }
   return prettifyJSON(info);
 };
@@ -1046,7 +1051,9 @@ export class Quaternion {
       this.values = args[0];
     } else {
       this.values = <number[]>args;
-    }
+    };
+    if (!this.values.every((v) => typeof v === 'number' && Number.isFinite(v)) || this.values.length !== 4)
+      throw new Error(`@ Vector.constructor: Values provided are not valid. args: ${args}. this.values: ${this.values}`);
   }
   static convertToQuaternion(...args: QuaternionArgRest): Quaternion {
     let tmp = [];
@@ -1232,6 +1239,50 @@ export class State<Data extends { [key: string]: Vector<any> | number | string |
 
 //#endregion
 
+//#region Object3D
+export class Object3D<T extends SceneObjectBase> {
+  pos: Vector<3>;
+  rot: Quaternion;
+  body: T;
+  constructor(body: T, stayInPlace = true){
+      this.pos = new Vector();
+      this.rot = new Quaternion();
+      this.body = body;
+      if (stayInPlace) {
+        this.fetchLastPosition();
+        this.fetchLastRotation();
+      };
+  };
+  fetchLastPosition(): Vector<3> {
+      return this.pos = new Vector(
+          this.body.transform.position.x.pinLastValue(),
+          this.body.transform.position.y.pinLastValue(),
+          this.body.transform.position.z.pinLastValue()
+      );
+  };
+  fetchLastRotation(): Quaternion {
+      return this.rot = new Quaternion(
+          this.body.transform.rotation.w.pinLastValue(),
+          this.body.transform.rotation.x.pinLastValue(),
+          this.body.transform.rotation.y.pinLastValue(),
+          this.body.transform.rotation.z.pinLastValue()
+      )
+  };
+  updateBody(update: { position?: boolean, rotation?: boolean } = {position: true, rotation: true}): void {
+      if (update.position){
+          // Faster than doing R.vector/pack3
+          this.body.transform.x = this.pos.x;
+          this.body.transform.y = this.pos.y;
+          this.body.transform.z = this.pos.z;
+      }
+      if (update.rotation){
+          // QuaternionSignal components are read only
+          this.body.transform.rotation = this.rot.toQuaternionSignal();
+      }
+  };
+};
+//#endregion
+
 //#region exports
 
 interface Privates {
@@ -1240,9 +1291,10 @@ interface Privates {
   isDevEnv?: boolean;
 }
 
+/* istanbul ignore next */
 const makeDevEnvOnly = (d: any) => {
   try {
-    if (jest && privates.isDevEnv) throw `privates.isDevEnv`;
+    jest;
     return d;
   } catch {
     throw `Cannot read 'private.clearVoltsWorld' in the current environment. To be read by jest/testing env only`;
@@ -1255,6 +1307,7 @@ function execOnRead<T extends { [key: string]: any }>(obj: T): T {
   for (let index = 0; index < keys.length; index++) {
     const k = keys[index];
     Object.defineProperty(tmp, k, {
+      /* istanbul ignore next */
       get: () => makeDevEnvOnly(obj[k]),
     });
   }

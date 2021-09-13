@@ -30,10 +30,9 @@ describe('report', () => {
     expect(() => reps.asIssue('anyString')).not.toThrow();
     expect(Diagnostics.warn).toHaveBeenCalledTimes(1);
   });
-  test('makeDevEnvOnly throw', () => {
-    privates.isDevEnv = false;
-    expect(() => privates.report).toThrow;
-    privates.isDevEnv = true;
+  test('multi line msg', () => {
+    expect(() => privates.report('line1', 'line2', 'line3').asIssue()).not.toThrow();
+    expect(Diagnostics.warn).toHaveBeenCalledTimes(1);
   });
 });
 

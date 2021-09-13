@@ -171,6 +171,7 @@ class NDVectorSignal {
     this._ops.push(['mul', args]);
     return this;
   }
+  // super basic, lacks a lot
   public pinLastValue(): Vector | number {
     let res;
     if (!this.isReactive) {
@@ -243,6 +244,18 @@ export class Quaternion extends NDVectorSignal {
   constructor(...args: number[] | [() => number[]]) {
     super(...args);
   }
+  get w(): ScalarSignal {
+    return new ScalarSignal(this._vector.values[0]);
+  }
+  get x(): ScalarSignal {
+    return new ScalarSignal(this._vector.values[1]);
+  }
+  get y(): ScalarSignal {
+    return new ScalarSignal(this._vector.values[2]);
+  }
+  get z(): ScalarSignal {
+    return new ScalarSignal(this._vector.values[3]);
+  }
 }
 
 export class StringSignal {
@@ -255,6 +268,16 @@ export class StringSignal {
   }
 }
 
+export class BoolSignal {
+  private val: boolean;
+  constructor(bool) {
+    this.val = bool;
+  }
+  pinLastValue(): boolean {
+    return this.val;
+  }
+}
+
 declare global {
   namespace Reactive {
     export type StringSignal = typeof StringSignal.prototype;
@@ -263,6 +286,7 @@ declare global {
     export type VectorSignal = typeof VectorSignal.prototype;
     export type Vec4Signal = typeof Vec4Signal.prototype;
     export type Quaternion = typeof Quaternion.prototype;
+    export type BoolSignal = typeof BoolSignal.prototype;
   }
 }
 
@@ -273,4 +297,5 @@ export default {
   vector: (...args: [number, number, number]): VectorSignal => new VectorSignal(...args),
   pack4: (...args: [number, number, number, number]): Vec4Signal => new Vec4Signal(...args),
   quaternion: (...args: [number, number, number, number]): Quaternion => new Quaternion(...args),
+  boolSignal: (x: boolean): BoolSignal => new BoolSignal(x),
 };

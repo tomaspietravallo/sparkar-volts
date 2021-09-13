@@ -1,5 +1,5 @@
 import { Vector } from '../../volts';
-import Reactive, { ScalarSignal, VectorSignal } from './Reactive';
+import Reactive, { ScalarSignal, VectorSignal, BoolSignal } from './Reactive';
 
 const FOCAL_DISTANCE = 0.586;
 const SCREEN_SIZE = [Math.random(), Math.random()];
@@ -8,15 +8,17 @@ export class SceneObjectBase {
   name: string;
   transform: { position: Reactive.VectorSignal; rotation: Reactive.Quaternion };
   identifier: string;
+  hidden: BoolSignal;
   constructor(name: string) {
     this.name = name;
     this.transform = {
       position: Reactive.vector(0, 0, 0),
-      rotation: Reactive.quaternion(0, 0, 0, 0),
+      rotation: Reactive.quaternion(0, 0, 0, 1),
     };
     this.identifier = 'a-unique-identifier';
-  }
-}
+    this.hidden = Reactive.boolSignal(false);
+  };
+};
 
 export class Camera extends SceneObjectBase {
   focalPlane: { distance: ScalarSignal; height: ScalarSignal; width: ScalarSignal };
