@@ -103,6 +103,34 @@ function getUUIDv4(): string {
 }
 //#endregion
 
+//#region promiseAllConcurrent
+/** @author atolkachiov */
+/** @see https://gist.github.com/jcouyang/632709f30e12a7879a73e9e132c0d56b#gistcomment-3591045 */
+const pAll = async (queue: Promise<any>[], concurrency: number, areFn: boolean) => {
+  let index = 0;
+  const results = [];
+
+  // Run a pseudo-thread
+  const execThread = async () => {
+    while (index < queue.length) {
+      const curIndex = index++;
+      // Use of `curIndex` is important because `index` may change after await is resolved
+      // @ts-expect-error
+      results[curIndex] = await (areFn ? queue[curIndex]() : queue[curIndex]);
+    }
+  };
+
+  // Start threads
+  const threads = [];
+  for (let thread = 0; thread < concurrency; thread++) {
+    threads.push(execThread());
+  }
+  await Promise.all(threads);
+  return results;
+};
+const promiseAllConcurrent = (n: number, areFn: boolean) => (list: Promise<any>[]): Promise<any[]> => pAll(list, n, areFn);
+//#endregion
+
 //#region report
 type LogLevels = 'log' | 'warn' | 'error' | 'throw';
 
@@ -121,7 +149,7 @@ type reportFn = ((...msg: string[] | [object]) => Reporters) & {
     getTextures?: boolean;
     getIdentifiers?: boolean;
     getPositions?: boolean;
-  }) => Promise<Object>;
+  }) => Promise<string>;
 };
 
 const prettifyJSON = (obj: Object, spacing = 2) => JSON.stringify(obj, null, spacing);
@@ -174,8 +202,11 @@ report.getSceneInfo = async function (
       const key = keys[index];
       const element = Instance.assets[key];
       const getElementData = async (e: any) => {
+        if (!e) return { 'warning': 'no-element-was-found' };
+
         const data: { [key: string]: any } = {};
         let mat, tex;
+
         data['name'] = e.name;
         data['hidden'] = e.hidden.pinLastValue();
 
@@ -188,7 +219,7 @@ report.getSceneInfo = async function (
         if (getMaterials || getTextures) {
           mat = e.getMaterial ? (await e.getMaterial()) || {} : {};
           if (getMaterials) data['material'] = mat.name || 'undefined';
-          if (getIdentifiers) data['material-id'] = mat.identifier || 'undefined';
+          if (getMaterials && getIdentifiers) data['material-id'] = mat.identifier || 'undefined';
         }
 
         if (getTextures) {
@@ -199,7 +230,7 @@ report.getSceneInfo = async function (
         return data;
       };
       if (Array.isArray(element) && element.length > 1) {
-        sceneData[key] = await Promise.all(element.map((e) => getElementData(e)));
+        sceneData[key] = await promiseAllConcurrent(10, true)(element.map( e => getElementData.bind(this, e) ));
       } else if (element) {
         sceneData[key] = await getElementData(element[0]);
       } else {
@@ -392,10 +423,10 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
     // load states
     // States are automatically loaded when created
     // @ts-ignore loadState is purposely not part of the type
-    const loadStateArr = await Promise.all(states.map((s: State<any>) => s.loadState()));
+    const loadStateArr = await promiseAllConcurrent(10, true)(states.map((s: State<any>) => s.loadState));
 
     const keys = Object.keys(assets);
-    const getAssets: any[] = await Promise.all([...keys.map((n) => assets[n])]);
+    const getAssets: any[] = await promiseAllConcurrent(10, false)(keys.map((n) => assets[n]));
     for (let k = 0; k < keys.length; k++) {
       if (!getAssets[k]) throw new Error(`@ Volts.World.init: Object(s) not found. Key: "${keys[k]}"`);
       // @ts-ignore
@@ -1288,7 +1319,7 @@ export class Object3D<T extends SceneObjectBase> {
 interface Privates {
   clearVoltsWorld: () => void;
   report: reportFn;
-  isDevEnv?: boolean;
+  promiseAllConcurrent: (n: number, areFn: boolean) => (list: Promise<any>[]) => Promise<any[]>;
 }
 
 /* istanbul ignore next */
@@ -1317,9 +1348,8 @@ function execOnRead<T extends { [key: string]: any }>(obj: T): T {
 export const privates: Privates = execOnRead({
   clearVoltsWorld: VoltsWorld.devClear,
   report: report,
+  promiseAllConcurrent: promiseAllConcurrent,
 });
-
-privates.isDevEnv = true;
 
 export const World = {
   getInstance: VoltsWorld.getInstance,
