@@ -128,7 +128,10 @@ const pAll = async (queue: Promise<any>[], concurrency: number, areFn: boolean) 
   await Promise.all(threads);
   return results;
 };
-const promiseAllConcurrent = (n: number, areFn: boolean) => (list: Promise<any>[]): Promise<any[]> => pAll(list, n, areFn);
+const promiseAllConcurrent =
+  (n: number, areFn: boolean) =>
+  (list: Promise<any>[]): Promise<any[]> =>
+    pAll(list, n, areFn);
 //#endregion
 
 //#region report
@@ -193,7 +196,7 @@ report.getSceneInfo = async function (
   },
 ): Promise<string> {
   const Instance = World.getInstance(false);
-  const info: {[key: string]: any} = {};
+  const info: { [key: string]: any } = {};
   if (Instance && Instance.loaded) {
     const sceneData: { [key: string]: any } = {};
     const keys = Object.keys(Instance.assets);
@@ -202,7 +205,7 @@ report.getSceneInfo = async function (
       const key = keys[index];
       const element = Instance.assets[key];
       const getElementData = async (e: any) => {
-        if (!e) return { 'warning': 'no-element-was-found' };
+        if (!e) return { warning: 'no-element-was-found' };
 
         const data: { [key: string]: any } = {};
         let mat, tex;
@@ -230,7 +233,7 @@ report.getSceneInfo = async function (
         return data;
       };
       if (Array.isArray(element) && element.length > 1) {
-        sceneData[key] = await promiseAllConcurrent(10, true)(element.map( e => getElementData.bind(this, e) ));
+        sceneData[key] = await promiseAllConcurrent(10, true)(element.map((e) => getElementData.bind(this, e)));
       } else if (element) {
         sceneData[key] = await getElementData(element[0]);
       } else {
@@ -244,7 +247,7 @@ report.getSceneInfo = async function (
   info['modules'] = {
     Persistence: !!Persistence,
     Multipeer: !!Multipeer,
-  }
+  };
   return prettifyJSON(info);
 };
 
@@ -328,6 +331,7 @@ interface WorldConfig {
 class VoltsWorld<WorldConfigParams extends WorldConfig> {
   private static instance: VoltsWorld<any>;
   private static userConfig: WorldConfig;
+  static subscriptions: Function[];
   protected internalData: InternalWorldData;
   public assets: {
     [Prop in keyof WorldConfigParams['assets']]: WorldConfigParams['assets'][Prop] extends PromiseLike<infer C>
@@ -339,8 +343,7 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
   public mode: keyof typeof PRODUCTION_MODES;
 
   private constructor() {
-    this.mode = VoltsWorld.userConfig.mode;
-    // @ts-ignore
+    // @ts-expect-error
     this.assets = {};
     this.internalData = {
       initPromise: this.init.bind(this, VoltsWorld.userConfig.assets, VoltsWorld.userConfig.loadStates),
@@ -367,8 +370,13 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
       writable: false,
       configurable: false,
     });
-  }
 
+    VoltsWorld.instance = this;
+    
+    for (let index = 0; index < VoltsWorld.subscriptions.length; index++) {
+      VoltsWorld.subscriptions[index]();
+    };
+  }
   // @todo add uglier but user-friendlier long-form type
   static getInstance<WorldConfigParams extends WorldConfig>(
     config?: WorldConfigParams | boolean,
@@ -383,7 +391,7 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
         throw new Error(
           `@ VoltsWorld.getInstance: 'config.mode' was not provided, but is required when creating the first instance`,
         );
-      // @ts-ignore
+      // @ts-expect-error
       if (!Object.values(PRODUCTION_MODES).includes(config.mode))
         throw new Error(
           `@ VoltsWorld.getInstance: 'config.mode' was provided, but was not valid.\n\nAvailable modes are: ${Object.values(
@@ -404,13 +412,17 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
     }
     return VoltsWorld.instance;
   }
-
+  /** @description Use this function to run a fn when a new Instance gets created */
+  static subscribeToInstance(cb: () => void): boolean {
+    if (typeof cb === 'function') return !!VoltsWorld.subscriptions.push(cb);
+    return false;
+  }
   static devClear() {
     const Instance = VoltsWorld.getInstance(false);
     VoltsWorld.userConfig = undefined;
     VoltsWorld.instance = undefined;
+    VoltsWorld.subscriptions = [];
   }
-
   private async init(assets: WorldConfig['assets'], states: State<any>[]): Promise<void> {
     this.internalData.Camera = (await Scene.root.findFirst('Camera')) as Camera;
     this.addToSnapshot({
@@ -438,7 +450,7 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
       // .map(objBody=>{ return new Object3D(objBody) });
     }
     this.internalData.loaded = true;
-    if (this.mode !== PRODUCTION_MODES.NO_AUTO) this.run();
+    if (VoltsWorld.userConfig.mode !== PRODUCTION_MODES.NO_AUTO) this.run();
   }
   public run(): boolean {
     if (this.internalData.running) return false;
@@ -483,13 +495,13 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
           if (
             lastThreeFrames[0] === lastThreeFrames[1] &&
             lastThreeFrames[1] === lastThreeFrames[2] &&
-            this.mode !== PRODUCTION_MODES.PRODUCTION
+            VoltsWorld.userConfig.mode !== PRODUCTION_MODES.PRODUCTION
           )
             return loop();
           //#endregion
 
           //#region onLoad function
-          this.mode !== PRODUCTION_MODES.NO_AUTO &&
+          VoltsWorld.userConfig.mode !== PRODUCTION_MODES.NO_AUTO &&
             this.internalData.frameCount === 0 &&
             this.emitEvent('load', this.internalData.userFriendlySnapshot);
           //#endregion
@@ -771,6 +783,8 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
     return this.internalData.userFriendlySnapshot.__volts__internal__screen.copy().abs().mul(1, -1, 0);
   }
 }
+
+VoltsWorld.subscriptions = [];
 
 //#endregion
 
@@ -1082,9 +1096,11 @@ export class Quaternion {
       this.values = args[0];
     } else {
       this.values = <number[]>args;
-    };
+    }
     if (!this.values.every((v) => typeof v === 'number' && Number.isFinite(v)) || this.values.length !== 4)
-      throw new Error(`@ Vector.constructor: Values provided are not valid. args: ${args}. this.values: ${this.values}`);
+      throw new Error(
+        `@ Vector.constructor: Values provided are not valid. args: ${args}. this.values: ${this.values}`,
+      );
   }
   static convertToQuaternion(...args: QuaternionArgRest): Quaternion {
     let tmp = [];
@@ -1275,43 +1291,43 @@ export class Object3D<T extends SceneObjectBase> {
   pos: Vector<3>;
   rot: Quaternion;
   body: T;
-  constructor(body: T, stayInPlace = true){
-      this.pos = new Vector();
-      this.rot = new Quaternion();
-      this.body = body;
-      if (stayInPlace) {
-        this.fetchLastPosition();
-        this.fetchLastRotation();
-      };
-  };
+  constructor(body: T, stayInPlace = true) {
+    this.pos = new Vector();
+    this.rot = new Quaternion();
+    this.body = body;
+    if (stayInPlace) {
+      this.fetchLastPosition();
+      this.fetchLastRotation();
+    }
+  }
   fetchLastPosition(): Vector<3> {
-      return this.pos = new Vector(
-          this.body.transform.position.x.pinLastValue(),
-          this.body.transform.position.y.pinLastValue(),
-          this.body.transform.position.z.pinLastValue()
-      );
-  };
+    return (this.pos = new Vector(
+      this.body.transform.position.x.pinLastValue(),
+      this.body.transform.position.y.pinLastValue(),
+      this.body.transform.position.z.pinLastValue(),
+    ));
+  }
   fetchLastRotation(): Quaternion {
-      return this.rot = new Quaternion(
-          this.body.transform.rotation.w.pinLastValue(),
-          this.body.transform.rotation.x.pinLastValue(),
-          this.body.transform.rotation.y.pinLastValue(),
-          this.body.transform.rotation.z.pinLastValue()
-      )
-  };
-  updateBody(update: { position?: boolean, rotation?: boolean } = {position: true, rotation: true}): void {
-      if (update.position){
-          // Faster than doing R.vector/pack3
-          this.body.transform.x = this.pos.x;
-          this.body.transform.y = this.pos.y;
-          this.body.transform.z = this.pos.z;
-      }
-      if (update.rotation){
-          // QuaternionSignal components are read only
-          this.body.transform.rotation = this.rot.toQuaternionSignal();
-      }
-  };
-};
+    return (this.rot = new Quaternion(
+      this.body.transform.rotation.w.pinLastValue(),
+      this.body.transform.rotation.x.pinLastValue(),
+      this.body.transform.rotation.y.pinLastValue(),
+      this.body.transform.rotation.z.pinLastValue(),
+    ));
+  }
+  updateBody(update: { position?: boolean; rotation?: boolean } = { position: true, rotation: true }): void {
+    if (update.position) {
+      // Faster than doing R.vector/pack3
+      this.body.transform.x = this.pos.x;
+      this.body.transform.y = this.pos.y;
+      this.body.transform.z = this.pos.z;
+    }
+    if (update.rotation) {
+      // QuaternionSignal components are read only
+      this.body.transform.rotation = this.rot.toQuaternionSignal();
+    }
+  }
+}
 //#endregion
 
 //#region exports
@@ -1352,7 +1368,13 @@ export const privates: Privates = execOnRead({
 });
 
 export const World = {
+  /**
+   * @description Use this function to create a new instance, or get the current instance 
+   * @param config set to `false` to return `undefined` and avoid creating an instance if one is not available
+  */
   getInstance: VoltsWorld.getInstance,
+  /** @description Run a function when a new Instance gets created */
+  subscribeToInstance: VoltsWorld.subscribeToInstance,
 };
 
 export default {

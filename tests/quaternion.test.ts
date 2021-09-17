@@ -17,15 +17,15 @@ describe('quaternion construction', () => {
   test('from array', () => {
     const Q = new Quaternion([1, 2, 3, 4]);
     expect(Q.values).toEqual([1, 2, 3, 4]);
-    expect(new Quaternion(1,2,3,4).values).toEqual(new Quaternion([1,2,3,4]).values)
+    expect(new Quaternion(1, 2, 3, 4).values).toEqual(new Quaternion([1, 2, 3, 4]).values);
   });
   test('from Quaternion', () => {
     const A = new Quaternion([1, 2, 3, 4]);
     const B = new Quaternion(A);
     expect(B.values).toEqual(A.values);
   });
-  test('inf', ()=>{
-    expect(()=>new Quaternion(Number.POSITIVE_INFINITY, 1,1,1)).toThrow();
+  test('inf', () => {
+    expect(() => new Quaternion(Number.POSITIVE_INFINITY, 1, 1, 1)).toThrow();
   });
 });
 

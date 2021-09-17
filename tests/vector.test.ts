@@ -7,7 +7,7 @@ jest.useFakeTimers();
 describe('vector construction', () => {
   test('default', () => {
     const V = new Vector();
-    expect(V.values).toEqual([0,0,0]);
+    expect(V.values).toEqual([0, 0, 0]);
   });
   test('scalar argument', () => {
     expect(new Vector(1).values).toEqual([1, 1, 1]);
@@ -75,9 +75,9 @@ describe('vector utils', () => {
       mode: 'DEV',
     });
 
-    expect(()=>Vector.screenToWorld(1,1,true)).toThrow();
+    expect(() => Vector.screenToWorld(1, 1, true)).toThrow();
     // @ts-expect-error
-    expect(()=>Vector.screenToWorld(false,undefined,true)).toThrow();
+    expect(() => Vector.screenToWorld(false, undefined, true)).toThrow();
 
     // @ts-expect-error
     await W.rawInitPromise.then(() => {

@@ -357,7 +357,7 @@ describe('test real world use cases', () => {
     const W = World.getInstance({
       mode: 'DEV',
     });
-    
+
     expect(W.getWorldSpaceScreenBounds).toThrow();
 
     // @ts-expect-error

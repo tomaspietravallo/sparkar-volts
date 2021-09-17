@@ -9,9 +9,8 @@ describe('State - missing modules', () => {
   });
 });
 
-
-describe('report.getSceneInfo', ()=>{
-  test('missing modules', async ()=>{
+describe('report.getSceneInfo', () => {
+  test('missing modules', async () => {
     const info = await privates.report.getSceneInfo({
       getIdentifiers: true,
       getPositions: false,

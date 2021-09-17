@@ -17,8 +17,8 @@ export class SceneObjectBase {
     };
     this.identifier = 'a-unique-identifier';
     this.hidden = Reactive.boolSignal(false);
-  };
-};
+  }
+}
 
 export class Camera extends SceneObjectBase {
   focalPlane: { distance: ScalarSignal; height: ScalarSignal; width: ScalarSignal };
