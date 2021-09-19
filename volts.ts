@@ -247,6 +247,7 @@ report.getSceneInfo = async function (
   info['modules'] = {
     Persistence: !!Persistence,
     Multipeer: !!Multipeer,
+    dynamicInstancing: !!Scene.create,
   };
   return prettifyJSON(info);
 };
@@ -372,10 +373,10 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
     });
 
     VoltsWorld.instance = this;
-    
+
     for (let index = 0; index < VoltsWorld.subscriptions.length; index++) {
       VoltsWorld.subscriptions[index]();
-    };
+    }
   }
   // @todo add uglier but user-friendlier long-form type
   static getInstance<WorldConfigParams extends WorldConfig>(
@@ -1287,7 +1288,19 @@ export class State<Data extends { [key: string]: Vector<any> | number | string |
 //#endregion
 
 //#region Object3D
-export class Object3D<T extends SceneObjectBase> {
+
+/**
+ * @description A base type to be implemented by other classes that want to implement Object3D-like behaviour.
+ *
+ * Named `Skeleton` instead of `Base` to avoid confusion with Spark's class names
+ */
+export interface Object3DSkeleton {
+  pos: Vector<3>;
+  rot: Quaternion;
+  update(): void;
+}
+
+export class Object3D<T extends SceneObjectBase> implements Object3DSkeleton {
   pos: Vector<3>;
   rot: Quaternion;
   body: T;
@@ -1315,7 +1328,7 @@ export class Object3D<T extends SceneObjectBase> {
       this.body.transform.rotation.z.pinLastValue(),
     ));
   }
-  updateBody(update: { position?: boolean; rotation?: boolean } = { position: true, rotation: true }): void {
+  update(update: { position?: boolean; rotation?: boolean } = { position: true, rotation: true }): void {
     if (update.position) {
       // Faster than doing R.vector/pack3
       this.body.transform.x = this.pos.x;
@@ -1328,6 +1341,40 @@ export class Object3D<T extends SceneObjectBase> {
     }
   }
 }
+
+//#endregion
+
+//#region Pool
+
+type PooledObject<obj> = obj & { returnToPool: () => void };
+
+export class Pool {
+  protected objects: BlockAsset[];
+  protected seed: string[] | BlockAsset[];
+  constructor(objectsOrPath?: string | string[] | BlockAsset | BlockAsset[]) {
+    this.seed = Array.isArray(objectsOrPath) ? objectsOrPath : [objectsOrPath];
+    this.objects = [];
+  }
+  private async instantiate(): Promise<any> {
+    return void 0;
+  }
+  public async getObject(): Promise<PooledObject<BlockAsset>> {
+    // @ts-expect-error
+    let obj: PooledObject<T> = this.objects.pop();
+    if (!obj) {
+      obj = this.instantiate();
+    };
+    obj.returnToPool = () => this.objects.push(obj);
+    return obj;
+  };
+  public async populate(amount: number, limitConcurrentPromises: number): Promise<void> {
+    // 
+  };
+  get hasPreInstancedObjectsAvailable(): boolean {
+    return this.objects.length > 0;
+  }
+}
+
 //#endregion
 
 //#region exports
@@ -1348,7 +1395,7 @@ const makeDevEnvOnly = (d: any) => {
   }
 };
 
-function execOnRead<T extends { [key: string]: any }>(obj: T): T {
+function privateRead<T extends { [key: string]: any }>(obj: T): T {
   const tmp = {};
   const keys = Object.keys(obj);
   for (let index = 0; index < keys.length; index++) {
@@ -1361,7 +1408,7 @@ function execOnRead<T extends { [key: string]: any }>(obj: T): T {
   return obj;
 }
 
-export const privates: Privates = execOnRead({
+export const privates: Privates = privateRead({
   clearVoltsWorld: VoltsWorld.devClear,
   report: report,
   promiseAllConcurrent: promiseAllConcurrent,
@@ -1369,9 +1416,9 @@ export const privates: Privates = execOnRead({
 
 export const World = {
   /**
-   * @description Use this function to create a new instance, or get the current instance 
+   * @description Use this function to create a new instance, or get the current instance
    * @param config set to `false` to return `undefined` and avoid creating an instance if one is not available
-  */
+   */
   getInstance: VoltsWorld.getInstance,
   /** @description Run a function when a new Instance gets created */
   subscribeToInstance: VoltsWorld.subscribeToInstance,
@@ -1382,6 +1429,8 @@ export default {
   Vector: Vector,
   Quaternion: Quaternion,
   State: State,
+  Object3D: Object3D,
+  Pool: Pool,
   PRODUCTION_MODES: PRODUCTION_MODES,
 };
 
