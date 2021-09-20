@@ -12,7 +12,13 @@ let Persistence: {
       remove: (s: string) => Promise<boolean>;
     };
   },
-  Multipeer: {};
+  Multipeer: {},
+  Blocks: {
+    instantiate: (blockOrName: string, initialState: {[key: string]: any})=>Promise<BlockSceneRoot>
+    assets: {
+      findFirst: (name: string)=>Promise<any>
+    }
+  }
 //#endregion
 
 //#region types
@@ -344,6 +350,7 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
   public mode: keyof typeof PRODUCTION_MODES;
 
   private constructor() {
+    this.mode = VoltsWorld.userConfig.mode;
     // @ts-expect-error
     this.assets = {};
     this.internalData = {
@@ -371,8 +378,6 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
       writable: false,
       configurable: false,
     });
-
-    VoltsWorld.instance = this;
 
     for (let index = 0; index < VoltsWorld.subscriptions.length; index++) {
       VoltsWorld.subscriptions[index]();
@@ -419,7 +424,7 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
     return false;
   }
   static devClear() {
-    const Instance = VoltsWorld.getInstance(false);
+    // const Instance = VoltsWorld.getInstance(false);
     VoltsWorld.userConfig = undefined;
     VoltsWorld.instance = undefined;
     VoltsWorld.subscriptions = [];
@@ -451,7 +456,7 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
       // .map(objBody=>{ return new Object3D(objBody) });
     }
     this.internalData.loaded = true;
-    if (VoltsWorld.userConfig.mode !== PRODUCTION_MODES.NO_AUTO) this.run();
+    if (this.mode !== PRODUCTION_MODES.NO_AUTO) this.run();
   }
   public run(): boolean {
     if (this.internalData.running) return false;
@@ -1348,27 +1353,35 @@ export class Object3D<T extends SceneObjectBase> implements Object3DSkeleton {
 
 type PooledObject<obj> = obj & { returnToPool: () => void };
 
+/**
+ * @description Still in EARLY development
+ */
 export class Pool {
   protected objects: BlockAsset[];
   protected seed: string[] | BlockAsset[];
-  constructor(objectsOrPath?: string | string[] | BlockAsset | BlockAsset[]) {
+  constructor(objectsOrPath: string | string[] | BlockAsset | BlockAsset[]) {
+    if (!Blocks) Blocks = require('Blocks');
+    if (!objectsOrPath) throw new Error(`@ VOLTS.Pool.constructor: objectsOrPath is undefined`);
     this.seed = Array.isArray(objectsOrPath) ? objectsOrPath : [objectsOrPath];
     this.objects = [];
-  }
+  };
   private async instantiate(): Promise<any> {
-    return void 0;
+    // **this is missing important steps**
+    const blockInstance = await Blocks.instantiate(this.seed[Math.floor(Math.random() * this.seed.length)], {});
+    this.objects.push(blockInstance);
   }
   public async getObject(): Promise<PooledObject<BlockAsset>> {
     // @ts-expect-error
     let obj: PooledObject<T> = this.objects.pop();
     if (!obj) {
-      obj = this.instantiate();
-    };
+      await this.instantiate();
+      obj = this.objects.pop();
+    }
     obj.returnToPool = () => this.objects.push(obj);
     return obj;
-  };
+  }
   public async populate(amount: number, limitConcurrentPromises: number): Promise<void> {
-    // 
+    await promiseAllConcurrent(limitConcurrentPromises, true)(new Array(amount).fill(this.instantiate.bind(this)));
   };
   get hasPreInstancedObjectsAvailable(): boolean {
     return this.objects.length > 0;
