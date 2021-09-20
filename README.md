@@ -32,9 +32,16 @@ npm i
 
 # v3.0.0 plans
 
-- [ ] Add Quaternions
-- [ ] Add basic Object3D, basic implementation found on the cloth project
-- [ ] Multipeer support (?) -- may be pushed back to v4 or 5
+- [x] Add Quaternions
+- [x] Add an Object3D class, basic implementation found on the cloth project
+- [ ] Add a `Pool` class, which will create a pool of dynamically instanced objects
+- [ ] Multipeer support (?) -- may be pushed back to v4 or 5. [See](https://github.com/tomaspietravallo/sparkar-volts/commit/47bc2f6384be41ee5c6f1d8d65d3f31fb1db4a61)
+
+> Multipeer features might get developed locally, or using some sort of obfuscation (?) that only allows people with access to the API to develop...
+
+# v4.0.0 plans
+- [ ] Use rollup.js to add a minified version of VOLTS
+- Open a PR/issue & add/request features!
 
 ## CI / npm package publishing
 
@@ -44,7 +51,7 @@ If you feel an update is required, please, do not hesitate to request that a maj
 
 > Note: An npm token `NPM_TOKEN` is already set up as part of the repo env, to be used by future actions
 
-However, there are actions set up to update coverage badges & test code on PRs/push
+However, there are actions set up to test code on PRs/push
 
 # Notes
 
@@ -68,7 +75,7 @@ interface InternalSignals {
 
 > Note, as of v2.0.0-beta.2, addToSnapshot and removeFromSnapshot will prevent you from overwriting/ removing these signals
 
-# Lifecycle
+# World instance lifecycle
 
 0. Code starts executing...
 1. `VOLTS.World.getInstance()` (first call, creates an instance)
