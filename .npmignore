@@ -5,3 +5,5 @@
 /coverage
 /node_modules
 .github
+# Still experimental
+volts.min.js
