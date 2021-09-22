@@ -43,7 +43,22 @@ npm i
 - [ ] Use rollup.js to add a minified version of VOLTS
 - Open a PR/issue & add/request features!
 
-## CI / npm package publishing
+# two-dot-diff shortcut
+- Replace `COMMIT` with the given SHA
+```
+https://github.com/tomaspietravallo/sparkar-volts/compare/COMMIT..beta
+```
+- One commit prior
+```
+https://github.com/tomaspietravallo/sparkar-volts/compare/beta^..beta
+```
+
+- Five commits prior
+```
+https://github.com/tomaspietravallo/sparkar-volts/compare/beta^^^^^..beta
+```
+
+# CI / npm package publishing
 
 There's no CI workflow for npm packages set up yet, so npm publishing will be carried out manually.
 
