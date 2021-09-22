@@ -27,6 +27,10 @@ describe('quaternion construction', () => {
   test('inf', () => {
     expect(() => new Quaternion(Number.POSITIVE_INFINITY, 1, 1, 1)).toThrow();
   });
+  test('fromEuler', ()=>{
+    const Q = Quaternion.fromEuler(0,0,0);
+    expect(Q.values).toEqual([1,0,0,0]);
+  })
 });
 
 describe('quaternion utils', () => {

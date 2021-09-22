@@ -1,10 +1,10 @@
 //#region imports
-
 import Scene from 'Scene';
 import Diagnostics from 'Diagnostics';
 import Reactive from 'Reactive';
 import Time from 'Time';
-// Persistence may be dynamically imported using `require`
+
+// 👇 may be dynamically imported using `require`
 let Persistence: {
     userScope: {
       get: (s: string) => Promise<object>;
@@ -1053,7 +1053,7 @@ Vector.prototype.copy = function <D extends number>(this: Vector<D>): Vector<D> 
 Vector.prototype.equals = function <D extends number>(this: Vector<D>, b: Vector<number>): boolean {
   return !!b && this.dimension === b.dimension && this.values.every((v, i) => v === b.values[i]);
 };
-Vector.prototype.toString = function (toFixed?: number): string {
+Vector.prototype.toString = function <D extends number>(this: Vector<D>, toFixed?: number): string {
   return `Vector<${this.dimension}> [${(toFixed
     ? this.values.map((v) => v.toFixed(toFixed))
     : this.values
@@ -1108,6 +1108,9 @@ export class Quaternion {
         `@ Vector.constructor: Values provided are not valid. args: ${args}. this.values: ${this.values}`,
       );
   }
+  /**
+   * @description Converts any given QuaternionArgRest into a Quaternion
+   */
   static convertToQuaternion(...args: QuaternionArgRest): Quaternion {
     let tmp = [];
     if (args[0] instanceof Quaternion) {
@@ -1122,9 +1125,34 @@ export class Quaternion {
 
     return new Quaternion(tmp);
   }
+  /**
+   * @returns the identity ( `Quaternion(0, 0, 0, 1)` )
+   */
   static identity(): Quaternion {
     return new Quaternion(0, 0, 0, 1);
   }
+  /**
+   * @description Create a Quaternion from an Euler angle, provided as any valid 3D VectorArgRest
+   * @param args Any valid VectorArgRest, you can simply use an array of length 3
+   */
+  static fromEuler(...args: VectorArgRest): Quaternion {
+    const euler = Vector.convertToSameDimVector(3, ...args);
+    const yaw = euler.values[2];
+    const pitch = euler.values[1];
+    const roll = euler.values[0];
+    const cy = Math.cos(yaw * 0.5);
+    const sy = Math.sin(yaw * 0.5);
+    const cp = Math.cos(pitch * 0.5);
+    const sp = Math.sin(pitch * 0.5);
+    const cr = Math.cos(roll * 0.5);
+    const sr = Math.sin(roll * 0.5);
+    return new Quaternion(
+      cr * cp * cy + sr * sp * sy,
+      sr * cp * cy - cr * sp * sy,
+      cr * sp * cy + sr * cp * sy,
+      cr * cp * sy - sr * sp * cy
+    );
+  };
   toQuaternionSignal(): QuaternionSignal {
     return Reactive.quaternion(this.values[0], this.values[1], this.values[2], this.values[3]);
   }
@@ -1141,7 +1169,12 @@ export class Quaternion {
   }
   add(...other: QuaternionArgRest): Quaternion {
     const b = Quaternion.convertToQuaternion(...other).values;
-    this.values = this.values.map((v, i) => v + b[i]);
+    this.values = [
+      this.values[0] + b[0],
+      this.values[1] + b[1],
+      this.values[2] + b[2],
+      this.values[3] + b[3],
+    ];
     return this;
   }
   copy(): Quaternion {
