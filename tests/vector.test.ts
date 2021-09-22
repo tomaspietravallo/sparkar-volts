@@ -89,6 +89,31 @@ describe('vector utils', () => {
       expect(vecOnFocal.z).toEqual(new Camera('camera-mock').focalPlane.distance.pinLastValue());
     });
   });
+  test('random2D', ()=>{
+    const vec2 = Vector.random2D();
+    expect(vec2.dimension).toEqual(2);
+    expect(vec2.mag()).toBeCloseTo(1);
+  });
+  test('random3D', ()=>{
+    const vec3 = Vector.random3D();
+    expect(vec3.dimension).toEqual(3);
+    expect(vec3.mag()).toBeCloseTo(1);
+  });
+  test('copy', () => {
+    const a = new Vector([1, 2, 3]);
+    const b = a.copy();
+    expect(a).toEqual(b);
+    b.add(0.1);
+    expect(a).not.toEqual(b);
+    a.add(0.1);
+    expect(a).toEqual(b);
+  });
+  test('equals', () => {
+    expect(new Vector().equals(new Vector())).toEqual(true);
+    expect(new Vector([0]).equals(new Vector([0, 0]))).toEqual(false);
+    expect(new Vector(-1, 2).equals(new Vector(-1, 2))).toEqual(true);
+    expect(new Vector(0, 0).equals(undefined)).toEqual(false);
+  });
 });
 
 describe('math operations', () => {
@@ -150,6 +175,13 @@ describe('math operations', () => {
     expect(new Vector([1]).mag()).toEqual(1);
     expect(new Vector([2]).mag()).toEqual(2);
     expect(new Vector([1, 2, 3]).mag()).toEqual(Math.sqrt(14));
+    expect(new Vector([0,1]).mag()).toBeCloseTo(1);
+  });
+  test('setMag', ()=>{
+    const vec = new Vector(0, 0.1, 0);
+    vec.setMag(1);
+    expect(vec.mag()).toBeCloseTo(1);
+    expect(vec.y).toBeCloseTo(1);
   });
   test('abs', () => {
     expect(new Vector([-1]).abs().values).toEqual([1]);
@@ -160,21 +192,6 @@ describe('math operations', () => {
     expect(new Vector([-1]).normalize().values).toEqual([-1]);
     expect(new Vector([1]).normalize().values).toEqual([1]);
     expect(new Vector([1, 1]).normalize().values).toEqual([1 / Math.sqrt(2), 1 / Math.sqrt(2)]);
-  });
-  test('copy', () => {
-    const a = new Vector([1, 2, 3]);
-    const b = a.copy();
-    expect(a).toEqual(b);
-    b.add(0.1);
-    expect(a).not.toEqual(b);
-    a.add(0.1);
-    expect(a).toEqual(b);
-  });
-  test('equals', () => {
-    expect(new Vector().equals(new Vector())).toEqual(true);
-    expect(new Vector([0]).equals(new Vector([0, 0]))).toEqual(false);
-    expect(new Vector(-1, 2).equals(new Vector(-1, 2))).toEqual(true);
-    expect(new Vector(0, 0).equals(undefined)).toEqual(false);
   });
   test('heading', () => {
     expect(new Vector(1, 1).heading()).toBeCloseTo(0.785398163);

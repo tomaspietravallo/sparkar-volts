@@ -95,6 +95,11 @@ interface TimedEvent {
 
 //#endregion
 
+//#region constants
+const PI = 3.14159265359;
+const TWO_PI = 6.28318530718;
+//#endregion
+
 //#region utils
 //#region getUUIDv4
 /**
@@ -809,6 +814,7 @@ interface NDVectorInstance<D extends number> {
   distance(...other: VectorArgRest): number;
   magSq(): number;
   mag(): number;
+  setMag(newMag: number): Vector<D>;
   abs(): Vector<D>;
   copy(): Vector<D>;
   normalize(): Vector<D>;
@@ -878,8 +884,9 @@ interface NDVector {
       ? 3
       : sT extends Vec4Signal
       ? 4
-      : number
-  >;
+      : number>;
+    random2D(): Vector<2>;
+    random3D(): Vector<3>;
 }
 
 type getVecTypeForD<D extends number> = D extends 1
@@ -911,7 +918,7 @@ export const Vector = function <D extends number, args extends VectorArgRest = [
     this.values = args[0];
   } else if (args.length === 1) {
     this.values = [args[0], args[0], args[0]];
-  } else if (!args[0]) {
+  } else if (args[0] == undefined) {
     this.values = [0, 0, 0];
   } else {
     this.values = args as number[];
@@ -998,6 +1005,18 @@ Vector.fromSignal = function (s: any) {
   }
   return new Vector(tmp);
 };
+Vector.random2D = function random2D(): Vector<2> {
+  const angle = Math.random();
+  return new Vector(Math.cos(angle), Math.sin(angle));
+};
+Vector.random3D = function random3D(): Vector<3> {
+  const angle = Math.random() * TWO_PI;
+  const vz = Math.random() * 2 - 1;
+  const vzBase = Math.sqrt(1 - vz * vz);
+  const vx = vzBase * Math.cos(angle);
+  const vy = vzBase * Math.sin(angle);
+  return new Vector(vx, vy, vz);
+};
 //#endregion
 //#region common
 Vector.prototype.add = function <D extends number>(this: Vector<D>, ...args: VectorArgRest): Vector<D> {
@@ -1036,6 +1055,9 @@ Vector.prototype.magSq = function <D extends number>(this: Vector<D>): number {
 };
 Vector.prototype.mag = function <D extends number>(this: Vector<D>): number {
   return this.values.map((v) => v * v).reduce((acc, val) => acc + val) ** 0.5;
+};
+Vector.prototype.setMag = function <D extends number>(this: Vector<D>, newMag: number) {
+  return this.normalize().mul(newMag);
 };
 Vector.prototype.abs = function <D extends number>(this: Vector<D>): Vector<D> {
   this.values = this.values.map((v) => (v < 0 ? -v : v));
