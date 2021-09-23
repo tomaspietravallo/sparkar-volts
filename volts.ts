@@ -64,6 +64,11 @@ type SnapshotToVanilla<Obj> = {
     : Obj[Property];
 };
 
+type ReactiveToVanilla<T> = T extends ScalarSignal ? number : 
+    T extends StringSignal ? string :
+    T extends BoolSignal   ? boolean
+    : any;
+
 interface onFramePerformanceData {
   fps: number;
   delta: number;
@@ -1420,17 +1425,24 @@ type PooledObject<obj> = obj & { returnToPool: () => void };
 export class Pool {
   protected objects: BlockAsset[];
   protected seed: string[] | BlockAsset[];
-  constructor(objectsOrPath: string | string[] | BlockAsset | BlockAsset[]) {
+  protected root: SceneObjectBase;
+  constructor(objectsOrPath: string | string[] | BlockAsset | BlockAsset[], root: string | SceneObjectBase, initialState: {[Prop in keyof SceneObjectBase]+?: SceneObjectBase[Prop] | ReactiveToVanilla<SceneObjectBase[Prop]> } = { hidden: true }) {
     if (!Blocks) Blocks = require('Blocks');
+    if (!Blocks.instantiate) throw new Error(`@ VOLTS.Pool.constructor: Dynamic instances capability is not enabled.\n\nPlease go to Project > Properties > Capabilities > + Scripting Dynamic Instantiation`);
     if (!objectsOrPath) throw new Error(`@ VOLTS.Pool.constructor: objectsOrPath is undefined`);
     this.seed = Array.isArray(objectsOrPath) ? objectsOrPath : [objectsOrPath];
     this.objects = [];
+    // @ts-expect-error
+    // Promise.resolve pushed further down to Pool.instantiate
+    this.root = typeof root === 'string' ? Scene.root.findFirst(root) : root;
   };
   private async instantiate(): Promise<any> {
-    // **this is missing important steps**
     const blockInstance = await Blocks.instantiate(this.seed[Math.floor(Math.random() * this.seed.length)], {});
     this.objects.push(blockInstance);
-  }
+    // @ts-expect-error
+    this.root = this.root.then ? (await this.root) : this.root;
+    await this.root.addChild(blockInstance);
+  };
   public async getObject(): Promise<PooledObject<BlockAsset>> {
     // @ts-expect-error
     let obj: PooledObject<T> = this.objects.pop();
@@ -1440,13 +1452,20 @@ export class Pool {
     }
     obj.returnToPool = () => this.objects.push(obj);
     return obj;
-  }
+  };
   public async populate(amount: number, limitConcurrentPromises: number): Promise<void> {
     await promiseAllConcurrent(limitConcurrentPromises, true)(new Array(amount).fill(this.instantiate.bind(this)));
   };
+  public async switchRoot(newRoot: string | SceneObjectBase) {
+    this.root = typeof newRoot === 'string' ? await Scene.root.findFirst(newRoot).catch(()=>undefined) : newRoot;
+    if (!this.root) throw new Error(`Error @ VOLTS.Pool.switchRoot: Scene.root.findFirst was unable to find the provided root: "${newRoot}"`);
+  };
   get hasPreInstancedObjectsAvailable(): boolean {
     return this.objects.length > 0;
-  }
+  };
+  get preInstancedObjectsCount(): number { 
+    return this.objects.length;
+  };
 }
 
 //#endregion
