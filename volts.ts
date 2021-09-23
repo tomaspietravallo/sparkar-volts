@@ -150,6 +150,7 @@ type LogLevels = 'log' | 'warn' | 'error' | 'throw';
 
 interface Reporters {
   asIssue: (lvl?: LogLevels) => void;
+  asBackwardsCompatibleDiagnosticsError: ()=>void;
 }
 
 type reportFn = ((...msg: string[] | [object]) => Reporters) & {
@@ -188,12 +189,15 @@ export const report: reportFn = function report(...msg: string[] | [object]): Re
 
   return {
     asIssue: (lvl: LogLevels = 'warn') => {
-      message = new Error(`${msg}`);
+      message = new Error(`${message}`);
       const info = `This issue arose during execution.\nIf you believe it's related to VOLTS itself, please report it as a Github issue here: https://github.com/tomaspietravallo/sparkar-volts/issues\nPlease make your report detailed (include this message too!), and if possible, include a package of your current project`;
       message = `Message: ${message.message ? message.message : message}\n\n.Info: ${info}\n\nStack: ${
         message.stack ? message.stack : undefined
       }`;
       toLogLevel(lvl, message);
+    },
+    asBackwardsCompatibleDiagnosticsError: () => {
+      Diagnostics.error ? Diagnostics.error(message) : Diagnostics.warn ? Diagnostics.warn(message) : Diagnostics.log(message)
     },
   };
 } as any;
@@ -529,7 +533,7 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
         0,
       );
     };
-
+    
     loop();
 
     return true;
@@ -549,7 +553,7 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
   public forceAssetReload(): Promise<void> {
     return this.internalData.initPromise();
   }
-  public stop({ clearTimedEvents = false } = { clearTimedEvents: false }): boolean {
+  public stop({ clearTimedEvents } = { clearTimedEvents: false }): boolean {
     if (!this.internalData.running) return false;
 
     this.internalData.running = false;
@@ -566,11 +570,15 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
    */
   public emitEvent(event: string, ...args: any[]): void {
     const shouldBind = ['load', 'frameUpdate', 'internal'].some((e) => e === event);
-    if (!shouldBind) {
-      (this.internalData.events[event] || []).forEach((i) => i(...args));
-    } else {
-      (this.internalData.events[event] || []).forEach((i) => i.bind(this)(...args));
-    }
+    const evts = (this.internalData.events[event] || []);
+    for (let index = 0; index < evts.length; index++) {
+      const event = evts[index];
+      if (shouldBind) {
+        event.bind(this)(...args)
+      } else {
+        event(...args)
+      };
+    };
   }
   /**
    * @author Andrey Sitnik
@@ -747,9 +755,7 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
       const [dim, uuid] = signals[name];
 
       if (!Number.isFinite(dim) || dim == 0 || dim > 4)
-        throw new Error(
-          `@ Volts.World.formattedSnapshotToUserFriendly: dimension of signals[name] not 1|2|3|4. Dim: ${dim}. Name: ${name}.\n\nPlease report this on Github as an issue\n\nExtra data:\nKeys: ${keys}`,
-        );
+        report(`@ Volts.World.formattedSnapshotToUserFriendly: dimension of signals[name] not 1|2|3|4. Dim: ${dim}. Name: ${name}.\n\nKeys: ${keys}`,).asIssue('throw');
 
       const arr: any[] = [];
       const letters = ['X', 'Y', 'Z', 'W'];
@@ -758,8 +764,8 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
       }
 
       result[name] = dim >= 2 ? new Vector(arr) : arr[0];
-    }
-    // @ts-ignore
+    };
+
     return result;
   }
 
