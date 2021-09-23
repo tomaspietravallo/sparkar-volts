@@ -207,8 +207,13 @@ describe('snapshot', () => {
 
 describe('test real world use cases', () => {
   test('load objects - mode.no_auto', async () => {
-    expect.assertions(4);
+    expect.assertions(6);
     privates.clearVoltsWorld();
+
+    const fake = jest.fn();
+    World.subscribeToInstance(fake);
+    expect(fake).toHaveBeenCalledTimes(0);
+
     const world = World.getInstance({
       mode: PRODUCTION_MODES.NO_AUTO,
       assets: {
@@ -218,12 +223,12 @@ describe('test real world use cases', () => {
     expect(world.running).toEqual(false);
     // @ts-ignore
     await world.rawInitPromise.then(() => {
+      expect(fake).toHaveBeenCalledTimes(1);
       expect(world.loaded).toEqual(true);
       expect(world.running).toEqual(false);
       expect(world.stop()).toEqual(false);
     });
   });
-
   test('run - mode.dev', async () => {
     // expect.assertions(6);
     privates.clearVoltsWorld();
@@ -256,7 +261,6 @@ describe('test real world use cases', () => {
 
     World.getInstance().stop();
   }, 500);
-
   test('onEvent & emitEvent', async () => {
     privates.clearVoltsWorld();
 
