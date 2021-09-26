@@ -14,11 +14,11 @@ let Persistence: {
   },
   Multipeer: {},
   Blocks: {
-    instantiate: (blockOrName: string, initialState: {[key: string]: any})=>Promise<BlockSceneRoot>
+    instantiate: (blockOrName: string, initialState: { [key: string]: any }) => Promise<BlockSceneRoot>;
     assets: {
-      findFirst: (name: string)=>Promise<any>
-    }
-  }
+      findFirst: (name: string) => Promise<any>;
+    };
+  };
 //#endregion
 
 //#region types
@@ -64,10 +64,13 @@ type SnapshotToVanilla<Obj> = {
     : Obj[Property];
 };
 
-type ReactiveToVanilla<T> = T extends ScalarSignal ? number : 
-    T extends StringSignal ? string :
-    T extends BoolSignal   ? boolean
-    : any;
+type ReactiveToVanilla<T> = T extends ScalarSignal
+  ? number
+  : T extends StringSignal
+  ? string
+  : T extends BoolSignal
+  ? boolean
+  : any;
 
 interface onFramePerformanceData {
   fps: number;
@@ -155,7 +158,7 @@ type LogLevels = 'log' | 'warn' | 'error' | 'throw';
 
 interface Reporters {
   asIssue: (lvl?: LogLevels) => void;
-  asBackwardsCompatibleDiagnosticsError: ()=>void;
+  asBackwardsCompatibleDiagnosticsError: () => void;
 }
 
 type reportFn = ((...msg: string[] | [object]) => Reporters) & {
@@ -202,7 +205,11 @@ export const report: reportFn = function report(...msg: string[] | [object]): Re
       toLogLevel(lvl, message);
     },
     asBackwardsCompatibleDiagnosticsError: () => {
-      Diagnostics.error ? Diagnostics.error(message) : Diagnostics.warn ? Diagnostics.warn(message) : Diagnostics.log(message)
+      Diagnostics.error
+        ? Diagnostics.error(message)
+        : Diagnostics.warn
+        ? Diagnostics.warn(message)
+        : Diagnostics.log(message);
     },
   };
 } as any;
@@ -538,7 +545,7 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
         0,
       );
     };
-    
+
     loop();
 
     return true;
@@ -575,15 +582,15 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
    */
   public emitEvent(event: string, ...args: any[]): void {
     const shouldBind = ['load', 'frameUpdate', 'internal'].some((e) => e === event);
-    const evts = (this.internalData.events[event] || []);
+    const evts = this.internalData.events[event] || [];
     for (let index = 0; index < evts.length; index++) {
       const event = evts[index];
       if (shouldBind) {
-        event.bind(this)(...args)
+        event.bind(this)(...args);
       } else {
-        event(...args)
-      };
-    };
+        event(...args);
+      }
+    }
   }
   /**
    * @author Andrey Sitnik
@@ -760,7 +767,9 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
       const [dim, uuid] = signals[name];
 
       if (!Number.isFinite(dim) || dim == 0 || dim > 4)
-        report(`@ Volts.World.formattedSnapshotToUserFriendly: dimension of signals[name] not 1|2|3|4. Dim: ${dim}. Name: ${name}.\n\nKeys: ${keys}`,).asIssue('throw');
+        report(
+          `@ Volts.World.formattedSnapshotToUserFriendly: dimension of signals[name] not 1|2|3|4. Dim: ${dim}. Name: ${name}.\n\nKeys: ${keys}`,
+        ).asIssue('throw');
 
       const arr: any[] = [];
       const letters = ['X', 'Y', 'Z', 'W'];
@@ -769,7 +778,7 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
       }
 
       result[name] = dim >= 2 ? new Vector(arr) : arr[0];
-    };
+    }
 
     return result;
   }
@@ -895,9 +904,10 @@ interface NDVector {
       ? 3
       : sT extends Vec4Signal
       ? 4
-      : number>;
-    random2D(): Vector<2>;
-    random3D(): Vector<3>;
+      : number
+  >;
+  random2D(): Vector<2>;
+  random3D(): Vector<3>;
 }
 
 type getVecTypeForD<D extends number> = D extends 1
@@ -1183,9 +1193,9 @@ export class Quaternion {
       cr * cp * cy + sr * sp * sy,
       sr * cp * cy - cr * sp * sy,
       cr * sp * cy + sr * cp * sy,
-      cr * cp * sy - sr * sp * cy
+      cr * cp * sy - sr * sp * cy,
     );
-  };
+  }
   toQuaternionSignal(): QuaternionSignal {
     return Reactive.quaternion(this.values[0], this.values[1], this.values[2], this.values[3]);
   }
@@ -1202,12 +1212,7 @@ export class Quaternion {
   }
   add(...other: QuaternionArgRest): Quaternion {
     const b = Quaternion.convertToQuaternion(...other).values;
-    this.values = [
-      this.values[0] + b[0],
-      this.values[1] + b[1],
-      this.values[2] + b[2],
-      this.values[3] + b[3],
-    ];
+    this.values = [this.values[0] + b[0], this.values[1] + b[1], this.values[2] + b[2], this.values[3] + b[3]];
     return this;
   }
   copy(): Quaternion {
@@ -1426,23 +1431,35 @@ export class Pool {
   protected objects: BlockAsset[];
   protected seed: string[] | BlockAsset[];
   protected root: SceneObjectBase | Promise<SceneObjectBase>;
-  constructor(objectsOrPath: string | string[] | BlockAsset | BlockAsset[], root?: string | SceneObjectBase, initialState: {[Prop in keyof SceneObjectBase]+?: SceneObjectBase[Prop] | ReactiveToVanilla<SceneObjectBase[Prop]> } = { hidden: true }) {
+  constructor(
+    objectsOrPath: string | string[] | BlockAsset | BlockAsset[],
+    root?: string | SceneObjectBase,
+    initialState: {
+      [Prop in keyof SceneObjectBase]+?: SceneObjectBase[Prop] | ReactiveToVanilla<SceneObjectBase[Prop]>;
+    } = { hidden: true },
+  ) {
     if (!Blocks) Blocks = require('Blocks');
-    if (!Blocks.instantiate) throw new Error(`@ VOLTS.Pool.constructor: Dynamic instances capability is not enabled.\n\nPlease go to Project > Properties > Capabilities > + Scripting Dynamic Instantiation`);
+    if (!Blocks.instantiate)
+      throw new Error(
+        `@ VOLTS.Pool.constructor: Dynamic instances capability is not enabled.\n\nPlease go to Project > Properties > Capabilities > + Scripting Dynamic Instantiation`,
+      );
     if (!objectsOrPath) throw new Error(`@ VOLTS.Pool.constructor: objectsOrPath is undefined`);
     this.seed = Array.isArray(objectsOrPath) ? objectsOrPath : [objectsOrPath];
     this.objects = [];
     // Promise.resolve pushed further down to Pool.instantiate
     if (root) this.root = this.switchRoot(root);
-  };
+  }
   protected async instantiate(): Promise<any> {
     const blockInstance = await Blocks.instantiate(this.seed[Math.floor(Math.random() * this.seed.length)], {});
     this.objects.push(blockInstance);
     // @ts-ignore
-    this.root = (this.root || {}).then ? (await this.root.catch(()=>undefined)) : this.root;
-    if (!this.root || !this.root.addChild) throw new Error(`@ VOLTS.Pool.instantiate: No root was provided, or the string provided did not match a valid SceneObject`);
+    this.root = (this.root || {}).then ? await this.root.catch(() => undefined) : this.root;
+    if (!this.root || !this.root.addChild)
+      throw new Error(
+        `@ VOLTS.Pool.instantiate: No root was provided, or the string provided did not match a valid SceneObject`,
+      );
     await this.root.addChild(blockInstance);
-  };
+  }
   public async getObject(): Promise<PooledObject<BlockAsset>> {
     // @ts-expect-error
     let obj: PooledObject<T> = this.objects.pop();
@@ -1452,21 +1469,24 @@ export class Pool {
     }
     obj.returnToPool = () => this.objects.push(obj);
     return obj;
-  };
+  }
   public async populate(amount: number, limitConcurrentPromises: number): Promise<void> {
     await promiseAllConcurrent(limitConcurrentPromises, true)(new Array(amount).fill(this.instantiate.bind(this)));
-  };
+  }
   public async switchRoot(newRoot: string | SceneObjectBase): Promise<SceneObjectBase> {
-    this.root = typeof newRoot === 'string' ? await Scene.root.findFirst(newRoot).catch(()=>undefined) : newRoot;
-    if (!this.root) throw new Error(`Error @ VOLTS.Pool.switchRoot: Scene.root.findFirst was unable to find the provided root: "${newRoot}"`);
+    this.root = typeof newRoot === 'string' ? await Scene.root.findFirst(newRoot).catch(() => undefined) : newRoot;
+    if (!this.root)
+      throw new Error(
+        `Error @ VOLTS.Pool.switchRoot: Scene.root.findFirst was unable to find the provided root: "${newRoot}"`,
+      );
     return this.root;
-  };
+  }
   get hasPreInstancedObjectsAvailable(): boolean {
     return this.objects.length > 0;
-  };
-  get preInstancedObjectsCount(): number { 
+  }
+  get preInstancedObjectsCount(): number {
     return this.objects.length;
-  };
+  }
 }
 
 //#endregion

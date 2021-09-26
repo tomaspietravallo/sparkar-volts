@@ -40,20 +40,26 @@ npm i
 > Multipeer features might get developed locally, or using some sort of obfuscation (?) that only allows people with access to the API to develop...
 
 # v4.0.0 plans
+
 - [ ] Use rollup.js to add a minified version of VOLTS
 - Open a PR/issue & add/request features!
 
 # two-dot-diff shortcut
+
 - Replace `COMMIT` with the given SHA
+
 ```
 https://github.com/tomaspietravallo/sparkar-volts/compare/COMMIT..beta
 ```
+
 - One commit prior
+
 ```
 https://github.com/tomaspietravallo/sparkar-volts/compare/beta^..beta
 ```
 
 - Five commits prior
+
 ```
 https://github.com/tomaspietravallo/sparkar-volts/compare/beta^^^^^..beta
 ```

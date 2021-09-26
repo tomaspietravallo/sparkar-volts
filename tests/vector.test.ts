@@ -89,12 +89,12 @@ describe('vector utils', () => {
       expect(vecOnFocal.z).toEqual(new Camera('camera-mock').focalPlane.distance.pinLastValue());
     });
   });
-  test('random2D', ()=>{
+  test('random2D', () => {
     const vec2 = Vector.random2D();
     expect(vec2.dimension).toEqual(2);
     expect(vec2.mag()).toBeCloseTo(1);
   });
-  test('random3D', ()=>{
+  test('random3D', () => {
     const vec3 = Vector.random3D();
     expect(vec3.dimension).toEqual(3);
     expect(vec3.mag()).toBeCloseTo(1);
@@ -175,9 +175,9 @@ describe('math operations', () => {
     expect(new Vector([1]).mag()).toEqual(1);
     expect(new Vector([2]).mag()).toEqual(2);
     expect(new Vector([1, 2, 3]).mag()).toEqual(Math.sqrt(14));
-    expect(new Vector([0,1]).mag()).toBeCloseTo(1);
+    expect(new Vector([0, 1]).mag()).toBeCloseTo(1);
   });
-  test('setMag', ()=>{
+  test('setMag', () => {
     const vec = new Vector(0, 0.1, 0);
     vec.setMag(1);
     expect(vec.mag()).toBeCloseTo(1);

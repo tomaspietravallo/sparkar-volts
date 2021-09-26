@@ -20,7 +20,7 @@ export class SceneObjectBase {
   }
   async addChild(child: SceneObjectBase): Promise<void> {
     if (!child) throw new Error(`No child was provided @ mock.Scene.SceneObjectBase.addChild`);
-    return
+    return;
   }
 }
 

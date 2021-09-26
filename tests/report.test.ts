@@ -34,10 +34,10 @@ describe('report', () => {
     expect(() => privates.report('line1', 'line2', 'line3').asIssue()).not.toThrow();
     expect(Diagnostics.warn).toHaveBeenCalledTimes(1);
   });
-  test('asBackwardsCompatibleDiagnosticsError', ()=>{
-    report('msg', ).asBackwardsCompatibleDiagnosticsError();
+  test('asBackwardsCompatibleDiagnosticsError', () => {
+    report('msg').asBackwardsCompatibleDiagnosticsError();
     expect(Diagnostics.error).toHaveBeenCalledTimes(1);
-  })
+  });
 });
 
 describe('getSceneInfo', () => {
