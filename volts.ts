@@ -1349,7 +1349,7 @@ export class State<Data extends { [key: string]: Vector<any> | number | string |
    * @todo Add support for Reactive values
    * @body Improve the use experience by allowing Reactive values to be used as values
    */
-  setKey(key: keyof Data, value: Vector<any> | number | string | boolean): void {
+  setValue(key: keyof Data, value: Vector<any> | number | string | boolean): void {
     // @ts-ignore
     this.data[key] = value instanceof Vector ? value.copy() : value;
     // rate limit (?)

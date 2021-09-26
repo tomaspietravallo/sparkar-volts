@@ -34,7 +34,7 @@ describe('loadState', () => {
   test('expected', async () => {
     const data = 'some-data';
     const state = new State('key');
-    state.setKey('someData', data);
+    state.setValue('someData', data);
     // @ts-ignore
     state.wipe();
     // @ts-ignore
@@ -43,7 +43,7 @@ describe('loadState', () => {
   });
   test('never resolve', async () => {
     const state = new State('never');
-    state.setKey('someData', 'some-data');
+    state.setValue('someData', 'some-data');
     // @ts-ignore
     state.wipe();
     // @ts-ignore
@@ -54,7 +54,7 @@ describe('loadState', () => {
     //
     const data = new Vector(1, 2, 3);
     const state = new State<{ someData: Vector<3> }>('key');
-    state.setKey('someData', data);
+    state.setValue('someData', data);
     // @ts-ignore
     state.wipe();
     // @ts-ignore
