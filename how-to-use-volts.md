@@ -34,7 +34,7 @@ const myVec = new Vector();
 
 There are many different parts that make up `volts`, below, you can find a list to their respective documentations
 
-* [Vector](volts.vector/vector.md)
-* [World](volts.world/volts.world.md)
+* [Vector](volts.vector/overview.md)
+* [World](volts.world/overview.md)
 * [transformAcrossSpaces](extra-utils/transformacrossspaces.md)
 
