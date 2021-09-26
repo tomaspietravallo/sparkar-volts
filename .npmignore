@@ -7,3 +7,7 @@
 .github
 # Still experimental
 volts.min.js
+testing.ts
+tests/*
+jest.*
+.*
