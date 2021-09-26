@@ -28,7 +28,7 @@ describe('dynamic-string pool', () => {
     const pool = new Pool('name');
     expect(pool.hasPreInstancedObjectsAvailable).toBeFalsy();
     expect(pool.getObject()).rejects.toThrow();
-    await pool.switchRoot('any-scene-obj-or-string');
+    await pool.setRoot('any-scene-obj-or-string');
     expect(pool.getObject()).resolves.toBeDefined();
   });
   test('fail to find object', async () => {
@@ -37,7 +37,7 @@ describe('dynamic-string pool', () => {
   });
   test('fail to find root', async () => {
     const pool = new Pool('any');
-    await expect(pool.switchRoot('fail')).rejects.toThrow();
+    await expect(pool.setRoot('fail')).rejects.toThrow();
     await expect(pool.getObject()).rejects.toThrow();
   });
 });

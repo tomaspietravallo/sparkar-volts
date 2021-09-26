@@ -1447,7 +1447,7 @@ export class Pool {
     this.seed = Array.isArray(objectsOrPath) ? objectsOrPath : [objectsOrPath];
     this.objects = [];
     // Promise.resolve pushed further down to Pool.instantiate
-    if (root) this.root = this.switchRoot(root);
+    if (root) this.root = this.setRoot(root);
   }
   protected async instantiate(): Promise<any> {
     const blockInstance = await Blocks.instantiate(this.seed[Math.floor(Math.random() * this.seed.length)], {});
@@ -1473,11 +1473,11 @@ export class Pool {
   public async populate(amount: number, limitConcurrentPromises: number): Promise<void> {
     await promiseAllConcurrent(limitConcurrentPromises, true)(new Array(amount).fill(this.instantiate.bind(this)));
   }
-  public async switchRoot(newRoot: string | SceneObjectBase): Promise<SceneObjectBase> {
+  public async setRoot(newRoot: string | SceneObjectBase): Promise<SceneObjectBase> {
     this.root = typeof newRoot === 'string' ? await Scene.root.findFirst(newRoot).catch(() => undefined) : newRoot;
     if (!this.root)
       throw new Error(
-        `Error @ VOLTS.Pool.switchRoot: Scene.root.findFirst was unable to find the provided root: "${newRoot}"`,
+        `Error @ VOLTS.Pool.setRoot: Scene.root.findFirst was unable to find the provided root: "${newRoot}"`,
       );
     return this.root;
   }
