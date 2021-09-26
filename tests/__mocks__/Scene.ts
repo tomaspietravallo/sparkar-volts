@@ -18,6 +18,10 @@ export class SceneObjectBase {
     this.identifier = 'a-unique-identifier';
     this.hidden = Reactive.boolSignal(false);
   }
+  async addChild(child: SceneObjectBase): Promise<void> {
+    if (!child) throw new Error(`No child was provided @ mock.Scene.SceneObjectBase.addChild`);
+    return
+  }
 }
 
 export class Camera extends SceneObjectBase {

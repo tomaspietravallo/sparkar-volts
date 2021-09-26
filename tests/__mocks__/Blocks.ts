@@ -22,14 +22,15 @@ class BlockAsset {
 }
 
 const Blocks = {
-    instantiate: (blockOrName)=>{
+    instantiate: async (blockOrName)=>{
+        const shouldFail = blockOrName.toLowerCase().indexOf('fail') !== -1;
+        if (shouldFail) throw new Error('The block was not found @ Mocks.Blocks.instantiate');
         return new BlockInstance(typeof blockOrName === 'string' ? blockOrName : blockOrName.name)
     },
     assets: {
         findFirst: (s: string): Promise<BlockAsset> => {
             return new Promise((resolve) => {
               const shouldFail = s.toLowerCase().indexOf('fail') !== -1;
-              const reqCamera = s.indexOf('Camera') !== -1;
               if (shouldFail) throw new Error('The object was not found');
               resolve(new BlockAsset(s));
             });
