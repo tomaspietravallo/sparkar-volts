@@ -33,9 +33,9 @@ describe('fetch reactive values', () => {
     const sceneObj: SceneObjectBase = await Scene.root.findFirst('a-scene-obj');
     const obj = new Object3D(sceneObj, true);
 
-    obj.pos = new Vector(1,2,3);
-    obj.rot = new Quaternion(1,0,0,0);
-    obj.update({position: true, rotation: true});
+    obj.pos = new Vector(1, 2, 3);
+    obj.rot = new Quaternion(1, 0, 0, 0);
+    obj.update({ position: true, rotation: true });
 
     expect(obj.pos.values).toEqual([1, 2, 3]);
     expect(obj.rot.values).toEqual([1, 0, 0, 0]);
