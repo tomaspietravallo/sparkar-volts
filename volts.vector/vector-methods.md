@@ -33,8 +33,10 @@ const b = a.copy().add(1); // creates a new Vector and adds 1 to it
 a.values; // [1,2,3] - not modified
 b.values; // [2,3,4] - modified
 
-b.add(1); // only modifies the 'b' Vector
+b.add(1); // only modifies the 'b' Vecto
 ```
+
+
 
 ## add
 
@@ -92,4 +94,38 @@ new Vector(2).mul(1)        // Vector<3> [2,2,2]
 new Vector(2).mul(1,2,3);   // Vector<3> [2,4,6]
 new Vector(2).mul([1,2,3]); // Vector<3> [2,4,6]
 ```
+
+## Vector.random2D
+
+This static method returns a random _unit-length_ 2D Vector
+
+{% tabs %}
+{% tab title="v2" %}
+```typescript
+import { Vector } from 'volts';
+
+const rand2d = Vector.random2D();
+
+rand2d.mag(); // ~1
+rand2d.dimension; // 2
+```
+{% endtab %}
+{% endtabs %}
+
+## Vector.random3D
+
+This static method returns a random unit-length 3D Vector
+
+{% tabs %}
+{% tab title="v2" %}
+```typescript
+import { Vector } from 'volts';
+
+const rand3d = Vector.random3D();
+
+rand3d.mag(); // ~1
+rand3d.dimension; // 3
+```
+{% endtab %}
+{% endtabs %}
 
