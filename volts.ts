@@ -1145,7 +1145,7 @@ export class Quaternion {
   constructor(...args: QuaternionArgRest) {
     if (!args || !args[0]) {
       // Quaternion.identity()
-      this.values = [0, 0, 0, 1];
+      this.values = [1, 0, 0, 0];
     } else if (args[0] instanceof Quaternion) {
       this.values = args[0].values;
     } else if (Array.isArray(args[0])) {
@@ -1176,10 +1176,10 @@ export class Quaternion {
     return new Quaternion(tmp);
   }
   /**
-   * @returns the identity ( `Quaternion(0, 0, 0, 1)` )
+   * @returns the identity ( `Quaternion(1, 0, 0, 0)` )
    */
   static identity(): Quaternion {
-    return new Quaternion(0, 0, 0, 1);
+    return new Quaternion(1, 0, 0, 0);
   }
   /**
    * @description Create a Quaternion from an Euler angle, provided as any valid 3D VectorArgRest
