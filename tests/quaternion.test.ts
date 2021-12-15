@@ -31,20 +31,20 @@ describe('quaternion construction', () => {
     const Q = Quaternion.fromEuler(0, 0, 0);
     expect(Q.values).toEqual([1, 0, 0, 0]);
   });
-  test('createFromAxisAngle', ()=>{
-    expect(()=>Quaternion.createFromAxisAngle(new Vector(), 0)).not.toThrow();
+  test('createFromAxisAngle', () => {
+    expect(() => Quaternion.createFromAxisAngle(new Vector(), 0)).not.toThrow();
   });
-  test('lookAt', ()=>{
-    const a = new Vector(0,-1,0);
-    const b = new Vector(0,1,0);
+  test('lookAt', () => {
+    const a = new Vector(0, -1, 0);
+    const b = new Vector(0, 1, 0);
     const rot = Quaternion.lookAt(a, b);
     expect(rot.w).toBeCloseTo(0.707);
     expect(rot.x).toBeCloseTo(-0.707);
     expect(rot.y).toBeCloseTo(0.0);
     expect(rot.z).toBeCloseTo(0.0);
   });
-  test('lookAtOptimized', ()=>{
-    expect(()=>Quaternion.lookAtOptimized([0,1,0])).not.toThrow();
+  test('lookAtOptimized', () => {
+    expect(() => Quaternion.lookAtOptimized([0, 1, 0])).not.toThrow();
   });
 });
 

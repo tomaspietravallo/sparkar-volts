@@ -35,8 +35,9 @@ npm i
 - [x] Add Quaternions
 - [x] Add an Object3D class, basic implementation found on the cloth project
 - [x] Add a `Pool` class, which will create a pool of dynamically instanced objects
-- [ ] Integrate the changes & fixes made during the \*\*\*\*\*\*\*\*\*\* project (currently under development)
+- [x] Integrate the changes & fixes made during the \*\*\*\*\*\*\*\*\*\* project (currently under development)
 - [ ] Multipeer support (?) -- may be pushed back to v4 or 5. **[See](https://github.com/tomaspietravallo/sparkar-volts/commit/47bc2f6384be41ee5c6f1d8d65d3f31fb1db4a61)**
+- [ ] Improve experience
 
 > Multipeer features might get developed locally, or using some sort of obfuscation (?) that only allows people with access to the API to develop...
 

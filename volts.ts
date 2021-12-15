@@ -1500,6 +1500,18 @@ export class Object3D<T extends SceneObjectBase> implements Object3DSkeleton {
 
 type PooledObject<obj> = obj & { returnToPool: () => void };
 
+enum SceneObjectClassNames {
+  'Plane' = 'Plane',
+  'Canvas' = 'Canvas',
+  'PlanarImage' = 'PlanarImage',
+  'AmbientLightSource' = 'AmbientLightSource',
+  'DirectionalLightSource' = 'DirectionalLightSource',
+  'PointLightSource' = 'PointLightSource',
+  'SpotLightSource' = 'SpotLightSource',
+  'ParticleSystem' = 'ParticleSystem',
+  'SceneObject' = 'SceneObject',
+}
+
 /**
  * @description Still in EARLY development
  */
@@ -1507,6 +1519,7 @@ export class Pool {
   protected objects: BlockAsset[];
   protected seed: string[] | BlockAsset[];
   protected root: SceneObjectBase | Promise<SceneObjectBase>;
+  static SceneObjects: typeof SceneObjectClassNames;
   constructor(
     objectsOrPath: string | string[] | BlockAsset | BlockAsset[],
     root?: string | SceneObjectBase,
@@ -1526,15 +1539,18 @@ export class Pool {
     if (root) this.root = this.setRoot(root);
   }
   protected async instantiate(): Promise<any> {
-    const blockInstance = await Blocks.instantiate(this.seed[Math.floor(Math.random() * this.seed.length)], {});
-    this.objects.push(blockInstance);
+    const assetName = this.seed[Math.floor(Math.random() * this.seed.length)];
+    const i = await (Object.values(SceneObjectClassNames).includes(assetName)
+      ? Scene.create(assetName, {})
+      : Blocks.instantiate(assetName, {}));
+    this.objects.push(i);
     // @ts-ignore
     this.root = (this.root || {}).then ? await this.root.catch(() => undefined) : this.root;
     if (!this.root || !this.root.addChild)
       throw new Error(
         `@ VOLTS.Pool.instantiate: No root was provided, or the string provided did not match a valid SceneObject`,
       );
-    await this.root.addChild(blockInstance);
+    await this.root.addChild(i);
   }
   public async getObject(): Promise<PooledObject<BlockAsset>> {
     // @ts-expect-error
@@ -1564,6 +1580,8 @@ export class Pool {
     return this.objects.length;
   }
 }
+
+Pool.SceneObjects = SceneObjectClassNames;
 
 //#endregion
 
