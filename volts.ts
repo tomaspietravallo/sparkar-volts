@@ -1203,6 +1203,75 @@ export class Quaternion {
       cr * cp * sy - sr * sp * cy,
     );
   }
+  static createFromAxisAngle(axis: Vector<3>, angle: number): Quaternion {
+    const halfAngle = angle * 0.5;
+    const s = Math.sin(halfAngle);
+    const q = new Quaternion();
+    q.values[1] = axis.values[0] * s;
+    q.values[2] = axis.values[1] * s;
+    q.values[3] = axis.values[2] * s;
+    q.values[0] = Math.cos(halfAngle);
+    return q;
+  }
+  /**
+   * @description LookAt function
+   * @param sourcePoint The point where the looker is located in 3D space
+   * @param destPoint The point to look at in 3D space
+   */
+  static lookAt(sourcePoint: Vector<3>, destPoint: Vector<3>): Quaternion {
+    const forwardVector = destPoint.copy().sub(sourcePoint).normalize();
+    const dot = new Vector(0, 0, 1).dot(forwardVector);
+    if (Math.abs(dot + 1.0) < 0.000001) {
+      return new Quaternion(0, 1, 0, 3.1415926535897932);
+    }
+    if (Math.abs(dot - 1.0) < 0.000001) {
+      return new Quaternion([1, 0, 0, 0]);
+    }
+    const rotAngle = Math.acos(dot);
+    const rotAxis = new Vector([0, 0, 1]).cross(forwardVector).normalize();
+    return Quaternion.createFromAxisAngle(rotAxis, rotAngle);
+  }
+  /**
+   * @author Tomas Pietravallo
+   * @description Look at function. Optimized for speed. Borrowed from the early beta versions of Volts
+   * @param headingVector3DArray an array of length 3, containing data pointing from the looker to the object to be watched. Essentially Vector<3>.values
+   */
+  static lookAtOptimized(headingVector3DArray: [number, number, number]): Quaternion {
+    // Heavily inlined and pre-calculated the return is the same as Quaternion.LookAt()
+    // It is assumed that UP is 0,1,0 and that the forward axis points towards 0,0,1
+    // The assumptions above allow for skipping some calculations, since multiplying/adding 0 is irrelevant
+    const forwardVector: number[] = [...headingVector3DArray];
+    let mag = Math.sqrt(forwardVector[0] ** 2 + forwardVector[1] ** 2 + forwardVector[2] ** 2);
+    forwardVector[0] /= mag;
+    forwardVector[1] /= mag;
+    forwardVector[2] /= mag;
+    const dot = forwardVector[2];
+    if (Math.abs(dot + 1) < 0.00001) return new Quaternion(0, 1, 0, 3.1415926535897932);
+    if (Math.abs(dot - 1) < 0.00001) return new Quaternion(1, 0, 0, 0);
+    let rotAngle = Math.acos(dot);
+    const rotAxis = [-forwardVector[1], forwardVector[0], 0];
+    mag = Math.sqrt(rotAxis[0] ** 2 + rotAxis[1] ** 2);
+    rotAxis[0] /= mag;
+    rotAxis[1] /= mag;
+    rotAngle *= 0.5;
+    const s = Math.sin(rotAngle);
+    return new Quaternion(Math.cos(rotAngle), rotAxis[0] * s, rotAxis[1] * s, rotAxis[2] * s);
+
+    // Convert to Spark's Euler angles
+    // Note that because of the singularities, Q -> Euler can produce unexpected results
+    // https://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles
+
+    // let angles = [];
+    // let sinr_cosp = 2 * (q[0] * q[1] + q[2] * q[3]);
+    // let cosr_cosp = 1 - 2 * (q[1] * q[1] + q[2] * q[2]);
+    // angles[0] = Math.atan2(sinr_cosp, cosr_cosp);
+    // let sinp = 2 * (q[0] * q[2] - q[3] * q[3]);
+    // if (Math.abs(sinp) >= 1) {angles[1] = (1.57079632679) * Math.sign(sinp);} else {angles[1] = Math.asin(sinp);}
+    // let siny_cosp = 2 * (q[0] * q[3] + q[1] * q[2]);
+    // let cosy_cosp = 1 - 2 * (q[2] * q[2] + q[3] * q[3]);
+    // angles[2] = Math.atan2(siny_cosp, cosy_cosp);
+    // return new EulerAngles(angles);
+  }
   toQuaternionSignal(): QuaternionSignal {
     return Reactive.quaternion(this.values[0], this.values[1], this.values[2], this.values[3]);
   }

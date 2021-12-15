@@ -1,9 +1,9 @@
-import { Quaternion } from '../volts';
+import { Quaternion, Vector } from '../volts';
 
 describe('quaternion construction', () => {
   test('identity', () => {
     const I = Quaternion.identity();
-    expect(I.values).toEqual([0, 0, 0, 1]);
+    expect(I.values).toEqual([1, 0, 0, 0]);
   });
   test('default', () => {
     const Q = new Quaternion();
@@ -31,6 +31,21 @@ describe('quaternion construction', () => {
     const Q = Quaternion.fromEuler(0, 0, 0);
     expect(Q.values).toEqual([1, 0, 0, 0]);
   });
+  test('createFromAxisAngle', ()=>{
+    expect(()=>Quaternion.createFromAxisAngle(new Vector(), 0)).not.toThrow();
+  });
+  test('lookAt', ()=>{
+    const a = new Vector(0,-1,0);
+    const b = new Vector(0,1,0);
+    const rot = Quaternion.lookAt(a, b);
+    expect(rot.w).toBeCloseTo(0.707);
+    expect(rot.x).toBeCloseTo(-0.707);
+    expect(rot.y).toBeCloseTo(0.0);
+    expect(rot.z).toBeCloseTo(0.0);
+  });
+  test('lookAtOptimized', ()=>{
+    expect(()=>Quaternion.lookAtOptimized([0,1,0])).not.toThrow();
+  });
 });
 
 describe('quaternion utils', () => {
@@ -43,30 +58,30 @@ describe('quaternion utils', () => {
   test('toQuaternionSignal', () => {
     const Q = Quaternion.identity();
     expect(() => Q.toQuaternionSignal()).not.toThrow();
-    expect(Q.toQuaternionSignal().pinLastValue().values).toEqual([0, 0, 0, 1]);
+    expect(Q.toQuaternionSignal().pinLastValue().values).toEqual([1, 0, 0, 0]);
   });
   test('copy', () => {
     const A = Quaternion.identity();
     const B = Quaternion.identity();
-    expect(A.copy().add(B).values).toEqual([0, 0, 0, 2]);
-    expect(A.values).toEqual([0, 0, 0, 1]);
-    expect(B.values).toEqual([0, 0, 0, 1]);
+    expect(A.copy().add(B).values).toEqual([2, 0, 0, 0]);
+    expect(A.values).toEqual([1, 0, 0, 0]);
+    expect(B.values).toEqual([1, 0, 0, 0]);
   });
 });
 
 describe('operations', () => {
   test('add', () => {
     const Q = Quaternion.identity();
-    expect(Q.add(Q).values).toEqual([0, 0, 0, 2]);
+    expect(Q.add(Q).values).toEqual([2, 0, 0, 0]);
   });
   test('normalize', () => {
     const Q = Quaternion.identity();
     Q.add(Q);
-    expect(Q.values).toEqual([0, 0, 0, 2]);
+    expect(Q.values).toEqual([2, 0, 0, 0]);
     Q.normalize();
-    expect(Q.values).toEqual([0, 0, 0, 1]);
+    expect(Q.values).toEqual([1, 0, 0, 0]);
     Q.add(Q);
-    expect(Q.normalized.values).toEqual([0, 0, 0, 1]);
+    expect(Q.normalized.values).toEqual([1, 0, 0, 0]);
   });
 });
 
