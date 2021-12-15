@@ -27,7 +27,7 @@ describe('fetch reactive values', () => {
     const obj = new Object3D(sceneObj, true);
 
     expect(obj.pos.values).toEqual([0, 0, 0]);
-    expect(obj.rot.values).toEqual([0, 0, 0, 1]);
+    expect(obj.rot.values).toEqual([1, 0, 0, 0]);
   });
   test('update', async () => {
     const sceneObj: SceneObjectBase = await Scene.root.findFirst('a-scene-obj');
