@@ -196,17 +196,17 @@ export class ScalarSignal extends NDVectorSignal {
 }
 
 export class scalarSignalSource {
-  constructor(id: string){
+  constructor(id: string) {
     // super()
     if (typeof id !== 'string') throw new Error(`ID is not string`);
-  };
-  set(x: number){
+  }
+  set(x: number) {
     // this._vector.values[0] = x;
   }
-  dispose(){
-    // 
+  dispose() {
+    //
   }
-  get signal(){
+  get signal() {
     return 0;
   }
 }

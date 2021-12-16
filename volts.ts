@@ -366,9 +366,7 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
   protected internalData: InternalWorldData;
   public assets: {
     [Prop in keyof WorldConfigParams['assets']]: WorldConfigParams['assets'][Prop] extends PromiseLike<infer C>
-      ? C extends ArrayLike<any>
-        ? C
-        : Array<C>
+      ? C
       : never;
   };
   public mode: keyof typeof PRODUCTION_MODES;
@@ -474,9 +472,11 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
       // @ts-ignore
       // To be properly typed out. Unfortunately, i think loading everything at once with an array ([...keys.map((n) =>...) would make it very challenging...
       // Might be best to ts-ignore or `as unknown` in this case
-      this.assets[keys[k]] = Array.isArray(getAssets[k]) ? getAssets[k].sort((a, b) => {
-        return a.name.localeCompare(b.name);
-      }) : getAssets[k];
+      this.assets[keys[k]] = Array.isArray(getAssets[k])
+        ? getAssets[k].sort((a, b) => {
+            return a.name.localeCompare(b.name);
+          })
+        : getAssets[k];
       // .map(objBody=>{ return new Object3D(objBody) });
     }
     this.internalData.loaded = true;
@@ -1344,13 +1344,15 @@ export class Quaternion {
   copy(): Quaternion {
     return new Quaternion(this.values);
   }
-  setSignalComponents(): void {             // @ts-expect-error
+  setSignalComponents(): void {
+    // @ts-expect-error
     this.rw && this.rw.set(this.values[0]); // @ts-expect-error
     this.rx && this.rx.set(this.values[1]); // @ts-expect-error
     this.ry && this.ry.set(this.values[2]); // @ts-expect-error
     this.rz && this.rz.set(this.values[3]);
   }
-  disposeSignalResources(): void {// @ts-expect-error
+  disposeSignalResources(): void {
+    // @ts-expect-error
     this.rw && this.rw.dispose(); // @ts-expect-error
     this.rx && this.rx.dispose(); // @ts-expect-error
     this.ry && this.ry.dispose(); // @ts-expect-error
@@ -1391,13 +1393,13 @@ export class Quaternion {
       const c = Quaternion.components[index];
       this[`r${c}`] = Reactive.scalarSignalSource(`quat-${c}-${getUUIDv4()}`);
       this[`r${c}`].set(this[c]);
-    };
+    }
 
     // @ts-expect-error
     this.rs = Reactive.quaternion(this.rw.signal, this.rx.signal, this.ry.signal, this.rz.signal);
 
     return this.rs;
-}
+  }
 }
 
 Quaternion.components = ['w', 'x', 'y', 'z'];
@@ -1542,7 +1544,7 @@ export class Object3D<T extends SceneObjectBase> implements Object3DSkeleton {
     if (stayInPlace) {
       this.fetchLastPosition();
       this.fetchLastRotation();
-    };
+    }
     this.body.transform.position = this.pos.signal;
     this.body.transform.rotation = this.rot.signal;
   }
@@ -1720,4 +1722,7 @@ export default {
 
 //#endregion
 
-(!(Scene.create && Reactive.scalarSignalSource)) && report('Please enable Dynamic Instancing and Writeable Signal Sources in the project capabilities for Volts to work properly').asBackwardsCompatibleDiagnosticsError();
+!(Scene.create && Reactive.scalarSignalSource) &&
+  report(
+    'Please enable Dynamic Instancing and Writeable Signal Sources in the project capabilities for Volts to work properly',
+  ).asBackwardsCompatibleDiagnosticsError();
