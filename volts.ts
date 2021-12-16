@@ -3,6 +3,7 @@ import Scene from 'Scene';
 import Diagnostics from 'Diagnostics';
 import Reactive from 'Reactive';
 import Time from 'Time';
+import Blocks from 'Blocks';
 
 // 👇 may be dynamically imported using `require`
 let Persistence: {
@@ -12,13 +13,7 @@ let Persistence: {
       remove: (s: string) => Promise<boolean>;
     };
   },
-  Multipeer: {},
-  Blocks: {
-    instantiate: (blockOrName: string, initialState: { [key: string]: any }) => Promise<BlockSceneRoot>;
-    assets: {
-      findFirst: (name: string) => Promise<any>;
-    };
-  };
+  Multipeer: {};
 //#endregion
 
 //#region types
@@ -33,13 +28,13 @@ interface FixedLengthArray<T extends any, L extends number> extends Array<T> {
 type Snapshot = { [key: string]: ScalarSignal | Vec2Signal | VectorSignal | Vec4Signal | StringSignal | BoolSignal };
 
 type getDimsOfSignal<S> = S extends Vec4Signal
-  ? 'X4' | 'Y4' | 'Z4' | 'W4'
+  ? 'x4' | 'y4' | 'z4' | 'w4'
   : S extends VectorSignal
-  ? 'X3' | 'Y3' | 'Z3'
+  ? 'x3' | 'y3' | 'z3'
   : S extends Vec2Signal
-  ? 'X2' | 'Y2'
+  ? 'x2' | 'y2'
   : S extends ScalarSignal
-  ? 'X1'
+  ? 'x1'
   : never;
 
 type ObjectToSnapshotable<Obj> = {
@@ -275,6 +270,7 @@ report.getSceneInfo = async function (
     Persistence: !!Persistence,
     Multipeer: !!Multipeer,
     dynamicInstancing: !!Scene.create,
+    writableSignals: !!Reactive.scalarSignalSource,
   };
   return prettifyJSON(info);
 };
@@ -314,7 +310,7 @@ export function transformAcrossSpaces(
 }
 //#endregion
 
-//#region
+//#region randomBetween
 export const randomBetween = (min: number, max: number): number => {
   return Math.random() * (max - min) + min;
 };
@@ -478,9 +474,9 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
       // @ts-ignore
       // To be properly typed out. Unfortunately, i think loading everything at once with an array ([...keys.map((n) =>...) would make it very challenging...
       // Might be best to ts-ignore or `as unknown` in this case
-      this.assets[keys[k]] = (Array.isArray(getAssets[k]) ? getAssets[k] : [getAssets[k]]).sort((a, b) => {
+      this.assets[keys[k]] = Array.isArray(getAssets[k]) ? getAssets[k].sort((a, b) => {
         return a.name.localeCompare(b.name);
-      });
+      }) : getAssets[k];
       // .map(objBody=>{ return new Object3D(objBody) });
     }
     this.internalData.loaded = true;
@@ -724,22 +720,22 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
       if (!signal) throw new Error(`@ (static) signalsToSnapshot_able: value[key] is not defined. Key: "${key}"`);
       if (signal.w) {
         // vec4
-        tmp[getKey(key, 'W4')] = signal.w;
-        tmp[getKey(key, 'Z4')] = signal.z;
-        tmp[getKey(key, 'Y4')] = signal.y;
-        tmp[getKey(key, 'X4')] = signal.x;
+        tmp[getKey(key, 'w4')] = signal.w;
+        tmp[getKey(key, 'z4')] = signal.z;
+        tmp[getKey(key, 'y4')] = signal.y;
+        tmp[getKey(key, 'x4')] = signal.x;
       } else if (signal.z) {
         // vec3
-        tmp[getKey(key, 'Z3')] = signal.z;
-        tmp[getKey(key, 'Y3')] = signal.y;
-        tmp[getKey(key, 'X3')] = signal.x;
+        tmp[getKey(key, 'z3')] = signal.z;
+        tmp[getKey(key, 'y3')] = signal.y;
+        tmp[getKey(key, 'x3')] = signal.x;
       } else if (signal.y) {
         // vec2
-        tmp[getKey(key, 'Y2')] = signal.y;
-        tmp[getKey(key, 'X2')] = signal.x;
+        tmp[getKey(key, 'y2')] = signal.y;
+        tmp[getKey(key, 'x2')] = signal.x;
       } else if (signal.xor || signal.concat || signal.pinLastValue) {
         // bool // string // scalar, this very likely unintentionally catches any and all other signal types, even the ones that can't be snapshot'ed
-        tmp[getKey(key, 'X1')] = signal;
+        tmp[getKey(key, 'x1')] = signal;
       } else {
         throw new Error(
           `@ (static) signalsToSnapshot_able: The provided Signal is not defined or is not supported. Key: "${key}"\n\nPlease consider opening an issue/PR: https://github.com/tomaspietravallo/sparkar-volts/issues`,
@@ -779,9 +775,8 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
         ).asIssue('throw');
 
       const arr: any[] = [];
-      const letters = ['X', 'Y', 'Z', 'W'];
       for (let index = 0; index < dim; index++) {
-        arr.push(snapshot[`CONVERTED::${name}::${letters[index]}${dim}::${uuid}`]);
+        arr.push(snapshot[`CONVERTED::${name}::${Vector.components[index]}${dim}::${uuid}`]);
       }
 
       result[name] = dim >= 2 ? new Vector(arr) : arr[0];
@@ -849,6 +844,9 @@ interface NDVectorInstance<D extends number> {
   toString(toFixed?: number): string;
   get x(): number;
   set x(x: number);
+  get signal(): D extends 2 ? Vec2Signal : D extends 3 ? VectorSignal : D extends 4 ? Vec4Signal : ScalarSignal;
+  setSignalComponents(): void;
+  disposeSignalResources(): void;
 }
 
 interface Vector2DInstance {
@@ -915,6 +913,7 @@ interface NDVector {
   >;
   random2D(): Vector<2>;
   random3D(): Vector<3>;
+  components: ['x', 'y', 'z', 'w'];
 }
 
 type getVecTypeForD<D extends number> = D extends 1
@@ -969,7 +968,31 @@ export const Vector = function <D extends number, args extends VectorArgRest = [
       set:    (z)=>{if (this.dimension < 3) throw new Error(`Cannot get Vector.z, vector is not 3D`);   this.values[2] = z}},
     w: {
       get:    () =>{if (this.dimension < 4) throw new Error(`Cannot get Vector.w, vector is not 4D`);   return this.values[3]},
-      set:    (w)=>{if (this.dimension < 4) throw new Error(`Cannot get Vector.w, vector is not 4D`);   this.values[3] = w}},
+      set:    (w)=>{if (this.dimension < 4) throw new Error(`Cannot get Vector.w, vector is not 4D`);   this.values[3] = w}
+    },
+    signal: {
+      get: () => {
+          // @ts-expect-error
+          if (this.rs) return this.rs;
+
+          for (let index = 0; index < this.dimension; index++) {
+            const c = Vector.components[index];
+            this[`r${c}`] = Reactive.scalarSignalSource(`v${this.dimension}-${c}-${getUUIDv4()}`);
+            this[`r${c}`].set(this[c]);
+          };
+
+          if (this.dimension === 1) {this.rs = this.rx.signal}
+          else if (this.dimension === 2) {this.rs = Reactive.point2d(this.rx.signal, this.ry.signal)}
+          else if (this.dimension === 3) {this.rs = Reactive.vector(this.rx.signal, this.ry.signal, this.rz.signal)}
+          else if (this.dimension === 4)  {this.rs = Reactive.pack4(this.rx.signal, this.ry.signal, this.rz.signal, this.rw.signal)}
+          else {
+            throw new Error(`Tried to get the Signal of a N>4 Vector instance. Signals are only available for Vectors with up to 4 dimensions`);
+          };
+
+          return this.rs;
+        
+      }
+    }
   });
 
   return this;
@@ -1020,14 +1043,25 @@ Vector.screenToWorld = function (x: number, y: number, focalPlane = true): Vecto
     focalPlane ? (Instance.snapshot.__volts__internal__focalDistance as unknown as number) : 0,
   );
 };
-Vector.fromSignal = function (s: any) {
+Vector.fromSignal = function <sT extends ScalarSignal | Vec2Signal | VectorSignal | Vec4Signal>(
+  s: any,
+): Vector<
+  sT extends ScalarSignal
+    ? 1
+    : sT extends Vec2Signal
+    ? 2
+    : sT extends VectorSignal
+    ? 3
+    : sT extends Vec4Signal
+    ? 4
+    : number
+> {
   if (!s) throw new Error(`@ Volts.Vector.fromSignal: s is not defined`);
   const tmp = [];
-  const _ = ['x', 'y', 'z', 'w'];
   // returns a scalar
   if (!s.x) return new Vector([s.pinLastValue()]);
-  for (let index = 0; index < _.length; index++) {
-    const e = s[_[index]];
+  for (let index = 0; index < Vector.components.length; index++) {
+    const e = s[Vector.components[index]];
     if (!e) continue;
     tmp.push(e.pinLastValue());
   }
@@ -1045,6 +1079,7 @@ Vector.random3D = function random3D(): Vector<3> {
   const vy = vzBase * Math.sin(angle);
   return new Vector(vx, vy, vz);
 };
+Vector.components = ['x', 'y', 'z', 'w'];
 //#endregion
 //#region common
 Vector.prototype.add = function <D extends number>(this: Vector<D>, ...args: VectorArgRest): Vector<D> {
@@ -1104,10 +1139,24 @@ Vector.prototype.equals = function <D extends number>(this: Vector<D>, b: Vector
   return !!b && this.dimension === b.dimension && this.values.every((v, i) => v === b.values[i]);
 };
 Vector.prototype.toString = function <D extends number>(this: Vector<D>, toFixed?: number): string {
-  return `Vector<${this.dimension}> [${(toFixed
+  // Writeable Reactive Signal
+  // @ts-expect-error
+  return `Vector<${this.dimension}>${this.rs ? ' (WRS) ' : ''} [${(toFixed
     ? this.values.map((v) => v.toFixed(toFixed))
     : this.values
   ).toString()}]`;
+};
+Vector.prototype.setSignalComponents = function (): void {
+  this.rx && this.rx.set(this.values[0]);
+  this.ry && this.ry.set(this.values[1]);
+  this.rz && this.rz.set(this.values[2]);
+  this.rw && this.rw.set(this.values[3]);
+};
+Vector.prototype.disposeSignalResources = function (): void {
+  this.rx && this.rx.dispose();
+  this.ry && this.ry.dispose();
+  this.rz && this.rz.dispose();
+  this.rw && this.rw.dispose();
 };
 //#endregion
 //#region Vector<3>
@@ -1142,6 +1191,7 @@ type QuaternionArgRest = [number, number, number, number] | [number[]] | [Quater
 
 export class Quaternion {
   values: number[];
+  static components: ['w', 'x', 'y', 'z'];
   constructor(...args: QuaternionArgRest) {
     if (!args || !args[0]) {
       // Quaternion.identity()
@@ -1155,7 +1205,7 @@ export class Quaternion {
     }
     if (!this.values.every((v) => typeof v === 'number' && Number.isFinite(v)) || this.values.length !== 4)
       throw new Error(
-        `@ Vector.constructor: Values provided are not valid. args: ${args}. this.values: ${this.values}`,
+        `@ Quaternion.constructor: Values provided are not valid. args: ${args}. this.values: ${this.values}`,
       );
   }
   /**
@@ -1171,7 +1221,7 @@ export class Quaternion {
       tmp = args;
     }
     if (!tmp.every((v) => typeof v === 'number' && Number.isFinite(v)) || tmp.length !== 4)
-      throw new Error(`@ Vector.constructor: Values provided are not valid. args: ${args}. tmp: ${tmp}`);
+      throw new Error(`@ Quaternion.constructor: Values provided are not valid. args: ${args}. tmp: ${tmp}`);
 
     return new Quaternion(tmp);
   }
@@ -1294,6 +1344,18 @@ export class Quaternion {
   copy(): Quaternion {
     return new Quaternion(this.values);
   }
+  setSignalComponents(): void {             // @ts-expect-error
+    this.rw && this.rw.set(this.values[0]); // @ts-expect-error
+    this.rx && this.rx.set(this.values[1]); // @ts-expect-error
+    this.ry && this.ry.set(this.values[2]); // @ts-expect-error
+    this.rz && this.rz.set(this.values[3]);
+  }
+  disposeSignalResources(): void {// @ts-expect-error
+    this.rw && this.rw.dispose(); // @ts-expect-error
+    this.rx && this.rx.dispose(); // @ts-expect-error
+    this.ry && this.ry.dispose(); // @ts-expect-error
+    this.rz && this.rz.dispose();
+  }
   get normalized(): Quaternion {
     return new Quaternion(this.values).normalize();
   }
@@ -1321,7 +1383,24 @@ export class Quaternion {
   set z(z: number) {
     this.values[3] = z;
   }
+  get signal(): QuaternionSignal {
+    // @ts-expect-error
+    if (this.rs) return this.rs;
+
+    for (let index = 0; index < Quaternion.components.length; index++) {
+      const c = Quaternion.components[index];
+      this[`r${c}`] = Reactive.scalarSignalSource(`quat-${c}-${getUUIDv4()}`);
+      this[`r${c}`].set(this[c]);
+    };
+
+    // @ts-expect-error
+    this.rs = Reactive.quaternion(this.rw.signal, this.rx.signal, this.ry.signal, this.rz.signal);
+
+    return this.rs;
 }
+}
+
+Quaternion.components = ['w', 'x', 'y', 'z'];
 
 //#endregion
 
@@ -1463,7 +1542,9 @@ export class Object3D<T extends SceneObjectBase> implements Object3DSkeleton {
     if (stayInPlace) {
       this.fetchLastPosition();
       this.fetchLastRotation();
-    }
+    };
+    this.body.transform.position = this.pos.signal;
+    this.body.transform.rotation = this.rot.signal;
   }
   fetchLastPosition(): Vector<3> {
     return (this.pos = new Vector(
@@ -1481,16 +1562,8 @@ export class Object3D<T extends SceneObjectBase> implements Object3DSkeleton {
     ));
   }
   update(update: { position?: boolean; rotation?: boolean } = { position: true, rotation: true }): void {
-    if (update.position) {
-      // Faster than doing R.vector/pack3
-      this.body.transform.x = this.pos.x;
-      this.body.transform.y = this.pos.y;
-      this.body.transform.z = this.pos.z;
-    }
-    if (update.rotation) {
-      // QuaternionSignal components are read only
-      this.body.transform.rotation = this.rot.toQuaternionSignal();
-    }
+    if (update.position) this.pos.setSignalComponents();
+    if (update.rotation) this.rot.setSignalComponents();
   }
 }
 
@@ -1516,8 +1589,8 @@ enum SceneObjectClassNames {
  * @description Still in EARLY development
  */
 export class Pool {
-  protected objects: BlockAsset[];
-  protected seed: string[] | BlockAsset[];
+  public objects: Object3D<SceneObjectBase | BlockSceneRoot>[];
+  protected seed: (string | BlockAsset)[];
   protected root: SceneObjectBase | Promise<SceneObjectBase>;
   static SceneObjects: typeof SceneObjectClassNames;
   constructor(
@@ -1527,7 +1600,6 @@ export class Pool {
       [Prop in keyof SceneObjectBase]+?: SceneObjectBase[Prop] | ReactiveToVanilla<SceneObjectBase[Prop]>;
     } = { hidden: true },
   ) {
-    if (!Blocks) Blocks = require('Blocks');
     if (!Blocks.instantiate)
       throw new Error(
         `@ VOLTS.Pool.constructor: Dynamic instances capability is not enabled.\n\nPlease go to Project > Properties > Capabilities > + Scripting Dynamic Instantiation`,
@@ -1538,21 +1610,22 @@ export class Pool {
     // Promise.resolve pushed further down to Pool.instantiate
     if (root) this.root = this.setRoot(root);
   }
-  protected async instantiate(): Promise<any> {
+  protected async instantiate(): Promise<void> {
     const assetName = this.seed[Math.floor(Math.random() * this.seed.length)];
-    const i = await (Object.values(SceneObjectClassNames).includes(assetName)
-      ? Scene.create(assetName, {})
+    const i = await (Object.values(SceneObjectClassNames).includes(assetName as any)
+      ? Scene.create(assetName as string, {})
       : Blocks.instantiate(assetName, {}));
-    this.objects.push(i);
     // @ts-ignore
     this.root = (this.root || {}).then ? await this.root.catch(() => undefined) : this.root;
+    // @ts-expect-error
     if (!this.root || !this.root.addChild)
       throw new Error(
         `@ VOLTS.Pool.instantiate: No root was provided, or the string provided did not match a valid SceneObject`,
       );
     await this.root.addChild(i);
+    this.objects.push(new Object3D(i));
   }
-  public async getObject(): Promise<PooledObject<BlockAsset>> {
+  public async getObject(): Promise<PooledObject<BlockSceneRoot>> {
     // @ts-expect-error
     let obj: PooledObject<T> = this.objects.pop();
     if (!obj) {
@@ -1562,8 +1635,11 @@ export class Pool {
     obj.returnToPool = () => this.objects.push(obj);
     return obj;
   }
-  public async populate(amount: number, limitConcurrentPromises: number): Promise<void> {
-    await promiseAllConcurrent(limitConcurrentPromises, true)(new Array(amount).fill(this.instantiate.bind(this)));
+  public async populate(amount: number, limitConcurrentPromises?: number): Promise<void> {
+    await promiseAllConcurrent(
+      limitConcurrentPromises || 10,
+      true,
+    )(new Array(amount).fill(this.instantiate.bind(this)));
   }
   public async setRoot(newRoot: string | SceneObjectBase): Promise<SceneObjectBase> {
     this.root = typeof newRoot === 'string' ? await Scene.root.findFirst(newRoot).catch(() => undefined) : newRoot;
@@ -1643,3 +1719,5 @@ export default {
 };
 
 //#endregion
+
+(!(Scene.create && Reactive.scalarSignalSource)) && report('Please enable Dynamic Instancing and Writeable Signal Sources in the project capabilities for Volts to work properly').asBackwardsCompatibleDiagnosticsError();

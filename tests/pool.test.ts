@@ -15,8 +15,9 @@ describe('dynamic-string pool', () => {
   test('populate', async () => {
     const pool = new Pool('name', 'Focal Distance');
     await expect(async () => await pool.populate(10, 10)).not.toThrow();
+    await pool.populate(10, 10);
     expect(pool.hasPreInstancedObjectsAvailable).toBeTruthy();
-    expect(pool.preInstancedObjectsCount).toEqual(10);
+    expect(pool.preInstancedObjectsCount).toEqual(20);
   });
   test('getObject', async () => {
     const pool = new Pool('name', 'Focal Distance');

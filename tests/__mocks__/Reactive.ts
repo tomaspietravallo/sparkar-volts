@@ -195,6 +195,22 @@ export class ScalarSignal extends NDVectorSignal {
   }
 }
 
+export class scalarSignalSource {
+  constructor(id: string){
+    // super()
+    if (typeof id !== 'string') throw new Error(`ID is not string`);
+  };
+  set(x: number){
+    // this._vector.values[0] = x;
+  }
+  dispose(){
+    // 
+  }
+  get signal(){
+    return 0;
+  }
+}
+
 export class Vec2Signal extends NDVectorSignal {
   constructor(...args: number[] | [() => number[]]) {
     super(...args);
@@ -293,6 +309,7 @@ declare global {
 export default {
   stringSignal: (x: string) => new StringSignal(x),
   val: (x: any): ScalarSignal => new ScalarSignal(x),
+  scalarSignalSource: (id: string) => new scalarSignalSource(id),
   point2d: (...args: [number, number]): Vec2Signal => new Vec2Signal(...args),
   vector: (...args: [number, number, number]): VectorSignal => new VectorSignal(...args),
   pack4: (...args: [number, number, number, number]): Vec4Signal => new Vec4Signal(...args),

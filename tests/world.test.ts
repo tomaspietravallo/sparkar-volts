@@ -109,6 +109,7 @@ describe('snapshot', () => {
         point3D: Reactive.vector(1, 5, 10),
         point4D: Reactive.pack4(1, 5, 10, 15),
         string: Reactive.stringSignal('a-string'),
+        // quat: Reactive.quaternion(1, 2, 3, 4),
       },
     });
 
@@ -124,6 +125,9 @@ describe('snapshot', () => {
       expect(W.snapshot.point3D.values).toEqual([1, 5, 10]);
       expect(W.snapshot.point4D.values).toEqual([1, 5, 10, 15]);
       expect(W.snapshot.string).toEqual('a-string');
+      /** @todo */
+      // expect(W.snapshot.quat.values).toEqual([1,2,3,4]);
+      // expect(W.snapshot.quat.w).toEqual(1);
 
       // @ts-ignore
       expect(W.snapshot.added.values).toEqual([1, 2]);
@@ -245,7 +249,7 @@ describe('test real world use cases', () => {
     await world.rawInitPromise.then(() => {
       expect(world.loaded).toEqual(true);
       expect(world.running).toEqual(true);
-      expect(world.assets.obj[0]).toBeInstanceOf(SceneObjectBase);
+      expect(world.assets.obj).toBeInstanceOf(SceneObjectBase);
       expect(world.frameCount).toBeDefined();
     });
 
