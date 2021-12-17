@@ -472,9 +472,11 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
       // @ts-ignore
       // To be properly typed out. Unfortunately, i think loading everything at once with an array ([...keys.map((n) =>...) would make it very challenging...
       // Might be best to ts-ignore or `as unknown` in this case
-      this.assets[keys[k]] = Array.isArray(getAssets[k]) ? getAssets[k].sort((a, b) => {
-        return a.name.localeCompare(b.name);
-      }) : getAssets[k];
+      this.assets[keys[k]] = Array.isArray(getAssets[k])
+        ? getAssets[k].sort((a, b) => {
+            return a.name.localeCompare(b.name);
+          })
+        : getAssets[k];
       // .map(objBody=>{ return new Object3D(objBody) });
     }
     this.internalData.loaded = true;
@@ -1337,27 +1339,29 @@ export class Quaternion {
   }
   /**
    * @description To add two Quaternion rotations together you need to rotate one by the other (multiply them), this operation does that. Note: non-commutative
-   * @param other 
-   * @returns 
+   * @param other
+   * @returns
    */
   add(...other: QuaternionArgRest): Quaternion {
     const b = Quaternion.convertToQuaternion(...other).values;
-    this.values[1] =  this.values[1] * b[0] + this.values[2] * b[3] - this.values[3] * b[2] + this.values[0] * b[1];
+    this.values[1] = this.values[1] * b[0] + this.values[2] * b[3] - this.values[3] * b[2] + this.values[0] * b[1];
     this.values[2] = -this.values[1] * b[3] + this.values[2] * b[0] + this.values[3] * b[1] + this.values[0] * b[2];
-    this.values[3] =  this.values[1] * b[2] - this.values[2] * b[1] + this.values[3] * b[0] + this.values[0] * b[3];
+    this.values[3] = this.values[1] * b[2] - this.values[2] * b[1] + this.values[3] * b[0] + this.values[0] * b[3];
     this.values[0] = -this.values[1] * b[1] - this.values[2] * b[2] - this.values[3] * b[3] + this.values[0] * b[0];
     return this;
   }
   copy(): Quaternion {
     return new Quaternion(this.values);
   }
-  setSignalComponents(): void {             // @ts-expect-error
+  setSignalComponents(): void {
+    // @ts-expect-error
     this.rw && this.rw.set(this.values[0]); // @ts-expect-error
     this.rx && this.rx.set(this.values[1]); // @ts-expect-error
     this.ry && this.ry.set(this.values[2]); // @ts-expect-error
     this.rz && this.rz.set(this.values[3]);
   }
-  disposeSignalResources(): void {// @ts-expect-error
+  disposeSignalResources(): void {
+    // @ts-expect-error
     this.rw && this.rw.dispose(); // @ts-expect-error
     this.rx && this.rx.dispose(); // @ts-expect-error
     this.ry && this.ry.dispose(); // @ts-expect-error
@@ -1365,7 +1369,7 @@ export class Quaternion {
   }
   toString(toFixed = 5): string {
     //@ts-expect-error
-    return `Quaternion${this.rs ? ' (WRS)' : ''}: [${this.values.map(v=>v.toFixed(toFixed))}]`
+    return `Quaternion${this.rs ? ' (WRS)' : ''}: [${this.values.map((v) => v.toFixed(toFixed))}]`;
   }
   get normalized(): Quaternion {
     return new Quaternion(this.values).normalize();
@@ -1402,13 +1406,13 @@ export class Quaternion {
       const c = Quaternion.components[index];
       this[`r${c}`] = Reactive.scalarSignalSource(`quat-${c}-${getUUIDv4()}`);
       this[`r${c}`].set(this[c]);
-    };
+    }
 
     // @ts-expect-error
     this.rs = Reactive.quaternion(this.rw.signal, this.rx.signal, this.ry.signal, this.rz.signal);
 
     return this.rs;
-}
+  }
 }
 
 Quaternion.components = ['w', 'x', 'y', 'z'];
@@ -1556,12 +1560,16 @@ export class Object3D<T extends SceneObjectBase> implements Object3DSkeleton {
     this.acc = new Vector();
     this.body = body;
     if (!(this.body && this.body.transform)) {
-      throw new Error(`Object3D.constructor: Object body "${this.body && this.body.name ? this.body.name : this.body}" is not a valid Object3D body (needs to extend SceneObjectBase)`)
-    };
+      throw new Error(
+        `Object3D.constructor: Object body "${
+          this.body && this.body.name ? this.body.name : this.body
+        }" is not a valid Object3D body (needs to extend SceneObjectBase)`,
+      );
+    }
     if (stayInPlace) {
       this.fetchLastPosition();
       this.fetchLastRotation();
-    };
+    }
     this.body.transform.position = this._pos.signal;
     this.body.transform.rotation = this._rot.signal;
   }
@@ -1590,21 +1598,21 @@ export class Object3D<T extends SceneObjectBase> implements Object3DSkeleton {
     if (update.position) this._pos.setSignalComponents();
     if (update.rotation) this._rot.setSignalComponents();
   }
-  lookAtOther(otherObject: Object3DSkeleton) {
+  lookAtOther(otherObject: Object3DSkeleton): void {
     this._rot.values = Quaternion.lookAt(this.pos, otherObject.pos).values;
   }
-  lookAtHeading(){
+  lookAtHeading(): void {
     this._rot.values = Quaternion.lookAtOptimized(this.vel.values).values;
   }
   set pos(xyz: Vector<3>): void {
     this._pos.values = xyz.values;
-  };
+  }
   get pos(): Vector<3> {
     return this._pos;
-  };
+  }
   set rot(quat: Quaternion): void {
     this._rot.values = quat.values;
-  };
+  }
   get rot(): Quaternion {
     return this._rot;
   }
