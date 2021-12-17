@@ -1546,50 +1546,52 @@ export interface Object3DSkeleton {
 }
 
 export class Object3D<T extends SceneObjectBase> implements Object3DSkeleton {
+  protected _pos: Vector<3>;
+  protected _rot: Quaternion;
   body: T;
   constructor(body: T, stayInPlace = true) {
-    this.pos = new Vector();
-    this.rot = new Quaternion();
+    this._pos = new Vector();
+    this._rot = new Quaternion();
     this.body = body;
     if (stayInPlace) {
       this.fetchLastPosition();
       this.fetchLastRotation();
     }
-    this.body.transform.position = this.pos.signal;
-    this.body.transform.rotation = this.rot.signal;
+    this.body.transform.position = this._pos.signal;
+    this.body.transform.rotation = this._rot.signal;
   }
   fetchLastPosition(): Vector<3> {
-    this.pos.values = [
+    this._pos.values = [
       this.body.transform.position.x.pinLastValue(),
       this.body.transform.position.y.pinLastValue(),
       this.body.transform.position.z.pinLastValue(),
     ];
-    return this.pos;
+    return this._pos;
   }
   fetchLastRotation(): Quaternion {
-    this.rot.values = [
+    this._rot.values = [
       this.body.transform.rotation.w.pinLastValue(),
       this.body.transform.rotation.x.pinLastValue(),
       this.body.transform.rotation.y.pinLastValue(),
       this.body.transform.rotation.z.pinLastValue(),
     ];
-    return this.rot;
+    return this._rot;
   }
   update(update: { position?: boolean; rotation?: boolean } = { position: true, rotation: true }): void {
-    if (update.position) this.pos.setSignalComponents();
-    if (update.rotation) this.rot.setSignalComponents();
+    if (update.position) this._pos.setSignalComponents();
+    if (update.rotation) this._rot.setSignalComponents();
   }
   set pos(xyz: Vector<3>): void {
-    this.pos.values = xyz.values;
+    this._pos.values = xyz.values;
   }
   get pos(): Vector<3> {
-    return this.pos;
+    return this._pos;
   }
   set rot(quat: Quaternion): void {
-    this.rot.values = quat.values;
+    this._rot.values = quat.values;
   }
   get rot(): Quaternion {
-    return this.rot;
+    return this._rot;
   }
 }
 
