@@ -472,11 +472,9 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
       // @ts-ignore
       // To be properly typed out. Unfortunately, i think loading everything at once with an array ([...keys.map((n) =>...) would make it very challenging...
       // Might be best to ts-ignore or `as unknown` in this case
-      this.assets[keys[k]] = Array.isArray(getAssets[k])
-        ? getAssets[k].sort((a, b) => {
-            return a.name.localeCompare(b.name);
-          })
-        : getAssets[k];
+      this.assets[keys[k]] = Array.isArray(getAssets[k]) ? getAssets[k].sort((a, b) => {
+        return a.name.localeCompare(b.name);
+      }) : getAssets[k];
       // .map(objBody=>{ return new Object3D(objBody) });
     }
     this.internalData.loaded = true;
@@ -1190,7 +1188,7 @@ Vector.prototype.rotate = function <D extends number>(a: number): Vector<D> {
 type QuaternionArgRest = [number, number, number, number] | [number[]] | [Quaternion] | [];
 
 export class Quaternion {
-  values: number[];
+  values: [number, number, number, number];
   static components: ['w', 'x', 'y', 'z'];
   constructor(...args: QuaternionArgRest) {
     if (!args || !args[0]) {
@@ -1199,9 +1197,10 @@ export class Quaternion {
     } else if (args[0] instanceof Quaternion) {
       this.values = args[0].values;
     } else if (Array.isArray(args[0])) {
+      // @ts-expect-error
       this.values = args[0];
     } else {
-      this.values = <number[]>args;
+      this.values = <any>args;
     }
     if (!this.values.every((v) => typeof v === 'number' && Number.isFinite(v)) || this.values.length !== 4)
       throw new Error(
@@ -1286,7 +1285,7 @@ export class Quaternion {
    * @description Look at function. Optimized for speed. Borrowed from the early beta versions of Volts
    * @param headingVector3DArray an array of length 3, containing data pointing from the looker to the object to be watched. Essentially Vector<3>.values
    */
-  static lookAtOptimized(headingVector3DArray: [number, number, number]): Quaternion {
+  static lookAtOptimized(headingVector3DArray: number[]): Quaternion {
     // Heavily inlined and pre-calculated the return is the same as Quaternion.LookAt()
     // It is assumed that UP is 0,1,0 and that the forward axis points towards 0,0,1
     // The assumptions above allow for skipping some calculations, since multiplying/adding 0 is irrelevant
@@ -1338,29 +1337,27 @@ export class Quaternion {
   }
   /**
    * @description To add two Quaternion rotations together you need to rotate one by the other (multiply them), this operation does that. Note: non-commutative
-   * @param other
-   * @returns
+   * @param other 
+   * @returns 
    */
   add(...other: QuaternionArgRest): Quaternion {
     const b = Quaternion.convertToQuaternion(...other).values;
-    this.values[1] = this.values[1] * b[0] + this.values[2] * b[3] - this.values[3] * b[2] + this.values[0] * b[1];
+    this.values[1] =  this.values[1] * b[0] + this.values[2] * b[3] - this.values[3] * b[2] + this.values[0] * b[1];
     this.values[2] = -this.values[1] * b[3] + this.values[2] * b[0] + this.values[3] * b[1] + this.values[0] * b[2];
-    this.values[3] = this.values[1] * b[2] - this.values[2] * b[1] + this.values[3] * b[0] + this.values[0] * b[3];
+    this.values[3] =  this.values[1] * b[2] - this.values[2] * b[1] + this.values[3] * b[0] + this.values[0] * b[3];
     this.values[0] = -this.values[1] * b[1] - this.values[2] * b[2] - this.values[3] * b[3] + this.values[0] * b[0];
     return this;
   }
   copy(): Quaternion {
     return new Quaternion(this.values);
   }
-  setSignalComponents(): void {
-    // @ts-expect-error
+  setSignalComponents(): void {             // @ts-expect-error
     this.rw && this.rw.set(this.values[0]); // @ts-expect-error
     this.rx && this.rx.set(this.values[1]); // @ts-expect-error
     this.ry && this.ry.set(this.values[2]); // @ts-expect-error
     this.rz && this.rz.set(this.values[3]);
   }
-  disposeSignalResources(): void {
-    // @ts-expect-error
+  disposeSignalResources(): void {// @ts-expect-error
     this.rw && this.rw.dispose(); // @ts-expect-error
     this.rx && this.rx.dispose(); // @ts-expect-error
     this.ry && this.ry.dispose(); // @ts-expect-error
@@ -1368,7 +1365,7 @@ export class Quaternion {
   }
   toString(toFixed = 5): string {
     //@ts-expect-error
-    return `Quaternion${this.rs ? ' (WRS)' : ''}: [${this.values.map((v) => v.toFixed(toFixed))}]`;
+    return `Quaternion${this.rs ? ' (WRS)' : ''}: [${this.values.map(v=>v.toFixed(toFixed))}]`
   }
   get normalized(): Quaternion {
     return new Quaternion(this.values).normalize();
@@ -1405,13 +1402,13 @@ export class Quaternion {
       const c = Quaternion.components[index];
       this[`r${c}`] = Reactive.scalarSignalSource(`quat-${c}-${getUUIDv4()}`);
       this[`r${c}`].set(this[c]);
-    }
+    };
 
     // @ts-expect-error
     this.rs = Reactive.quaternion(this.rw.signal, this.rx.signal, this.ry.signal, this.rz.signal);
 
     return this.rs;
-  }
+}
 }
 
 Quaternion.components = ['w', 'x', 'y', 'z'];
@@ -1548,15 +1545,23 @@ export interface Object3DSkeleton {
 export class Object3D<T extends SceneObjectBase> implements Object3DSkeleton {
   protected _pos: Vector<3>;
   protected _rot: Quaternion;
+  public vel: Vector<3>;
+  public acc: Vector<3>;
+  public size: Vector<3>;
   body: T;
   constructor(body: T, stayInPlace = true) {
     this._pos = new Vector();
     this._rot = new Quaternion();
+    this.vel = new Vector();
+    this.acc = new Vector();
     this.body = body;
+    if (!(this.body && this.body.transform)) {
+      throw new Error(`Object3D.constructor: Object body "${this.body && this.body.name ? this.body.name : this.body}" is not a valid Object3D body (needs to extend SceneObjectBase)`)
+    };
     if (stayInPlace) {
       this.fetchLastPosition();
       this.fetchLastRotation();
-    }
+    };
     this.body.transform.position = this._pos.signal;
     this.body.transform.rotation = this._rot.signal;
   }
@@ -1577,19 +1582,29 @@ export class Object3D<T extends SceneObjectBase> implements Object3DSkeleton {
     ];
     return this._rot;
   }
+  fetchSize(): Vector<3> {
+    this.size = Vector.fromSignal(this.body.boundingBox.max.sub(this.body.boundingBox.min));
+    return this.size;
+  }
   update(update: { position?: boolean; rotation?: boolean } = { position: true, rotation: true }): void {
     if (update.position) this._pos.setSignalComponents();
     if (update.rotation) this._rot.setSignalComponents();
   }
+  lookAtOther(otherObject: Object3DSkeleton) {
+    this._rot.values = Quaternion.lookAt(this.pos, otherObject.pos).values;
+  }
+  lookAtHeading(){
+    this._rot.values = Quaternion.lookAtOptimized(this.vel.values).values;
+  }
   set pos(xyz: Vector<3>): void {
     this._pos.values = xyz.values;
-  }
+  };
   get pos(): Vector<3> {
     return this._pos;
-  }
+  };
   set rot(quat: Quaternion): void {
     this._rot.values = quat.values;
-  }
+  };
   get rot(): Quaternion {
     return this._rot;
   }
