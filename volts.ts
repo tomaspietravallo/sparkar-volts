@@ -1336,9 +1336,17 @@ export class Quaternion {
     this.values[3] /= norm;
     return this;
   }
+  /**
+   * @description To add two Quaternion rotations together you need to rotate one by the other (multiply them), this operation does that. Note: non-commutative
+   * @param other
+   * @returns
+   */
   add(...other: QuaternionArgRest): Quaternion {
     const b = Quaternion.convertToQuaternion(...other).values;
-    this.values = [this.values[0] + b[0], this.values[1] + b[1], this.values[2] + b[2], this.values[3] + b[3]];
+    this.values[1] = this.values[1] * b[0] + this.values[2] * b[3] - this.values[3] * b[2] + this.values[0] * b[1];
+    this.values[2] = -this.values[1] * b[3] + this.values[2] * b[0] + this.values[3] * b[1] + this.values[0] * b[2];
+    this.values[3] = this.values[1] * b[2] - this.values[2] * b[1] + this.values[3] * b[0] + this.values[0] * b[3];
+    this.values[0] = -this.values[1] * b[1] - this.values[2] * b[2] - this.values[3] * b[3] + this.values[0] * b[0];
     return this;
   }
   copy(): Quaternion {
