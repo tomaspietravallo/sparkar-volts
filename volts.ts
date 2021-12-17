@@ -1138,10 +1138,10 @@ Vector.prototype.copy = function <D extends number>(this: Vector<D>): Vector<D> 
 Vector.prototype.equals = function <D extends number>(this: Vector<D>, b: Vector<number>): boolean {
   return !!b && this.dimension === b.dimension && this.values.every((v, i) => v === b.values[i]);
 };
-Vector.prototype.toString = function <D extends number>(this: Vector<D>, toFixed?: number): string {
+Vector.prototype.toString = function <D extends number>(this: Vector<D>, toFixed = 5): string {
   // Writeable Reactive Signal
   // @ts-expect-error
-  return `Vector<${this.dimension}>${this.rs ? ' (WRS) ' : ''} [${(toFixed
+  return `Vector<${this.dimension}>${this.rs ? ' (WRS)' : ''} [${(toFixed
     ? this.values.map((v) => v.toFixed(toFixed))
     : this.values
   ).toString()}]`;
@@ -1358,6 +1358,10 @@ export class Quaternion {
     this.ry && this.ry.dispose(); // @ts-expect-error
     this.rz && this.rz.dispose();
   }
+  toString(toFixed = 5): string {
+    //@ts-expect-error
+    return `Quaternion${this.rs ? ' (WRS)' : ''}: [${this.values.map((v) => v.toFixed(toFixed))}]`;
+  }
   get normalized(): Quaternion {
     return new Quaternion(this.values).normalize();
   }
@@ -1534,8 +1538,6 @@ export interface Object3DSkeleton {
 }
 
 export class Object3D<T extends SceneObjectBase> implements Object3DSkeleton {
-  pos: Vector<3>;
-  rot: Quaternion;
   body: T;
   constructor(body: T, stayInPlace = true) {
     this.pos = new Vector();
@@ -1549,23 +1551,37 @@ export class Object3D<T extends SceneObjectBase> implements Object3DSkeleton {
     this.body.transform.rotation = this.rot.signal;
   }
   fetchLastPosition(): Vector<3> {
-    return (this.pos = new Vector(
+    this.pos.values = [
       this.body.transform.position.x.pinLastValue(),
       this.body.transform.position.y.pinLastValue(),
       this.body.transform.position.z.pinLastValue(),
-    ));
+    ];
+    return this.pos;
   }
   fetchLastRotation(): Quaternion {
-    return (this.rot = new Quaternion(
+    this.rot.values = [
       this.body.transform.rotation.w.pinLastValue(),
       this.body.transform.rotation.x.pinLastValue(),
       this.body.transform.rotation.y.pinLastValue(),
       this.body.transform.rotation.z.pinLastValue(),
-    ));
+    ];
+    return this.rot;
   }
   update(update: { position?: boolean; rotation?: boolean } = { position: true, rotation: true }): void {
     if (update.position) this.pos.setSignalComponents();
     if (update.rotation) this.rot.setSignalComponents();
+  }
+  set pos(xyz: Vector<3>): void {
+    this.pos.values = xyz.values;
+  }
+  get pos(): Vector<3> {
+    return this.pos;
+  }
+  set rot(quat: Quaternion): void {
+    this.rot.values = quat.values;
+  }
+  get rot(): Quaternion {
+    return this.rot;
   }
 }
 
@@ -1722,7 +1738,5 @@ export default {
 
 //#endregion
 
-!(Scene.create && Reactive.scalarSignalSource) &&
-  report(
-    'Please enable Dynamic Instancing and Writeable Signal Sources in the project capabilities for Volts to work properly',
-  ).asBackwardsCompatibleDiagnosticsError();
+// prettier-ignore
+(!(Scene.create && Reactive.scalarSignalSource)) && report('Please enable Dynamic Instancing and Writeable Signal Sources in the project capabilities for Volts to work properly').asBackwardsCompatibleDiagnosticsError();
