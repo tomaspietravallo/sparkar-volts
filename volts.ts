@@ -14,6 +14,39 @@ let Persistence: {
     };
   },
   Multipeer: {};
+
+const plugins: {
+  oimo: typeof import('./oimo.plugin');
+  [key: string]: VoltsPlugin;
+} = { oimo: null };
+
+/**
+ * @description Allows the dynamic import of Volts' plugins
+ * @see https://github.com/facebook/react-native/issues/6391#issuecomment-194581270
+ */
+function safeImportPlugins(name: string, version?: number | string) {
+  if (!plugins[name]) {
+    const fileName = `${name}.plugin.js`;
+    try {
+      switch (name) {
+        case 'oimo':
+          plugins['oimo'] = require('./oimo.plugin');
+          break;
+        default:
+          throw new Error(`Plugin name is undefined`);
+      }
+      if (version && version !== plugins[name].VERSION)
+        report(
+          `Plugin versions for "${name}" do not match. Expected version: ${version}, but received "${plugins[name].VERSION}". Please make sure you include a compatible version of "${name}" in your project.`,
+        ).asIssue('error');
+    } catch (error) {
+      report(
+        `Could not find module "${name}". Please make sure you include the "${fileName}" file in your project.\n${error}`,
+      ).asIssue('error');
+    }
+  }
+}
+
 //#endregion
 
 //#region types
@@ -23,6 +56,11 @@ export type PublicOnly<T> = Pick<T, keyof T>;
 interface FixedLengthArray<T extends any, L extends number> extends Array<T> {
   '0': T;
   length: L;
+}
+
+interface VoltsPlugin {
+  VERSION: number | string;
+  [key: string]: any;
 }
 
 type Snapshot = { [key: string]: ScalarSignal | Vec2Signal | VectorSignal | Vec4Signal | StringSignal | BoolSignal };
@@ -194,7 +232,7 @@ export const report: reportFn = function report(...msg: string[] | [object]): Re
     asIssue: (lvl: LogLevels = 'warn') => {
       message = new Error(`${message}`);
       const info = `This issue arose during execution.\nIf you believe it's related to VOLTS itself, please report it as a Github issue here: https://github.com/tomaspietravallo/sparkar-volts/issues\nPlease make your report detailed (include this message too!), and if possible, include a package of your current project`;
-      message = `Message: ${message.message ? message.message : message}\n\n.Info: ${info}\n\nStack: ${
+      message = `Message: ${message.message ? message.message : message}\n\nInfo: ${info}\n\nStack: ${
         message.stack ? message.stack : undefined
       }`;
       toLogLevel(lvl, message);
@@ -1603,6 +1641,9 @@ export class Object3D<T extends SceneObjectBase> implements Object3DSkeleton {
   }
   lookAtHeading(): void {
     this._rot.values = Quaternion.lookAtOptimized(this.vel.values).values;
+  }
+  makeRigidBody(): void {
+    safeImportPlugins('oimo');
   }
   set pos(xyz: Vector<3>): void {
     this._pos.values = xyz.values;
