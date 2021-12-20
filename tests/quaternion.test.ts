@@ -61,11 +61,11 @@ describe('quaternion utils', () => {
     expect(Q.toQuaternionSignal().pinLastValue().values).toEqual([1, 0, 0, 0]);
   });
   test('copy', () => {
-    const A = Quaternion.identity();
-    const B = Quaternion.identity();
-    expect(A.copy().add(B).values).toEqual([2, 0, 0, 0]);
-    expect(A.values).toEqual([1, 0, 0, 0]);
-    expect(B.values).toEqual([1, 0, 0, 0]);
+    const A = new Quaternion(0, 0, 0, 1);
+    const B = new Quaternion(0, 0, 1, 0);
+    expect(A.copy().add(B).values).toEqual([0, 0, 1, 1]);
+    expect(A.values).toEqual([0, 0, 0, 1]);
+    expect(B.values).toEqual([0, 0, 1, 0]);
   });
 });
 
@@ -74,8 +74,14 @@ describe('operations', () => {
     const Q = Quaternion.identity();
     expect(Q.add(Q).values).toEqual([2, 0, 0, 0]);
   });
+  test('mul', () => {
+    const A = new Quaternion(1, 0, 0, 0);
+    const B = new Quaternion(0, 0, 0, 1);
+    expect(A.copy().mul(B).values).toEqual([0, 0, 0, 1]);
+  });
   test('normalize', () => {
     const Q = Quaternion.identity();
+    expect(Q.normalized).toBeDefined();
     Q.add(Q);
     expect(Q.values).toEqual([2, 0, 0, 0]);
     Q.normalize();

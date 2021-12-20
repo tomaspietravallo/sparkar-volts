@@ -63,7 +63,7 @@ interface VoltsPlugin {
   [key: string]: any;
 }
 
-type Snapshot = { [key: string]: ScalarSignal | Vec2Signal | VectorSignal | Vec4Signal | StringSignal | BoolSignal };
+type Snapshot = { [key: string]: ScalarSignal | Vec2Signal | VectorSignal | Vec4Signal | StringSignal | BoolSignal | QuaternionSignal };
 
 type getDimsOfSignal<S> = S extends Vec4Signal
   ? 'x4' | 'y4' | 'z4' | 'w4'
@@ -78,7 +78,7 @@ type getDimsOfSignal<S> = S extends Vec4Signal
 type ObjectToSnapshotable<Obj> = {
   [Property in keyof Obj as `${Obj[Property] extends ISignal
     ? `CONVERTED::${Property extends string ? Property : never}::${getDimsOfSignal<Obj[Property]>}::UUID` & string
-    : never}`]: Obj[Property] extends Vec2Signal | VectorSignal | Vec4Signal ? ScalarSignal : Obj[Property];
+    : never}`]: Obj[Property] extends Vec2Signal | VectorSignal | Vec4Signal | QuaternionSignal ? ScalarSignal : Obj[Property];
 };
 
 type SnapshotToVanilla<Obj> = {
@@ -94,6 +94,8 @@ type SnapshotToVanilla<Obj> = {
     ? string
     : Obj[Property] extends BoolSignal
     ? boolean
+    : Obj[Property] extends QuaternionSignal
+    ? Quaternion
     : Obj[Property];
 };
 
@@ -132,6 +134,7 @@ interface TimedEvent {
   lastCall: number;
   cb: TimedEventFunction;
   count: number;
+  onNext?: number;
 }
 
 //#endregion
@@ -387,6 +390,7 @@ interface InternalWorldData {
   FLAGS: { stopTimeout: boolean; lockInternalSnapshotOverride: boolean };
   formattedValuesToSnapshot: ObjectToSnapshotable<Snapshot>;
   userFriendlySnapshot: SnapshotToVanilla<Snapshot> & InternalSignals;
+  quaternions: Map<string, boolean>;
   Camera: Camera;
 }
 
@@ -428,6 +432,7 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
         stopTimeout: false,
         lockInternalSnapshotOverride: false,
       },
+      quaternions: new Map<string, boolean>(),
       Camera: null,
     };
     // Making the promise public makes it easier to test with Jest
@@ -581,6 +586,11 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
           this.internalData.frameCount += 1;
           //#endregion
 
+          if (this.w) {
+            this.w.timeElapsed = this.internalData.elapsedTime;
+            this.w.step();
+          }
+
           if (!this.internalData.FLAGS.stopTimeout) return loop();
         },
         0,
@@ -647,6 +657,9 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
     (this.internalData.events[event] = this.internalData.events[event] || []).push(cb);
     return () => (this.internalData.events[event] = (this.internalData.events[event] || []).filter((i) => i !== cb));
   }
+  public onNextTick(cb): { clear: () => void } {
+    return this.setTimedEvent(cb, { ms: 0, recurring: false, onNext: this.frameCount, });
+  }
   /**
    * @description Creates a timeout that executes the function after a given number of milliseconds
    * @param cb The function to be executed
@@ -656,7 +669,7 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
   public setTimeout(cb: TimedEventFunction, ms: number): { clear: () => void } {
     // if (!this.internalData.running)
     //   Diagnostics.warn('Warning @ Volts.World.setTimeout: created a timeout while the current instance is not running');
-    return this.setTimedEvent(cb, ms, false);
+    return this.setTimedEvent(cb, {ms, recurring: false});
   }
   /**
    * @description Creates an interval that executes the function every [X] milliseconds
@@ -667,7 +680,7 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
   public setInterval(cb: TimedEventFunction, ms: number): { clear: () => void } {
     // if (!this.internalData.running)
     //   Diagnostics.warn( 'Warning @ Volts.World.setInterval: created an interval while the current instance is not running', );
-    return this.setTimedEvent(cb, ms, true);
+    return this.setTimedEvent(cb, {ms, recurring: true});
   }
   /**
    * @param cb The function to be called
@@ -702,7 +715,7 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
       }, ms);
     };
   }
-  protected setTimedEvent(cb: TimedEventFunction, ms: number, recurring: boolean): { clear: () => void } {
+  protected setTimedEvent(cb: TimedEventFunction, {ms, recurring, onNext}: {ms?: number, recurring?: boolean, onNext?: number}): { clear: () => void } {
     const event: TimedEvent = {
       created: this.internalData.elapsedTime,
       lastCall: this.internalData.elapsedTime,
@@ -710,6 +723,7 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
       delay: ms,
       recurring,
       cb,
+      onNext,
     };
     this.internalData.timedEvents.push(event);
     return {
@@ -723,7 +737,7 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
     let i = this.internalData.timedEvents.length;
     while (i--) {
       const event = this.internalData.timedEvents[i];
-      if (event.lastCall + event.delay < this.internalData.elapsedTime) {
+      if ( (event.onNext !== undefined && event.onNext !== this.frameCount) || (event.onNext === undefined && event.lastCall + event.delay < this.internalData.elapsedTime) ) {
         event.cb.apply(this, [
           this.internalData.elapsedTime - event.created,
           event.count,
@@ -762,6 +776,7 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
         tmp[getKey(key, 'z4')] = signal.z;
         tmp[getKey(key, 'y4')] = signal.y;
         tmp[getKey(key, 'x4')] = signal.x;
+        if (signal.eulerAngles) this.internalData.quaternions.set(key, true);
       } else if (signal.z) {
         // vec3
         tmp[getKey(key, 'z3')] = signal.z;
@@ -817,7 +832,11 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
         arr.push(snapshot[`CONVERTED::${name}::${Vector.components[index]}${dim}::${uuid}`]);
       }
 
-      result[name] = dim >= 2 ? new Vector(arr) : arr[0];
+      if (this.internalData.quaternions.has(name)){
+        result[name] = new Quaternion(arr[3], arr[0], arr[1], arr[2]);
+      } else {
+        result[name] = dim >= 2 ? new Vector(arr) : arr[0];
+      };
     }
 
     return result;
@@ -1170,7 +1189,7 @@ Vector.prototype.normalize = function <D extends number>(this: Vector<D>): Vecto
   return this;
 };
 Vector.prototype.copy = function <D extends number>(this: Vector<D>): Vector<D> {
-  return new Vector(this.values);
+  return new Vector([...this.values]);
 };
 /** @description Test whether two Vectors are equal to each other */
 Vector.prototype.equals = function <D extends number>(this: Vector<D>, b: Vector<number>): boolean {
@@ -1231,7 +1250,7 @@ export class Quaternion {
   values: [number, number, number, number];
   static components: ['w', 'x', 'y', 'z'];
   constructor(...args: QuaternionArgRest) {
-    if (!args || !args[0]) {
+    if (!args || args[0] === undefined) {
       // Quaternion.identity()
       this.values = [1, 0, 0, 0];
     } else if (args[0] instanceof Quaternion) {
@@ -1376,20 +1395,42 @@ export class Quaternion {
     return this;
   }
   /**
-   * @description To add two Quaternion rotations together you need to rotate one by the other (multiply them), this operation does that. Note: non-commutative
-   * @param other
-   * @returns
+   * @description Component-wise addition
    */
   add(...other: QuaternionArgRest): Quaternion {
     const b = Quaternion.convertToQuaternion(...other).values;
-    this.values[1] = this.values[1] * b[0] + this.values[2] * b[3] - this.values[3] * b[2] + this.values[0] * b[1];
-    this.values[2] = -this.values[1] * b[3] + this.values[2] * b[0] + this.values[3] * b[1] + this.values[0] * b[2];
-    this.values[3] = this.values[1] * b[2] - this.values[2] * b[1] + this.values[3] * b[0] + this.values[0] * b[3];
-    this.values[0] = -this.values[1] * b[1] - this.values[2] * b[2] - this.values[3] * b[3] + this.values[0] * b[0];
+    this.values[0] = this.values[0] + b[0];
+    this.values[1] = this.values[1] + b[1];
+    this.values[2] = this.values[2] + b[2];
+    this.values[3] = this.values[3] + b[3];
+    return this
+  }
+  /**
+   * @description To compose two Quaternion rotations together you need to rotate one by the other (multiply them), this operation does that. Note: non-commutative
+   * @param other
+   * @todo Tests
+   * @returns
+   */
+  mul(...other: QuaternionArgRest): Quaternion {
+    const b = Quaternion.convertToQuaternion(...other);
+    const w1 = this.w;
+    const x1 = this.x;
+    const y1 = this.y;
+    const z1 = this.z;
+
+    const w2 = b.w;
+    const x2 = b.x;
+    const y2 = b.y;
+    const z2 = b.z;
+
+    this.w = w1 * w2 - x1 * x2 - y1 * y2 - z1 * z2;
+    this.x = w1 * x2 + x1 * w2 + y1 * z2 - z1 * y2;
+    this.y = w1 * y2 + y1 * w2 + z1 * x2 - x1 * z2;
+    this.z = w1 * z2 + z1 * w2 + x1 * y2 - y1 * x2;
     return this;
   }
   copy(): Quaternion {
-    return new Quaternion(this.values);
+    return new Quaternion([...this.values]);
   }
   setSignalComponents(): void {
     // @ts-expect-error
@@ -1410,7 +1451,7 @@ export class Quaternion {
     return `Quaternion${this.rs ? ' (WRS)' : ''}: [${this.values.map((v) => v.toFixed(toFixed))}]`;
   }
   get normalized(): Quaternion {
-    return new Quaternion(this.values).normalize();
+    return new Quaternion([...this.values]).normalize();
   }
   get w(): number {
     return this.values[0];
@@ -1590,13 +1631,16 @@ export class Object3D<T extends SceneObjectBase> implements Object3DSkeleton {
   public vel: Vector<3>;
   public acc: Vector<3>;
   public size: Vector<3>;
-  body: T;
-  constructor(body: T, stayInPlace = true) {
+  public body: T;
+  public readonly UUID: string;
+  constructor(body: T, ) {
     this._pos = new Vector();
     this._rot = new Quaternion();
     this.vel = new Vector();
     this.acc = new Vector();
+    this.size = new Vector();
     this.body = body;
+    this.UUID = getUUIDv4();
     if (!(this.body && this.body.transform)) {
       throw new Error(
         `Object3D.constructor: Object body "${
@@ -1604,33 +1648,55 @@ export class Object3D<T extends SceneObjectBase> implements Object3DSkeleton {
         }" is not a valid Object3D body (needs to extend SceneObjectBase)`,
       );
     }
-    if (stayInPlace) {
-      this.fetchLastPosition();
-      this.fetchLastRotation();
-    }
     this.body.transform.position = this._pos.signal;
     this.body.transform.rotation = this._rot.signal;
   }
-  fetchLastPosition(): Vector<3> {
-    this._pos.values = [
-      this.body.transform.position.x.pinLastValue(),
-      this.body.transform.position.y.pinLastValue(),
-      this.body.transform.position.z.pinLastValue(),
-    ];
-    return this._pos;
+  async stayInPlace(): Promise<void> {
+    return await Promise.all([
+      this.fetchLastPosition(),
+      this.fetchLastRotation(),
+      this.fetchSize(),
+    ]).then(([pos, rot, size])=>{
+      this._pos.values = pos.values;
+      this._rot.values = rot.values;
+      this.size.values = size.values;
+    });
   }
-  fetchLastRotation(): Quaternion {
-    this._rot.values = [
-      this.body.transform.rotation.w.pinLastValue(),
-      this.body.transform.rotation.x.pinLastValue(),
-      this.body.transform.rotation.y.pinLastValue(),
-      this.body.transform.rotation.z.pinLastValue(),
-    ];
-    return this._rot;
+  async fetchLastPosition(): Promise<Vector<3>> {
+    const Instance = World.getInstance(false);
+    if (!Instance) throw new Error(`No VOLTS.World Instance found`);
+    const props: {[key: string]: any} = {}; props[this.UUID + 'pos'] = this.body.transform.position;
+    Instance.addToSnapshot(props);
+    return new Promise(resolve=>{
+      Instance.onNextTick(()=>{
+        Instance.removeFromSnapshot(props[this.UUID + 'pos']);
+        resolve(Instance.snapshot[this.UUID + 'pos']);
+      });
+    });
   }
-  fetchSize(): Vector<3> {
-    this.size = Vector.fromSignal(this.body.boundingBox.max.sub(this.body.boundingBox.min));
-    return this.size;
+  async fetchLastRotation(): Promise<Quaternion> {
+    const Instance = World.getInstance(false);
+    if (!Instance) throw new Error(`No VOLTS.World Instance found`);
+    const props: {[key: string]: any} = {}; props[this.UUID + 'rot'] = this.body.transform.rotation;
+    Instance.addToSnapshot(props);
+    return new Promise(resolve=>{
+      Instance.onNextTick(()=>{
+        Instance.removeFromSnapshot(props[this.UUID + 'rot']);
+        resolve(Instance.snapshot[this.UUID + 'rot']);
+      });
+    });
+  }
+  async fetchSize(): Promise<Vector<3>> {
+    const Instance = World.getInstance(false);
+    if (!Instance) throw new Error(`No VOLTS.World Instance found`);
+    const props: {[key: string]: any} = {}; props[this.UUID + 'size'] = this.body.boundingBox.max.sub(this.body.boundingBox.min);
+    Instance.addToSnapshot(props);
+    return new Promise(resolve=>{
+      Instance.onNextTick(()=>{
+        Instance.removeFromSnapshot(props[this.UUID + 'size']);
+        resolve(Instance.snapshot[this.UUID + 'size']);
+      });
+    });
   }
   update(update: { position?: boolean; rotation?: boolean } = { position: true, rotation: true }): void {
     if (update.position) this._pos.setSignalComponents();
@@ -1643,7 +1709,7 @@ export class Object3D<T extends SceneObjectBase> implements Object3DSkeleton {
     this._rot.values = Quaternion.lookAtOptimized(this.vel.values).values;
   }
   makeRigidBody(): void {
-    safeImportPlugins('oimo');
+    safeImportPlugins('oimo', 1.0);
   }
   set pos(xyz: Vector<3>): void {
     this._pos.values = xyz.values;

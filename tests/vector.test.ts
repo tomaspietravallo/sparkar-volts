@@ -59,7 +59,6 @@ describe('vector utils', () => {
   });
   test('toString', () => {
     const vec = new Vector();
-    expect(vec.toString()).toEqual(`Vector<3> [0,0,0]`);
     expect(vec.toString(5)).toEqual(`Vector<3> [0.00000,0.00000,0.00000]`);
   });
   test('fromSignal', () => {

@@ -13,8 +13,12 @@ export class SceneObjectBase {
     this.name = name;
     this.transform = {
       position: Reactive.vector(0, 0, 0),
-      rotation: Reactive.quaternion(0, 0, 0, 1),
+      rotation: Reactive.quaternion(1, 0, 0, 0),
     };
+    this.boundingBox = {
+      max: Reactive.vector(0, 0, 0),
+      min: Reactive.vector(0, 0, 0)
+    }
     this.identifier = 'a-unique-identifier';
     this.hidden = Reactive.boolSignal(false);
   }
