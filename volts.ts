@@ -62,7 +62,7 @@ function safeImportPlugins(name: string, version?: number | string) {
 export type PublicOnly<T> = Pick<T, keyof T>;
 
 // https://github.com/microsoft/TypeScript/issues/26223#issuecomment-410642988
-interface FixedLengthArray<T extends any, L extends number> extends Array<T> {
+interface FixedLengthArray<T, L extends number> extends Array<T> {
   '0': T;
   length: L;
 }
@@ -1353,7 +1353,7 @@ export class Quaternion {
     const forwardVector = destPoint.copy().sub(sourcePoint).normalize();
     const dot = new Vector(0, 0, 1).dot(forwardVector);
     if (Math.abs(dot + 1.0) < 0.000001) {
-      return new Quaternion(0, 1, 0, 3.1415926535897932);
+      return new Quaternion(0, 1, 0, PI);
     }
     if (Math.abs(dot - 1.0) < 0.000001) {
       return new Quaternion([1, 0, 0, 0]);
@@ -1377,7 +1377,7 @@ export class Quaternion {
     forwardVector[1] /= mag;
     forwardVector[2] /= mag;
     const dot = forwardVector[2];
-    if (Math.abs(dot + 1) < 0.00001) return new Quaternion(0, 1, 0, 3.1415926535897932);
+    if (Math.abs(dot + 1) < 0.00001) return new Quaternion(0, 1, 0, PI);
     if (Math.abs(dot - 1) < 0.00001) return new Quaternion(1, 0, 0, 0);
     let rotAngle = Math.acos(dot);
     const rotAxis = [-forwardVector[1], forwardVector[0], 0];
@@ -1844,13 +1844,16 @@ export class Pool {
   public objects: Object3D<SceneObjectBase | BlockSceneRoot>[];
   protected seed: (string | BlockAsset)[];
   protected root: SceneObjectBase | Promise<SceneObjectBase>;
+  protected initialState: {
+    [Prop in keyof SceneObjectBase]+?: SceneObjectBase[Prop] | ReactiveToVanilla<SceneObjectBase[Prop]>;
+  };
   static SceneObjects: typeof SceneObjectClassNames;
   constructor(
     objectsOrPath: string | string[] | BlockAsset | BlockAsset[],
     root?: string | SceneObjectBase,
-    initialState: {
+    initialState?: {
       [Prop in keyof SceneObjectBase]+?: SceneObjectBase[Prop] | ReactiveToVanilla<SceneObjectBase[Prop]>;
-    } = { hidden: true },
+    } = {},
   ) {
     if (!Blocks.instantiate)
       throw new Error(
@@ -1859,17 +1862,18 @@ export class Pool {
     if (!objectsOrPath) throw new Error(`@ VOLTS.Pool.constructor: objectsOrPath is undefined`);
     this.seed = Array.isArray(objectsOrPath) ? objectsOrPath : [objectsOrPath];
     this.objects = [];
+    this.initialState = initialState;
     // Promise.resolve pushed further down to Pool.instantiate
     if (root) this.root = this.setRoot(root);
   }
   protected async instantiate(): Promise<void> {
     const assetName = this.seed[Math.floor(Math.random() * this.seed.length)];
     const i = await (Object.values(SceneObjectClassNames).includes(assetName as any)
-      ? Scene.create(assetName as string, {})
-      : Blocks.instantiate(assetName, {}));
+      ? Scene.create(assetName as string, this.initialState)
+      : Blocks.instantiate(assetName, this.initialState));
     // @ts-ignore
     this.root = (this.root || {}).then ? await this.root.catch(() => undefined) : this.root;
-    // @ts-expect-error
+
     if (!this.root || !this.root.addChild)
       throw new Error(
         `@ VOLTS.Pool.instantiate: No root was provided, or the string provided did not match a valid SceneObject`,
