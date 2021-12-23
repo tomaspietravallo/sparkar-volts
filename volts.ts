@@ -1,17 +1,60 @@
 //#region imports
-
 import Scene from 'Scene';
 import Diagnostics from 'Diagnostics';
 import Reactive from 'Reactive';
 import Time from 'Time';
-// Persistence may be dynamically imported using `require`
+import Blocks from 'Blocks';
+
+// 👇 may be dynamically imported using `require`
 let Persistence: {
-  userScope: {
-    get: (s: string) => Promise<object>;
-    set: (s: string, o: Object) => Promise<boolean>;
-    remove: (s: string) => Promise<boolean>;
-  };
-};
+    userScope: {
+      get: (s: string) => Promise<object>;
+      set: (s: string, o: Object) => Promise<boolean>;
+      remove: (s: string) => Promise<boolean>;
+    };
+  },
+  Multipeer: {};
+
+/**
+ * Plugins are stored on `_plugins`
+ * `plugins` is a creator-facing interface
+ */
+const _plugins = {};
+
+export const plugins: {
+  oimo: typeof import('./oimo.plugin');
+  [key: string]: VoltsPlugin;
+} = Object.defineProperties({} as any, {
+  oimo: { get: () => safeImportPlugins('oimo') },
+});
+
+/**
+ * @description Allows the dynamic import of Volts' plugins
+ * @see https://github.com/facebook/react-native/issues/6391#issuecomment-194581270
+ */
+function safeImportPlugins(name: string, version?: number | string) {
+  if (!_plugins[name]) {
+    const fileName = `${name}.plugin.js`;
+    try {
+      switch (name) {
+        case 'oimo':
+          _plugins['oimo'] = require('./oimo.plugin');
+          break;
+        default:
+          throw new Error(`Plugin name is undefined`);
+      }
+      if (version && version !== _plugins[name].VERSION)
+        report(
+          `Plugin versions for "${name}" do not match. Expected version: ${version}, but received "${_plugins[name].VERSION}". Please make sure you include a compatible version of "${name}" in your project.`,
+        ).asIssue('error');
+    } catch (error) {
+      report(
+        `Could not find module "${name}". Please make sure you include the "${fileName}" file in your project.\n${error}`,
+      ).asIssue('error');
+    }
+  }
+  return _plugins[name];
+}
 
 //#endregion
 
@@ -24,22 +67,31 @@ interface FixedLengthArray<T extends any, L extends number> extends Array<T> {
   length: L;
 }
 
-type Snapshot = { [key: string]: ScalarSignal | Vec2Signal | VectorSignal | Vec4Signal | StringSignal | BoolSignal };
+interface VoltsPlugin {
+  VERSION: number | string;
+  [key: string]: any;
+}
+
+type Snapshot = {
+  [key: string]: ScalarSignal | Vec2Signal | VectorSignal | Vec4Signal | StringSignal | BoolSignal | QuaternionSignal;
+};
 
 type getDimsOfSignal<S> = S extends Vec4Signal
-  ? 'X4' | 'Y4' | 'Z4' | 'W4'
+  ? 'x4' | 'y4' | 'z4' | 'w4'
   : S extends VectorSignal
-  ? 'X3' | 'Y3' | 'Z3'
+  ? 'x3' | 'y3' | 'z3'
   : S extends Vec2Signal
-  ? 'X2' | 'Y2'
+  ? 'x2' | 'y2'
   : S extends ScalarSignal
-  ? 'X1'
+  ? 'x1'
   : never;
 
 type ObjectToSnapshotable<Obj> = {
   [Property in keyof Obj as `${Obj[Property] extends ISignal
     ? `CONVERTED::${Property extends string ? Property : never}::${getDimsOfSignal<Obj[Property]>}::UUID` & string
-    : never}`]: Obj[Property] extends Vec2Signal | VectorSignal | Vec4Signal ? ScalarSignal : Obj[Property];
+    : never}`]: Obj[Property] extends Vec2Signal | VectorSignal | Vec4Signal | QuaternionSignal
+    ? ScalarSignal
+    : Obj[Property];
 };
 
 type SnapshotToVanilla<Obj> = {
@@ -55,8 +107,18 @@ type SnapshotToVanilla<Obj> = {
     ? string
     : Obj[Property] extends BoolSignal
     ? boolean
+    : Obj[Property] extends QuaternionSignal
+    ? Quaternion
     : Obj[Property];
 };
+
+type ReactiveToVanilla<T> = T extends ScalarSignal
+  ? number
+  : T extends StringSignal
+  ? string
+  : T extends BoolSignal
+  ? boolean
+  : any;
 
 interface onFramePerformanceData {
   fps: number;
@@ -85,11 +147,18 @@ interface TimedEvent {
   lastCall: number;
   cb: TimedEventFunction;
   count: number;
+  onNext?: number;
 }
 
 //#endregion
 
+//#region constants
+const PI = 3.14159265359;
+const TWO_PI = 6.28318530718;
+//#endregion
+
 //#region utils
+//#region getUUIDv4
 /**
  * @see https://stackoverflow.com/a/2117523/14899497
  */
@@ -100,6 +169,169 @@ function getUUIDv4(): string {
     return v.toString(16);
   });
 }
+//#endregion
+
+//#region promiseAllConcurrent
+/** @author atolkachiov */
+/** @see https://gist.github.com/jcouyang/632709f30e12a7879a73e9e132c0d56b#gistcomment-3591045 */
+const pAll = async (queue: Promise<any>[], concurrency: number, areFn: boolean) => {
+  let index = 0;
+  const results: any[] = [];
+
+  // Run a pseudo-thread
+  const execThread = async () => {
+    while (index < queue.length) {
+      const curIndex = index++;
+      // Use of `curIndex` is important because `index` may change after await is resolved
+      // @ts-expect-error
+      results[curIndex] = await (areFn ? queue[curIndex]() : queue[curIndex]);
+    }
+  };
+
+  // Start threads
+  const threads = [];
+  for (let thread = 0; thread < concurrency; thread++) {
+    threads.push(execThread());
+  }
+  await Promise.all(threads);
+  return results;
+};
+const promiseAllConcurrent =
+  (n: number, areFn: boolean) =>
+  (list: Promise<any>[]): Promise<any[]> =>
+    pAll(list, n, areFn);
+//#endregion
+
+//#region report
+type LogLevels = 'log' | 'warn' | 'error' | 'throw';
+
+interface Reporters {
+  asIssue: (lvl?: LogLevels) => void;
+  asBackwardsCompatibleDiagnosticsError: () => void;
+}
+
+type reportFn = ((...msg: string[] | [object]) => Reporters) & {
+  getSceneInfo: ({
+    getMaterials,
+    getTextures,
+    getIdentifiers,
+    getPositions,
+  }?: {
+    getMaterials?: boolean;
+    getTextures?: boolean;
+    getIdentifiers?: boolean;
+    getPositions?: boolean;
+  }) => Promise<string>;
+};
+
+const prettifyJSON = (obj: Object, spacing = 2) => JSON.stringify(obj, null, spacing);
+
+// (!) doesn't get hoisted up
+export const report: reportFn = function report(...msg: string[] | [object]): Reporters {
+  let message: any;
+  // provides a bit of backwards compatibility, keeps support at (112, 121]
+  const toLogLevel = (lvl: LogLevels, msg: string | object) => {
+    if (lvl === 'throw') {
+      throw msg;
+    } else {
+      Diagnostics[lvl] ? Diagnostics[lvl](msg) : Diagnostics.warn(msg + `\n\n[[logger not found: ${lvl}]]`);
+    }
+  };
+
+  if (msg.length > 1) {
+    message = msg.join('\n');
+  } else {
+    message = msg[0];
+  }
+
+  return {
+    asIssue: (lvl: LogLevels = 'warn') => {
+      message = new Error(`${message}`);
+      const info = `This issue arose during execution.\nIf you believe it's related to VOLTS itself, please report it as a Github issue here: https://github.com/tomaspietravallo/sparkar-volts/issues\nPlease make your report detailed (include this message too!), and if possible, include a package of your current project`;
+      message = `Message: ${message.message ? message.message : message}\n\nInfo: ${info}\n\nStack: ${
+        message.stack ? message.stack : undefined
+      }`;
+      toLogLevel(lvl, message);
+    },
+    asBackwardsCompatibleDiagnosticsError: () => {
+      Diagnostics.error
+        ? Diagnostics.error(message)
+        : Diagnostics.warn
+        ? Diagnostics.warn(message)
+        : Diagnostics.log(message);
+    },
+  };
+} as any;
+
+report.getSceneInfo = async function (
+  { getMaterials, getTextures, getIdentifiers, getPositions } = {
+    getMaterials: true,
+    getTextures: true,
+    getIdentifiers: true,
+    getPositions: true,
+  },
+): Promise<string> {
+  const Instance = World.getInstance(false);
+  const info: { [key: string]: any } = {};
+  if (Instance && Instance.loaded) {
+    const sceneData: { [key: string]: any } = {};
+    const keys = Object.keys(Instance.assets);
+    // loop over all assets, may include scene objects/textures/materials/others
+    for (let index = 0; index < keys.length; index++) {
+      const key = keys[index];
+      const element = Instance.assets[key];
+      const getElementData = async (e: any) => {
+        if (!e) return { warning: 'no-element-was-found' };
+
+        const data: { [key: string]: any } = {};
+        let mat, tex;
+
+        data['name'] = e.name;
+        data['hidden'] = e.hidden.pinLastValue();
+
+        if (getIdentifiers) data['identifier'] = e.identifier;
+
+        if (getPositions) {
+          data['position'] = Vector.fromSignal(e.transform.position).toString(5);
+        }
+
+        if (getMaterials || getTextures) {
+          mat = e.getMaterial ? (await e.getMaterial()) || {} : {};
+          if (getMaterials) data['material'] = mat.name || 'undefined';
+          if (getMaterials && getIdentifiers) data['material-id'] = mat.identifier || 'undefined';
+        }
+
+        if (getTextures) {
+          tex = mat && mat.getDiffuse ? (await mat.getDiffuse()) || {} : {};
+          data['texture'] = tex.name || 'undefined';
+          if (getIdentifiers) data['texture-id'] = tex.identifier || 'undefined';
+        }
+        return data;
+      };
+      if (Array.isArray(element) && element.length > 1) {
+        sceneData[key] = await promiseAllConcurrent(10, true)(element.map((e) => getElementData.bind(this, e)));
+      } else if (element) {
+        sceneData[key] = await getElementData(element[0]);
+      } else {
+        sceneData[key] = `obj[key] is possibly undefined. key: ${key}`;
+      }
+    }
+    info['scene'] = sceneData;
+  } else {
+    info['scene'] = 'no instance was found, or the current instance has not loaded yet';
+  }
+  info['modules'] = {
+    Persistence: !!Persistence,
+    Multipeer: !!Multipeer,
+    dynamicInstancing: !!Scene.create,
+    writableSignals: !!Reactive.scalarSignalSource,
+  };
+  return prettifyJSON(info);
+};
+
+//#endregion
+
+//#region transformAcrossSpaces
 /**
  * @param vec The 3D VectorSignal to be transformed
  * @param vecSpace The parent space in which `vec` is located
@@ -130,6 +362,14 @@ export function transformAcrossSpaces(
 
   return targetParentSpace.inverse().applyToPoint(vecParentSpace.applyToPoint(vec));
 }
+//#endregion
+
+//#region randomBetween
+export const randomBetween = (min: number, max: number): number => {
+  return Math.random() * (max - min) + min;
+};
+//#endregion
+
 //#endregion
 
 //#region World
@@ -163,6 +403,7 @@ interface InternalWorldData {
   FLAGS: { stopTimeout: boolean; lockInternalSnapshotOverride: boolean };
   formattedValuesToSnapshot: ObjectToSnapshotable<Snapshot>;
   userFriendlySnapshot: SnapshotToVanilla<Snapshot> & InternalSignals;
+  quaternions: Map<string, boolean>;
   Camera: Camera;
 }
 
@@ -176,19 +417,18 @@ interface WorldConfig {
 class VoltsWorld<WorldConfigParams extends WorldConfig> {
   private static instance: VoltsWorld<any>;
   private static userConfig: WorldConfig;
+  static subscriptions: Function[];
   protected internalData: InternalWorldData;
   public assets: {
     [Prop in keyof WorldConfigParams['assets']]: WorldConfigParams['assets'][Prop] extends PromiseLike<infer C>
-      ? C extends ArrayLike<any>
-        ? C
-        : Array<C>
+      ? C
       : never;
   };
   public mode: keyof typeof PRODUCTION_MODES;
 
   private constructor() {
     this.mode = VoltsWorld.userConfig.mode;
-    // @ts-ignore
+    // @ts-expect-error
     this.assets = {};
     this.internalData = {
       initPromise: this.init.bind(this, VoltsWorld.userConfig.assets, VoltsWorld.userConfig.loadStates),
@@ -205,6 +445,7 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
         stopTimeout: false,
         lockInternalSnapshotOverride: false,
       },
+      quaternions: new Map<string, boolean>(),
       Camera: null,
     };
     // Making the promise public makes it easier to test with Jest
@@ -215,8 +456,11 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
       writable: false,
       configurable: false,
     });
-  }
 
+    for (let index = 0; index < VoltsWorld.subscriptions.length; index++) {
+      VoltsWorld.subscriptions[index]();
+    }
+  }
   // @todo add uglier but user-friendlier long-form type
   static getInstance<WorldConfigParams extends WorldConfig>(
     config?: WorldConfigParams | boolean,
@@ -231,7 +475,7 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
         throw new Error(
           `@ VoltsWorld.getInstance: 'config.mode' was not provided, but is required when creating the first instance`,
         );
-      // @ts-ignore
+      // @ts-expect-error
       if (!Object.values(PRODUCTION_MODES).includes(config.mode))
         throw new Error(
           `@ VoltsWorld.getInstance: 'config.mode' was provided, but was not valid.\n\nAvailable modes are: ${Object.values(
@@ -252,13 +496,17 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
     }
     return VoltsWorld.instance;
   }
-
+  /** @description Use this function to run a fn when a new Instance gets created */
+  static subscribeToInstance(cb: () => void): boolean {
+    if (typeof cb === 'function') return !!VoltsWorld.subscriptions.push(cb);
+    return false;
+  }
   static devClear() {
-    const Instance = VoltsWorld.getInstance(false);
+    // const Instance = VoltsWorld.getInstance(false);
     VoltsWorld.userConfig = undefined;
     VoltsWorld.instance = undefined;
+    VoltsWorld.subscriptions = [];
   }
-
   private async init(assets: WorldConfig['assets'], states: State<any>[]): Promise<void> {
     this.internalData.Camera = (await Scene.root.findFirst('Camera')) as Camera;
     this.addToSnapshot({
@@ -271,18 +519,20 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
     // load states
     // States are automatically loaded when created
     // @ts-ignore loadState is purposely not part of the type
-    const loadStateArr = await Promise.all(states.map((s: State<any>) => s.loadState()));
+    const loadStateArr = await promiseAllConcurrent(10, true)(states.map((s: State<any>) => s.loadState));
 
     const keys = Object.keys(assets);
-    const getAssets: any[] = await Promise.all([...keys.map((n) => assets[n])]);
+    const getAssets: any[] = await promiseAllConcurrent(10, false)(keys.map((n) => assets[n]));
     for (let k = 0; k < keys.length; k++) {
       if (!getAssets[k]) throw new Error(`@ Volts.World.init: Object(s) not found. Key: "${keys[k]}"`);
       // @ts-ignore
       // To be properly typed out. Unfortunately, i think loading everything at once with an array ([...keys.map((n) =>...) would make it very challenging...
       // Might be best to ts-ignore or `as unknown` in this case
-      this.assets[keys[k]] = (Array.isArray(getAssets[k]) ? getAssets[k] : [getAssets[k]]).sort((a, b) => {
-        return a.name.localeCompare(b.name);
-      });
+      this.assets[keys[k]] = Array.isArray(getAssets[k])
+        ? getAssets[k].sort((a, b) => {
+            return a.name.localeCompare(b.name);
+          })
+        : getAssets[k];
       // .map(objBody=>{ return new Object3D(objBody) });
     }
     this.internalData.loaded = true;
@@ -331,13 +581,13 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
           if (
             lastThreeFrames[0] === lastThreeFrames[1] &&
             lastThreeFrames[1] === lastThreeFrames[2] &&
-            this.mode !== PRODUCTION_MODES.PRODUCTION
+            VoltsWorld.userConfig.mode !== PRODUCTION_MODES.PRODUCTION
           )
             return loop();
           //#endregion
 
           //#region onLoad function
-          this.mode !== PRODUCTION_MODES.NO_AUTO &&
+          VoltsWorld.userConfig.mode !== PRODUCTION_MODES.NO_AUTO &&
             this.internalData.frameCount === 0 &&
             this.emitEvent('load', this.internalData.userFriendlySnapshot);
           //#endregion
@@ -348,6 +598,11 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
           this.emitEvent('frameUpdate', this.internalData.userFriendlySnapshot, onFramePerformanceData);
           this.internalData.frameCount += 1;
           //#endregion
+
+          if (this.w) {
+            this.w.timeElapsed = this.internalData.elapsedTime;
+            this.w.step();
+          }
 
           if (!this.internalData.FLAGS.stopTimeout) return loop();
         },
@@ -374,7 +629,7 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
   public forceAssetReload(): Promise<void> {
     return this.internalData.initPromise();
   }
-  public stop({ clearTimedEvents = false } = { clearTimedEvents: false }): boolean {
+  public stop({ clearTimedEvents } = { clearTimedEvents: false }): boolean {
     if (!this.internalData.running) return false;
 
     this.internalData.running = false;
@@ -390,11 +645,15 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
    * @see https://github.com/ai/nanoevents
    */
   public emitEvent(event: string, ...args: any[]): void {
-    const shouldBind = ['load', 'frameUpdate', 'testing'].some((e) => e === event);
-    if (!shouldBind) {
-      (this.internalData.events[event] || []).forEach((i) => i(...args));
-    } else {
-      (this.internalData.events[event] || []).forEach((i) => i.bind(this)(...args));
+    const shouldBind = ['load', 'frameUpdate', 'internal'].some((e) => e === event);
+    const evts = this.internalData.events[event] || [];
+    for (let index = 0; index < evts.length; index++) {
+      const event = evts[index];
+      if (shouldBind) {
+        event.bind(this)(...args);
+      } else {
+        event(...args);
+      }
     }
   }
   /**
@@ -411,6 +670,9 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
     (this.internalData.events[event] = this.internalData.events[event] || []).push(cb);
     return () => (this.internalData.events[event] = (this.internalData.events[event] || []).filter((i) => i !== cb));
   }
+  public onNextTick(cb): { clear: () => void } {
+    return this.setTimedEvent(cb, { ms: 0, recurring: false, onNext: this.frameCount });
+  }
   /**
    * @description Creates a timeout that executes the function after a given number of milliseconds
    * @param cb The function to be executed
@@ -418,9 +680,9 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
    * @returns The `clear` function, with which you can clear the timeout, preventing any future executions
    */
   public setTimeout(cb: TimedEventFunction, ms: number): { clear: () => void } {
-    if (!this.internalData.running)
-      Diagnostics.warn('Warning @ Volts.World.setTimeout: created a timeout while the current instance is not running');
-    return this.setTimedEvent(cb, ms, false);
+    // if (!this.internalData.running)
+    //   Diagnostics.warn('Warning @ Volts.World.setTimeout: created a timeout while the current instance is not running');
+    return this.setTimedEvent(cb, { ms, recurring: false });
   }
   /**
    * @description Creates an interval that executes the function every [X] milliseconds
@@ -429,11 +691,9 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
    * @returns The `clear` function, with which you can clear the interval, preventing any future executions
    */
   public setInterval(cb: TimedEventFunction, ms: number): { clear: () => void } {
-    if (!this.internalData.running)
-      Diagnostics.warn(
-        'Warning @ Volts.World.setInterval: created an interval while the current instance is not running',
-      );
-    return this.setTimedEvent(cb, ms, true);
+    // if (!this.internalData.running)
+    //   Diagnostics.warn( 'Warning @ Volts.World.setInterval: created an interval while the current instance is not running', );
+    return this.setTimedEvent(cb, { ms, recurring: true });
   }
   /**
    * @param cb The function to be called
@@ -446,10 +706,8 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
     ms: number,
     trailing = false,
   ): (...args: argTypes) => void {
-    if (!this.internalData.running)
-      Diagnostics.warn(
-        'Warning @ Volts.World.setDebounce: created a debounce while the current instance is not running',
-      );
+    // if (!this.internalData.running)
+    //   Diagnostics.warn('Warning @ Volts.World.setDebounce: created a debounce while the current instance is not running', );
     let timer: { clear: () => void };
     if (trailing)
       // trailing
@@ -470,7 +728,10 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
       }, ms);
     };
   }
-  protected setTimedEvent(cb: TimedEventFunction, ms: number, recurring: boolean): { clear: () => void } {
+  protected setTimedEvent(
+    cb: TimedEventFunction,
+    { ms, recurring, onNext }: { ms?: number; recurring?: boolean; onNext?: number },
+  ): { clear: () => void } {
     const event: TimedEvent = {
       created: this.internalData.elapsedTime,
       lastCall: this.internalData.elapsedTime,
@@ -478,6 +739,7 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
       delay: ms,
       recurring,
       cb,
+      onNext,
     };
     this.internalData.timedEvents.push(event);
     return {
@@ -491,7 +753,10 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
     let i = this.internalData.timedEvents.length;
     while (i--) {
       const event = this.internalData.timedEvents[i];
-      if (event.lastCall + event.delay < this.internalData.elapsedTime) {
+      if (
+        (event.onNext !== undefined && event.onNext !== this.frameCount) ||
+        (event.onNext === undefined && event.lastCall + event.delay < this.internalData.elapsedTime)
+      ) {
         event.cb.apply(this, [
           this.internalData.elapsedTime - event.created,
           event.count,
@@ -526,22 +791,23 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
       if (!signal) throw new Error(`@ (static) signalsToSnapshot_able: value[key] is not defined. Key: "${key}"`);
       if (signal.w) {
         // vec4
-        tmp[getKey(key, 'W4')] = signal.w;
-        tmp[getKey(key, 'Z4')] = signal.z;
-        tmp[getKey(key, 'Y4')] = signal.y;
-        tmp[getKey(key, 'X4')] = signal.x;
+        tmp[getKey(key, 'w4')] = signal.w;
+        tmp[getKey(key, 'z4')] = signal.z;
+        tmp[getKey(key, 'y4')] = signal.y;
+        tmp[getKey(key, 'x4')] = signal.x;
+        if (signal.eulerAngles) this.internalData.quaternions.set(key, true);
       } else if (signal.z) {
         // vec3
-        tmp[getKey(key, 'Z3')] = signal.z;
-        tmp[getKey(key, 'Y3')] = signal.y;
-        tmp[getKey(key, 'X3')] = signal.x;
+        tmp[getKey(key, 'z3')] = signal.z;
+        tmp[getKey(key, 'y3')] = signal.y;
+        tmp[getKey(key, 'x3')] = signal.x;
       } else if (signal.y) {
         // vec2
-        tmp[getKey(key, 'Y2')] = signal.y;
-        tmp[getKey(key, 'X2')] = signal.x;
+        tmp[getKey(key, 'y2')] = signal.y;
+        tmp[getKey(key, 'x2')] = signal.x;
       } else if (signal.xor || signal.concat || signal.pinLastValue) {
         // bool // string // scalar, this very likely unintentionally catches any and all other signal types, even the ones that can't be snapshot'ed
-        tmp[getKey(key, 'X1')] = signal;
+        tmp[getKey(key, 'x1')] = signal;
       } else {
         throw new Error(
           `@ (static) signalsToSnapshot_able: The provided Signal is not defined or is not supported. Key: "${key}"\n\nPlease consider opening an issue/PR: https://github.com/tomaspietravallo/sparkar-volts/issues`,
@@ -576,19 +842,22 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
       const [dim, uuid] = signals[name];
 
       if (!Number.isFinite(dim) || dim == 0 || dim > 4)
-        throw new Error(
-          `@ Volts.World.formattedSnapshotToUserFriendly: dimension of signals[name] not 1|2|3|4. Dim: ${dim}. Name: ${name}.\n\nPlease report this on Github as an issue\n\nExtra data:\nKeys: ${keys}`,
-        );
+        report(
+          `@ Volts.World.formattedSnapshotToUserFriendly: dimension of signals[name] not 1|2|3|4. Dim: ${dim}. Name: ${name}.\n\nKeys: ${keys}`,
+        ).asIssue('throw');
 
       const arr: any[] = [];
-      const letters = ['X', 'Y', 'Z', 'W'];
       for (let index = 0; index < dim; index++) {
-        arr.push(snapshot[`CONVERTED::${name}::${letters[index]}${dim}::${uuid}`]);
+        arr.push(snapshot[`CONVERTED::${name}::${Vector.components[index]}${dim}::${uuid}`]);
       }
 
-      result[name] = dim >= 2 ? new Vector(arr) : arr[0];
+      if (this.internalData.quaternions.has(name)) {
+        result[name] = new Quaternion(arr[3], arr[0], arr[1], arr[2]);
+      } else {
+        result[name] = dim >= 2 ? new Vector(arr) : arr[0];
+      }
     }
-    // @ts-ignore
+
     return result;
   }
 
@@ -614,10 +883,17 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
    * @description Returns a 2D Vector representing the bottom right of the screen, in world space coordinates
    */
   public getWorldSpaceScreenBounds(): Vector<3> {
+    if (!this.internalData.running) {
+      throw new Error(
+        `Vector.getWorldSpaceScreenBounds can only be called when there's a Volts.World instance running`,
+      );
+    }
     // ask the spark team about this :D, at the time of writing (v119), this didn't output consistent results
     return this.internalData.userFriendlySnapshot.__volts__internal__screen.copy().abs().mul(1, -1, 0);
   }
 }
+
+VoltsWorld.subscriptions = [];
 
 //#endregion
 
@@ -636,13 +912,18 @@ interface NDVectorInstance<D extends number> {
   distance(...other: VectorArgRest): number;
   magSq(): number;
   mag(): number;
+  setMag(newMag: number): Vector<D>;
   abs(): Vector<D>;
   copy(): Vector<D>;
   normalize(): Vector<D>;
   equals(b: Vector<any>): boolean;
-  toString(): string;
+  toString(toFixed?: number): string;
+  toArray(): number[];
   get x(): number;
   set x(x: number);
+  get signal(): D extends 2 ? Vec2Signal : D extends 3 ? VectorSignal : D extends 4 ? Vec4Signal : ScalarSignal;
+  setSignalComponents(): void;
+  disposeSignalResources(): void;
 }
 
 interface Vector2DInstance {
@@ -693,7 +974,23 @@ interface NDVector {
       : never
     : never;
   convertToSameDimVector<D extends number>(dim: D, ...args: VectorArgRest): Vector<D>;
-  screenToWorld(x: number, y: number, focalPlane: true): Vector<3>;
+  screenToWorld(x: number, y: number, focalPlane: boolean): Vector<3>;
+  fromSignal<sT extends ScalarSignal | Vec2Signal | VectorSignal | Vec4Signal>(
+    s: sT,
+  ): Vector<
+    sT extends ScalarSignal
+      ? 1
+      : sT extends Vec2Signal
+      ? 2
+      : sT extends VectorSignal
+      ? 3
+      : sT extends Vec4Signal
+      ? 4
+      : number
+  >;
+  random2D(): Vector<2>;
+  random3D(): Vector<3>;
+  components: ['x', 'y', 'z', 'w'];
 }
 
 type getVecTypeForD<D extends number> = D extends 1
@@ -725,7 +1022,7 @@ export const Vector = function <D extends number, args extends VectorArgRest = [
     this.values = args[0];
   } else if (args.length === 1) {
     this.values = [args[0], args[0], args[0]];
-  } else if (!args[0]) {
+  } else if (args[0] == undefined) {
     this.values = [0, 0, 0];
   } else {
     this.values = args as number[];
@@ -748,7 +1045,31 @@ export const Vector = function <D extends number, args extends VectorArgRest = [
       set:    (z)=>{if (this.dimension < 3) throw new Error(`Cannot get Vector.z, vector is not 3D`);   this.values[2] = z}},
     w: {
       get:    () =>{if (this.dimension < 4) throw new Error(`Cannot get Vector.w, vector is not 4D`);   return this.values[3]},
-      set:    (w)=>{if (this.dimension < 4) throw new Error(`Cannot get Vector.w, vector is not 4D`);   this.values[3] = w}},
+      set:    (w)=>{if (this.dimension < 4) throw new Error(`Cannot get Vector.w, vector is not 4D`);   this.values[3] = w}
+    },
+    signal: {
+      get: () => {
+          // @ts-expect-error
+          if (this.rs) return this.rs;
+
+          for (let index = 0; index < this.dimension; index++) {
+            const c = Vector.components[index];
+            this[`r${c}`] = Reactive.scalarSignalSource(`v${this.dimension}-${c}-${getUUIDv4()}`);
+            this[`r${c}`].set(this[c]);
+          };
+
+          if (this.dimension === 1) {this.rs = this.rx.signal}
+          else if (this.dimension === 2) {this.rs = Reactive.point2d(this.rx.signal, this.ry.signal)}
+          else if (this.dimension === 3) {this.rs = Reactive.vector(this.rx.signal, this.ry.signal, this.rz.signal)}
+          else if (this.dimension === 4)  {this.rs = Reactive.pack4(this.rx.signal, this.ry.signal, this.rz.signal, this.rw.signal)}
+          else {
+            throw new Error(`Tried to get the Signal of a N>4 Vector instance. Signals are only available for Vectors with up to 4 dimensions`);
+          };
+
+          return this.rs;
+        
+      }
+    }
   });
 
   return this;
@@ -799,6 +1120,43 @@ Vector.screenToWorld = function (x: number, y: number, focalPlane = true): Vecto
     focalPlane ? (Instance.snapshot.__volts__internal__focalDistance as unknown as number) : 0,
   );
 };
+Vector.fromSignal = function <sT extends ScalarSignal | Vec2Signal | VectorSignal | Vec4Signal>(
+  s: any,
+): Vector<
+  sT extends ScalarSignal
+    ? 1
+    : sT extends Vec2Signal
+    ? 2
+    : sT extends VectorSignal
+    ? 3
+    : sT extends Vec4Signal
+    ? 4
+    : number
+> {
+  if (!s) throw new Error(`@ Volts.Vector.fromSignal: s is not defined`);
+  const tmp = [];
+  // returns a scalar
+  if (!s.x) return new Vector([s.pinLastValue()]);
+  for (let index = 0; index < Vector.components.length; index++) {
+    const e = s[Vector.components[index]];
+    if (!e) continue;
+    tmp.push(e.pinLastValue());
+  }
+  return new Vector(tmp);
+};
+Vector.random2D = function random2D(): Vector<2> {
+  const angle = Math.random();
+  return new Vector(Math.cos(angle), Math.sin(angle));
+};
+Vector.random3D = function random3D(): Vector<3> {
+  const angle = Math.random() * TWO_PI;
+  const vz = Math.random() * 2 - 1;
+  const vzBase = Math.sqrt(1 - vz * vz);
+  const vx = vzBase * Math.cos(angle);
+  const vy = vzBase * Math.sin(angle);
+  return new Vector(vx, vy, vz);
+};
+Vector.components = ['x', 'y', 'z', 'w'];
 //#endregion
 //#region common
 Vector.prototype.add = function <D extends number>(this: Vector<D>, ...args: VectorArgRest): Vector<D> {
@@ -838,6 +1196,9 @@ Vector.prototype.magSq = function <D extends number>(this: Vector<D>): number {
 Vector.prototype.mag = function <D extends number>(this: Vector<D>): number {
   return this.values.map((v) => v * v).reduce((acc, val) => acc + val) ** 0.5;
 };
+Vector.prototype.setMag = function <D extends number>(this: Vector<D>, newMag: number) {
+  return this.normalize().mul(newMag);
+};
 Vector.prototype.abs = function <D extends number>(this: Vector<D>): Vector<D> {
   this.values = this.values.map((v) => (v < 0 ? -v : v));
   return this;
@@ -848,14 +1209,34 @@ Vector.prototype.normalize = function <D extends number>(this: Vector<D>): Vecto
   return this;
 };
 Vector.prototype.copy = function <D extends number>(this: Vector<D>): Vector<D> {
-  return new Vector(this.values);
+  return new Vector([...this.values]);
 };
-/** @description Test whether two Vectors are equal to each other */
+/** @description Test whether two Vectors are equal to each other. This does NOT test whether they are the same instance of Volts.Vector */
 Vector.prototype.equals = function <D extends number>(this: Vector<D>, b: Vector<number>): boolean {
   return !!b && this.dimension === b.dimension && this.values.every((v, i) => v === b.values[i]);
 };
-Vector.prototype.toString = function <D extends number>(): string {
-  return `Vector<${this.dimension}> [${this.values.toString()}]`;
+Vector.prototype.toString = function <D extends number>(this: Vector<D>, toFixed = 5): string {
+  // Writeable Reactive Signal
+  // @ts-expect-error
+  return `Vector<${this.dimension}>${this.rs ? ' (WRS)' : ''} [${(toFixed
+    ? this.values.map((v) => v.toFixed(toFixed))
+    : this.values
+  ).toString()}]`;
+};
+Vector.prototype.toArray = function () {
+  return [...this.values];
+};
+Vector.prototype.setSignalComponents = function (): void {
+  this.rx && this.rx.set(this.values[0]);
+  this.ry && this.ry.set(this.values[1]);
+  this.rz && this.rz.set(this.values[2]);
+  this.rw && this.rw.set(this.values[3]);
+};
+Vector.prototype.disposeSignalResources = function (): void {
+  this.rx && this.rx.dispose();
+  this.ry && this.ry.dispose();
+  this.rz && this.rz.dispose();
+  this.rw && this.rw.dispose();
 };
 //#endregion
 //#region Vector<3>
@@ -881,6 +1262,290 @@ Vector.prototype.rotate = function <D extends number>(a: number): Vector<D> {
   return this;
 };
 //#endregion
+
+//#endregion
+
+//#region Quaternion
+
+type QuaternionArgRest = [number, number, number, number] | [number[]] | [Quaternion] | [];
+
+export class Quaternion {
+  values: [number, number, number, number];
+  static components: ['w', 'x', 'y', 'z'];
+  constructor(...args: QuaternionArgRest) {
+    if (!args || args[0] === undefined) {
+      // Quaternion.identity()
+      this.values = [1, 0, 0, 0];
+    } else if (args[0] instanceof Quaternion) {
+      this.values = args[0].values;
+    } else if (Array.isArray(args[0])) {
+      // @ts-expect-error
+      this.values = args[0];
+    } else {
+      this.values = <any>args;
+    }
+    if (!this.values.every((v) => typeof v === 'number' && Number.isFinite(v)) || this.values.length !== 4)
+      throw new Error(
+        `@ Quaternion.constructor: Values provided are not valid. args: ${args}. this.values: ${this.values}`,
+      );
+  }
+  /**
+   * @description Converts any given QuaternionArgRest into a Quaternion
+   */
+  static convertToQuaternion(...args: QuaternionArgRest): Quaternion {
+    let tmp = [];
+    if (args[0] instanceof Quaternion) {
+      tmp = args[0].values;
+    } else if (Array.isArray(args[0])) {
+      tmp = args[0];
+    } else {
+      tmp = args;
+    }
+    if (!tmp.every((v) => typeof v === 'number' && Number.isFinite(v)) || tmp.length !== 4)
+      throw new Error(`@ Quaternion.constructor: Values provided are not valid. args: ${args}. tmp: ${tmp}`);
+
+    return new Quaternion(tmp);
+  }
+  /**
+   * @returns the identity ( `Quaternion(1, 0, 0, 0)` )
+   */
+  static identity(): Quaternion {
+    return new Quaternion(1, 0, 0, 0);
+  }
+  /**
+   * @description Create a Quaternion from an Euler angle, provided as any valid 3D VectorArgRest
+   * @param args Any valid VectorArgRest, you can simply use an array of length 3
+   */
+  static fromEuler(...args: VectorArgRest): Quaternion {
+    const euler = Vector.convertToSameDimVector(3, ...args);
+    const yaw = euler.values[2];
+    const pitch = euler.values[1];
+    const roll = euler.values[0];
+    const cy = Math.cos(yaw * 0.5);
+    const sy = Math.sin(yaw * 0.5);
+    const cp = Math.cos(pitch * 0.5);
+    const sp = Math.sin(pitch * 0.5);
+    const cr = Math.cos(roll * 0.5);
+    const sr = Math.sin(roll * 0.5);
+    return new Quaternion(
+      cr * cp * cy + sr * sp * sy,
+      sr * cp * cy - cr * sp * sy,
+      cr * sp * cy + sr * cp * sy,
+      cr * cp * sy - sr * sp * cy,
+    );
+  }
+  static createFromAxisAngle(axis: Vector<3>, angle: number): Quaternion {
+    const halfAngle = angle * 0.5;
+    const s = Math.sin(halfAngle);
+    const q = new Quaternion();
+    q.values[1] = axis.values[0] * s;
+    q.values[2] = axis.values[1] * s;
+    q.values[3] = axis.values[2] * s;
+    q.values[0] = Math.cos(halfAngle);
+    return q;
+  }
+  /**
+   * @description LookAt function
+   * @param sourcePoint The point where the looker is located in 3D space
+   * @param destPoint The point to look at in 3D space
+   */
+  static lookAt(sourcePoint: Vector<3>, destPoint: Vector<3>): Quaternion {
+    const forwardVector = destPoint.copy().sub(sourcePoint).normalize();
+    const dot = new Vector(0, 0, 1).dot(forwardVector);
+    if (Math.abs(dot + 1.0) < 0.000001) {
+      return new Quaternion(0, 1, 0, 3.1415926535897932);
+    }
+    if (Math.abs(dot - 1.0) < 0.000001) {
+      return new Quaternion([1, 0, 0, 0]);
+    }
+    const rotAngle = Math.acos(dot);
+    const rotAxis = new Vector([0, 0, 1]).cross(forwardVector).normalize();
+    return Quaternion.createFromAxisAngle(rotAxis, rotAngle);
+  }
+  /**
+   * @author Tomas Pietravallo
+   * @description Look at function. Optimized for speed. Borrowed from the early beta versions of Volts
+   * @param headingVector3DArray an array of length 3, containing data pointing from the looker to the object to be watched. Essentially Vector<3>.values
+   */
+  static lookAtOptimized(headingVector3DArray: number[]): Quaternion {
+    // Heavily inlined and pre-calculated the return is the same as Quaternion.LookAt()
+    // It is assumed that UP is 0,1,0 and that the forward axis points towards 0,0,1
+    // The assumptions above allow for skipping some calculations, since multiplying/adding 0 is irrelevant
+    const forwardVector: number[] = [...headingVector3DArray];
+    let mag = Math.sqrt(forwardVector[0] ** 2 + forwardVector[1] ** 2 + forwardVector[2] ** 2);
+    forwardVector[0] /= mag;
+    forwardVector[1] /= mag;
+    forwardVector[2] /= mag;
+    const dot = forwardVector[2];
+    if (Math.abs(dot + 1) < 0.00001) return new Quaternion(0, 1, 0, 3.1415926535897932);
+    if (Math.abs(dot - 1) < 0.00001) return new Quaternion(1, 0, 0, 0);
+    let rotAngle = Math.acos(dot);
+    const rotAxis = [-forwardVector[1], forwardVector[0], 0];
+    mag = Math.sqrt(rotAxis[0] ** 2 + rotAxis[1] ** 2);
+    rotAxis[0] /= mag;
+    rotAxis[1] /= mag;
+    rotAngle *= 0.5;
+    const s = Math.sin(rotAngle);
+    return new Quaternion(Math.cos(rotAngle), rotAxis[0] * s, rotAxis[1] * s, rotAxis[2] * s);
+
+    // Convert to Spark's Euler angles
+    // Note that because of the singularities, Q -> Euler can produce unexpected results
+    // https://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles
+
+    // let angles = [];
+    // let sinr_cosp = 2 * (q[0] * q[1] + q[2] * q[3]);
+    // let cosr_cosp = 1 - 2 * (q[1] * q[1] + q[2] * q[2]);
+    // angles[0] = Math.atan2(sinr_cosp, cosr_cosp);
+    // let sinp = 2 * (q[0] * q[2] - q[3] * q[3]);
+    // if (Math.abs(sinp) >= 1) {angles[1] = (1.57079632679) * Math.sign(sinp);} else {angles[1] = Math.asin(sinp);}
+    // let siny_cosp = 2 * (q[0] * q[3] + q[1] * q[2]);
+    // let cosy_cosp = 1 - 2 * (q[2] * q[2] + q[3] * q[3]);
+    // angles[2] = Math.atan2(siny_cosp, cosy_cosp);
+    // return new EulerAngles(angles);
+  }
+  public toQuaternionSignal(): QuaternionSignal {
+    return Reactive.quaternion(this.values[0], this.values[1], this.values[2], this.values[3]);
+  }
+  public calcNorm(): number {
+    return (this.values[0] ** 2 + this.values[1] ** 2 + this.values[2] ** 2 + this.values[3] ** 2) ** 0.5;
+  }
+  public normalize(): Quaternion {
+    const norm = this.calcNorm();
+    this.values[0] /= norm;
+    this.values[1] /= norm;
+    this.values[2] /= norm;
+    this.values[3] /= norm;
+    return this;
+  }
+  /**
+   * @description Component-wise addition
+   */
+  public add(...other: QuaternionArgRest): Quaternion {
+    const b = Quaternion.convertToQuaternion(...other).values;
+    this.values[0] = this.values[0] + b[0];
+    this.values[1] = this.values[1] + b[1];
+    this.values[2] = this.values[2] + b[2];
+    this.values[3] = this.values[3] + b[3];
+    return this;
+  }
+  /**
+   * @description To compose two Quaternion rotations together you need to rotate one by the other (multiply them), this operation does that. Note: non-commutative
+   * @param other
+   * @todo Tests
+   * @returns
+   */
+  public mul(...other: QuaternionArgRest): Quaternion {
+    const b = Quaternion.convertToQuaternion(...other);
+    const w1 = this.w;
+    const x1 = this.x;
+    const y1 = this.y;
+    const z1 = this.z;
+
+    const w2 = b.w;
+    const x2 = b.x;
+    const y2 = b.y;
+    const z2 = b.z;
+
+    this.w = w1 * w2 - x1 * x2 - y1 * y2 - z1 * z2;
+    this.x = w1 * x2 + x1 * w2 + y1 * z2 - z1 * y2;
+    this.y = w1 * y2 + y1 * w2 + z1 * x2 - x1 * z2;
+    this.z = w1 * z2 + z1 * w2 + x1 * y2 - y1 * x2;
+    return this;
+  }
+  public copy(): Quaternion {
+    return new Quaternion([...this.values]);
+  }
+  public setSignalComponents(): void {
+    // @ts-expect-error
+    this.rw && this.rw.set(this.values[0]); // @ts-expect-error
+    this.rx && this.rx.set(this.values[1]); // @ts-expect-error
+    this.ry && this.ry.set(this.values[2]); // @ts-expect-error
+    this.rz && this.rz.set(this.values[3]);
+  }
+  public disposeSignalResources(): void {
+    // @ts-expect-error
+    this.rw && this.rw.dispose(); // @ts-expect-error
+    this.rx && this.rx.dispose(); // @ts-expect-error
+    this.ry && this.ry.dispose(); // @ts-expect-error
+    this.rz && this.rz.dispose();
+  }
+  /**
+   * @description Returns an array containing the Euler angles (in radian) for the corresponding Quaternion.
+   *
+   * Note: Singularities
+   * @returns
+   */
+  public toEulerArray(): number[] {
+    const angles: number[] = [];
+    // roll (x-axis rotation)
+    const sinr_cosp = 2 * (this.w * this.x + this.y * this.z);
+    const cosr_cosp = 1 - 2 * (this.x * this.x + this.y * this.y);
+    angles[0] = Math.atan2(sinr_cosp, cosr_cosp);
+    // pitch (y-axis rotation)
+    const sinp = 2 * (this.w * this.y - this.z * this.x);
+    if (Math.abs(sinp) >= 1) {
+      angles[1] = (PI / 2) * Math.sign(sinp); // use 90 degrees if out of range
+    } else {
+      angles[1] = Math.asin(sinp);
+    }
+    // yaw (z-axis rotation)
+    const siny_cosp = 2 * (this.w * this.z + this.x * this.y);
+    const cosy_cosp = 1 - 2 * (this.y * this.y + this.z * this.z);
+    angles[2] = Math.atan2(siny_cosp, cosy_cosp);
+    return angles;
+  }
+  public toString(toFixed = 5): string {
+    //@ts-expect-error
+    return `Quaternion${this.rs ? ' (WRS)' : ''}: [${this.values.map((v) => v.toFixed(toFixed))}]`;
+  }
+  public toArray(): number[] {
+    return [...this.values];
+  }
+  get normalized(): Quaternion {
+    return new Quaternion([...this.values]).normalize();
+  }
+  get w(): number {
+    return this.values[0];
+  }
+  set w(w: number) {
+    this.values[0] = w;
+  }
+  get x(): number {
+    return this.values[1];
+  }
+  set x(x: number) {
+    this.values[1] = x;
+  }
+  get y(): number {
+    return this.values[2];
+  }
+  set y(y: number) {
+    this.values[2] = y;
+  }
+  get z(): number {
+    return this.values[3];
+  }
+  set z(z: number) {
+    this.values[3] = z;
+  }
+  get signal(): QuaternionSignal {
+    // @ts-expect-error
+    if (this.rs) return this.rs;
+
+    for (let index = 0; index < Quaternion.components.length; index++) {
+      const c = Quaternion.components[index];
+      this[`r${c}`] = Reactive.scalarSignalSource(`quat-${c}-${getUUIDv4()}`);
+      this[`r${c}`].set(this[c]);
+    }
+
+    // @ts-expect-error
+    this.rs = Reactive.quaternion(this.rw.signal, this.rx.signal, this.ry.signal, this.rz.signal);
+
+    return this.rs;
+  }
+}
+
+Quaternion.components = ['w', 'x', 'y', 'z'];
 
 //#endregion
 
@@ -984,7 +1649,7 @@ export class State<Data extends { [key: string]: Vector<any> | number | string |
    * @todo Add support for Reactive values
    * @body Improve the use experience by allowing Reactive values to be used as values
    */
-  setKey(key: keyof Data, value: Vector<any> | number | string | boolean): void {
+  setValue(key: keyof Data, value: Vector<any> | number | string | boolean): void {
     // @ts-ignore
     this.data[key] = value instanceof Vector ? value.copy() : value;
     // rate limit (?)
@@ -998,39 +1663,316 @@ export class State<Data extends { [key: string]: Vector<any> | number | string |
 
 //#endregion
 
-//#region exports
+//#region Object3D
 
-// prettier-ignore
-
-interface Privates {
-  clearVoltsWorld: ()=>void;
+/**
+ * @description A base type to be implemented by other classes that want to implement Object3D-like behaviour.
+ *
+ * Named `Skeleton` instead of `Base` to avoid confusion with Spark's class names
+ */
+export interface Object3DSkeleton {
+  pos: Vector<3>;
+  rot: Quaternion;
+  update(): void;
 }
 
-export const privates = Object.defineProperties(
-  {},
-  {
-    clearVoltsWorld: {
-      value: () => {
-          try {
-            jest;
-            return VoltsWorld.devClear();
-          } catch {
-            throw `Cannot read 'private.clear' in the current environment. To be read by jest/testing env only`;
-          }
-        },
-    },
-  },
-) as Privates;
+export class Object3D<T extends SceneObjectBase> implements Object3DSkeleton {
+  protected _pos: Vector<3>;
+  protected _rot: Quaternion;
+  public vel: Vector<3>;
+  public acc: Vector<3>;
+  public size: Vector<3>;
+  public body: T;
+  public readonly UUID: string;
+  constructor(body: T) {
+    this._pos = new Vector();
+    this._rot = new Quaternion();
+    this.vel = new Vector();
+    this.acc = new Vector();
+    this.size = new Vector();
+    this.body = body;
+    this.UUID = getUUIDv4();
+    if (!(this.body && this.body.transform)) {
+      throw new Error(
+        `Object3D.constructor: Object body "${
+          this.body && this.body.name ? this.body.name : this.body
+        }" is not a valid Object3D body (needs to extend SceneObjectBase)`,
+      );
+    }
+    this.body.transform.position = this._pos.signal;
+    this.body.transform.rotation = this._rot.signal;
+  }
+  async stayInPlace(): Promise<void> {
+    return await Promise.all([this.fetchLastPosition(), this.fetchLastRotation(), this.fetchSize()]).then(
+      ([pos, rot, size]) => {
+        this._pos.values = pos.values;
+        this._rot.values = rot.values;
+        this.size.values = size.values;
+      },
+    );
+  }
+  async fetchLastPosition(): Promise<Vector<3>> {
+    const Instance = World.getInstance(false);
+    if (!Instance) throw new Error(`No VOLTS.World Instance found`);
+    const props: { [key: string]: any } = {};
+    props[this.UUID + 'pos'] = this.body.transform.position;
+    Instance.addToSnapshot(props);
+    return await new Promise((resolve) => {
+      Instance.onNextTick(() => {
+        Instance.removeFromSnapshot(this.UUID + 'pos');
+        resolve(Instance.snapshot[this.UUID + 'pos']);
+      });
+    });
+  }
+  async fetchLastRotation(): Promise<Quaternion> {
+    const Instance = World.getInstance(false);
+    if (!Instance) throw new Error(`No VOLTS.World Instance found`);
+    const props: { [key: string]: any } = {};
+    props[this.UUID + 'rot'] = this.body.transform.rotation;
+    Instance.addToSnapshot(props);
+    return await new Promise((resolve) => {
+      Instance.onNextTick(() => {
+        Instance.removeFromSnapshot(this.UUID + 'rot');
+        resolve(Instance.snapshot[this.UUID + 'rot']);
+      });
+    });
+  }
+  async fetchSize(): Promise<Vector<3>> {
+    const Instance = World.getInstance(false);
+    if (!Instance) throw new Error(`No VOLTS.World Instance found`);
+    const props: { [key: string]: any } = {};
+    props[this.UUID + 'size'] = this.body.boundingBox.max.sub(this.body.boundingBox.min);
+    Instance.addToSnapshot(props);
+    return await new Promise((resolve) => {
+      Instance.onNextTick(() => {
+        const snap = Instance.snapshot[this.UUID + 'size'];
+        if (JSON.stringify(snap).indexOf('null,null,null') !== -1)
+          report('Cannot run Object3D.fetchSize on non-mesh object').asBackwardsCompatibleDiagnosticsError();
+        Instance.removeFromSnapshot(this.UUID + 'size');
+        resolve(Instance.snapshot[this.UUID + 'size']);
+      });
+    });
+  }
+  update(update: { position?: boolean; rotation?: boolean } = { position: true, rotation: true }): void {
+    if (update.position) this._pos.setSignalComponents();
+    if (update.rotation) this._rot.setSignalComponents();
+  }
+  lookAtOther(otherObject: Object3DSkeleton): void {
+    this._rot.values = Quaternion.lookAt(this.pos, otherObject.pos).values;
+  }
+  lookAtHeading(): void {
+    this._rot.values = Quaternion.lookAtOptimized(this.vel.values).values;
+  }
+  /**
+   * @description Uses the Oimo plugin to implement RigidBody physics
+   *
+   * **This is BETA functionality**, it will likely change in future versions.
+   *
+   * There may be no warning about breaking changes, please aware of this.
+   *
+   * @requires module:oimo.plugin
+   * @see https://github.com/tomaspietravallo/sparkar-volts/issues/6
+   *
+   * @version 1.0
+   */
+  makeRigidBody(): void {
+    safeImportPlugins('oimo', 1.0);
+    // returns an existing world if found
+    const w = _plugins.oimo.createOimoWorld(
+      { World },
+      {
+        timestep: 1 / 30,
+        iterations: 8,
+        broadphase: 2, // 1 brute force, 2 sweep and prune, 3 volume tree
+        worldscale: 1,
+        random: true,
+        info: false,
+        gravity: [0, -0.9807, 0],
+      },
+    );
+    const o = w.add({
+      type: 'box', // type of shape : sphere, box, cylinder
+      size: this.size.toArray(),
+      pos: this._pos.toArray(),
+      rot: this._rot.toEulerArray().map((v) => v * 57.2958),
+      move: true, // dynamic or static
+      density: 1,
+      friction: 1.0,
+      restitution: 1.0,
+      belongsTo: 1, // The bits of the collision groups to which the shape belongs.
+      collidesWith: 0xffffffff, // The bits of the collision groups with which the shape collides.
+    });
+    o.connectMesh(this);
+    // (new _plugins.oimo.RigidBody())
+  }
+  set pos(xyz: Vector<3>): void {
+    this._pos.values = xyz.values;
+  }
+  get pos(): Vector<3> {
+    return this._pos;
+  }
+  set rot(quat: Quaternion): void {
+    this._rot.values = quat.values;
+  }
+  get rot(): Quaternion {
+    return this._rot;
+  }
+}
+
+//#endregion
+
+//#region Pool
+
+type PooledObject<obj> = obj & { returnToPool: () => void };
+
+enum SceneObjectClassNames {
+  'Plane' = 'Plane',
+  'Canvas' = 'Canvas',
+  'PlanarImage' = 'PlanarImage',
+  'AmbientLightSource' = 'AmbientLightSource',
+  'DirectionalLightSource' = 'DirectionalLightSource',
+  'PointLightSource' = 'PointLightSource',
+  'SpotLightSource' = 'SpotLightSource',
+  'ParticleSystem' = 'ParticleSystem',
+  'SceneObject' = 'SceneObject',
+}
+
+/**
+ * @description Still in EARLY development
+ */
+export class Pool {
+  public objects: Object3D<SceneObjectBase | BlockSceneRoot>[];
+  protected seed: (string | BlockAsset)[];
+  protected root: SceneObjectBase | Promise<SceneObjectBase>;
+  static SceneObjects: typeof SceneObjectClassNames;
+  constructor(
+    objectsOrPath: string | string[] | BlockAsset | BlockAsset[],
+    root?: string | SceneObjectBase,
+    initialState: {
+      [Prop in keyof SceneObjectBase]+?: SceneObjectBase[Prop] | ReactiveToVanilla<SceneObjectBase[Prop]>;
+    } = { hidden: true },
+  ) {
+    if (!Blocks.instantiate)
+      throw new Error(
+        `@ VOLTS.Pool.constructor: Dynamic instances capability is not enabled.\n\nPlease go to Project > Properties > Capabilities > + Scripting Dynamic Instantiation`,
+      );
+    if (!objectsOrPath) throw new Error(`@ VOLTS.Pool.constructor: objectsOrPath is undefined`);
+    this.seed = Array.isArray(objectsOrPath) ? objectsOrPath : [objectsOrPath];
+    this.objects = [];
+    // Promise.resolve pushed further down to Pool.instantiate
+    if (root) this.root = this.setRoot(root);
+  }
+  protected async instantiate(): Promise<void> {
+    const assetName = this.seed[Math.floor(Math.random() * this.seed.length)];
+    const i = await (Object.values(SceneObjectClassNames).includes(assetName as any)
+      ? Scene.create(assetName as string, {})
+      : Blocks.instantiate(assetName, {}));
+    // @ts-ignore
+    this.root = (this.root || {}).then ? await this.root.catch(() => undefined) : this.root;
+    // @ts-expect-error
+    if (!this.root || !this.root.addChild)
+      throw new Error(
+        `@ VOLTS.Pool.instantiate: No root was provided, or the string provided did not match a valid SceneObject`,
+      );
+    await this.root.addChild(i);
+    this.objects.push(new Object3D(i));
+  }
+  public async getObject(): Promise<PooledObject<BlockSceneRoot>> {
+    // @ts-expect-error
+    let obj: PooledObject<T> = this.objects.pop();
+    if (!obj) {
+      await this.instantiate();
+      obj = this.objects.pop();
+    }
+    obj.returnToPool = () => this.objects.push(obj);
+    return obj;
+  }
+  public async populate(amount: number, limitConcurrentPromises?: number): Promise<void> {
+    await promiseAllConcurrent(
+      limitConcurrentPromises || 10,
+      true,
+    )(new Array(amount).fill(this.instantiate.bind(this)));
+  }
+  public async setRoot(newRoot: string | SceneObjectBase): Promise<SceneObjectBase> {
+    this.root = typeof newRoot === 'string' ? await Scene.root.findFirst(newRoot).catch(() => undefined) : newRoot;
+    if (!this.root)
+      throw new Error(
+        `Error @ VOLTS.Pool.setRoot: Scene.root.findFirst was unable to find the provided root: "${newRoot}"`,
+      );
+    return this.root;
+  }
+  get hasPreInstancedObjectsAvailable(): boolean {
+    return this.objects.length > 0;
+  }
+  get preInstancedObjectsCount(): number {
+    return this.objects.length;
+  }
+}
+
+Pool.SceneObjects = SceneObjectClassNames;
+
+//#endregion
+
+//#region exports
+
+interface Privates {
+  clearVoltsWorld: () => void;
+  report: reportFn;
+  promiseAllConcurrent: (n: number, areFn: boolean) => (list: Promise<any>[]) => Promise<any[]>;
+}
+
+/* istanbul ignore next */
+const makeDevEnvOnly = (d: any) => {
+  try {
+    jest;
+    return d;
+  } catch {
+    throw `Cannot read 'private.clearVoltsWorld' in the current environment. To be read by jest/testing env only`;
+  }
+};
+
+/* istanbul ignore next */
+function privateRead<T extends { [key: string]: any }>(obj: T): T {
+  const tmp = {};
+  const keys = Object.keys(obj);
+  for (let index = 0; index < keys.length; index++) {
+    const k = keys[index];
+    Object.defineProperty(tmp, k, {
+      /* istanbul ignore next */
+      get: () => makeDevEnvOnly(obj[k]),
+    });
+  }
+  return obj;
+}
+
+export const privates: Privates = privateRead({
+  clearVoltsWorld: VoltsWorld.devClear,
+  report: report,
+  promiseAllConcurrent: promiseAllConcurrent,
+});
 
 export const World = {
+  /**
+   * @description Use this function to create a new instance, or get the current instance
+   * @param config set to `false` to return `undefined` and avoid creating an instance if one is not available
+   */
   getInstance: VoltsWorld.getInstance,
+  /** @description Run a function when a new Instance gets created */
+  subscribeToInstance: VoltsWorld.subscribeToInstance,
 };
 
 export default {
   World: World,
   Vector: Vector,
+  Quaternion: Quaternion,
   State: State,
+  Object3D: Object3D,
+  Pool: Pool,
   PRODUCTION_MODES: PRODUCTION_MODES,
+  plugins,
 };
 
 //#endregion
+
+// prettier-ignore
+(!(Reactive.scalarSignalSource)) && report('Please enable Writeable Signal Sources in the project capabilities for Volts to work properly').asBackwardsCompatibleDiagnosticsError();

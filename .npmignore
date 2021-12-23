@@ -6,3 +6,11 @@
 /node_modules
 /examples
 .github
+tsconfig.json
+# Still experimental
+volts.min.js
+testing.ts
+tests/*
+plugins/*
+jest.*
+.*

@@ -4,3 +4,4 @@ tsconfig.json
 .*
 .json
 coverage/*
+*.min.*

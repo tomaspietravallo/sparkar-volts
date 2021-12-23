@@ -171,7 +171,12 @@ class NDVectorSignal {
     this._ops.push(['mul', args]);
     return this;
   }
-  public pinLastValue(): Vector {
+  sub(...args: number[]) {
+    this._ops.push(['sub', args]);
+    return this;
+  }
+  // super basic, lacks a lot
+  public pinLastValue(): Vector | number {
     let res;
     if (!this.isReactive) {
       res = this._vector.copy();
@@ -183,6 +188,7 @@ class NDVectorSignal {
       const op = this._ops[index];
       res[op[0]](...op[1]);
     }
+    if (res.values.length === 1) return res.values[0];
     return res;
   }
 }
@@ -190,6 +196,22 @@ class NDVectorSignal {
 export class ScalarSignal extends NDVectorSignal {
   constructor(...args: number[] | [() => number[]]) {
     super(...args);
+  }
+}
+
+export class scalarSignalSource {
+  constructor(id: string) {
+    // super()
+    if (typeof id !== 'string') throw new Error(`ID is not string`);
+  }
+  set(x: number) {
+    // this._vector.values[0] = x;
+  }
+  dispose() {
+    //
+  }
+  get signal() {
+    return 0;
   }
 }
 
@@ -224,11 +246,38 @@ export class Vec4Signal extends NDVectorSignal {
   constructor(...args: number[] | [() => number[]]) {
     super(...args);
   }
+  get x(): ScalarSignal {
+    return new ScalarSignal(this._vector.x);
+  }
+  get y(): ScalarSignal {
+    return new ScalarSignal(this._vector.y);
+  }
+  get z(): ScalarSignal {
+    return new ScalarSignal(this._vector.z);
+  }
+  get w(): ScalarSignal {
+    return new ScalarSignal(this._vector.w);
+  }
 }
 
 export class Quaternion extends NDVectorSignal {
   constructor(...args: number[] | [() => number[]]) {
     super(...args);
+  }
+  get w(): ScalarSignal {
+    return new ScalarSignal(this._vector.values[0]);
+  }
+  get x(): ScalarSignal {
+    return new ScalarSignal(this._vector.values[1]);
+  }
+  get y(): ScalarSignal {
+    return new ScalarSignal(this._vector.values[2]);
+  }
+  get z(): ScalarSignal {
+    return new ScalarSignal(this._vector.values[3]);
+  }
+  get eulerAngles(): Object {
+    return { x: 0 };
   }
 }
 
@@ -242,6 +291,16 @@ export class StringSignal {
   }
 }
 
+export class BoolSignal {
+  private val: boolean;
+  constructor(bool) {
+    this.val = bool;
+  }
+  pinLastValue(): boolean {
+    return this.val;
+  }
+}
+
 declare global {
   namespace Reactive {
     export type StringSignal = typeof StringSignal.prototype;
@@ -250,14 +309,17 @@ declare global {
     export type VectorSignal = typeof VectorSignal.prototype;
     export type Vec4Signal = typeof Vec4Signal.prototype;
     export type Quaternion = typeof Quaternion.prototype;
+    export type BoolSignal = typeof BoolSignal.prototype;
   }
 }
 
 export default {
   stringSignal: (x: string) => new StringSignal(x),
   val: (x: any): ScalarSignal => new ScalarSignal(x),
+  scalarSignalSource: (id: string) => new scalarSignalSource(id),
   point2d: (...args: [number, number]): Vec2Signal => new Vec2Signal(...args),
   vector: (...args: [number, number, number]): VectorSignal => new VectorSignal(...args),
   pack4: (...args: [number, number, number, number]): Vec4Signal => new Vec4Signal(...args),
   quaternion: (...args: [number, number, number, number]): Quaternion => new Quaternion(...args),
+  boolSignal: (x: boolean): BoolSignal => new BoolSignal(x),
 };

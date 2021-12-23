@@ -2,6 +2,7 @@ import { World, Vector, PublicOnly, PRODUCTION_MODES, privates } from '../volts'
 import Scene, { SceneObjectBase } from './__mocks__/Scene';
 import Reactive from './__mocks__/Reactive';
 import Time from './__mocks__/Time';
+import Diagnostics from './__mocks__/Diagnostics';
 
 jest.useFakeTimers();
 
@@ -50,9 +51,8 @@ describe('world construction', () => {
     expect(world.mode).toEqual(PRODUCTION_MODES.NO_AUTO);
 
     // would overwrite
-    expect(() =>
-      World.getInstance({ mode: 'NO_AUTO', snapshot: { thisIsAnInvalidConfig: Reactive.val(1) } }),
-    ).toThrow();
+    World.getInstance({ mode: 'NO_AUTO', snapshot: { thisIsAnInvalidConfig: Reactive.val(1) } });
+    expect(Diagnostics.warn).toHaveBeenCalledTimes(1);
 
     expect(World.getInstance()).toEqual(world);
   });
@@ -109,6 +109,7 @@ describe('snapshot', () => {
         point3D: Reactive.vector(1, 5, 10),
         point4D: Reactive.pack4(1, 5, 10, 15),
         string: Reactive.stringSignal('a-string'),
+        // quat: Reactive.quaternion(1, 2, 3, 4),
       },
     });
 
@@ -124,6 +125,9 @@ describe('snapshot', () => {
       expect(W.snapshot.point3D.values).toEqual([1, 5, 10]);
       expect(W.snapshot.point4D.values).toEqual([1, 5, 10, 15]);
       expect(W.snapshot.string).toEqual('a-string');
+      /** @todo */
+      // expect(W.snapshot.quat.values).toEqual([1,2,3,4]);
+      // expect(W.snapshot.quat.w).toEqual(1);
 
       // @ts-ignore
       expect(W.snapshot.added.values).toEqual([1, 2]);
@@ -140,18 +144,18 @@ describe('snapshot', () => {
       snapshot: {},
     });
     expect(() => {
-      W.onEvent('testing', function (this: typeof W) {
-        this.internalData.events['testing'] = null;
+      W.onEvent('internal', function (this: typeof W) {
+        this.internalData.events['internal'] = null;
         this.signalsToSnapshot_able({ value: undefined });
       });
-      W.emitEvent('testing');
+      W.emitEvent('internal');
     }).toThrow();
 
     expect(() => {
-      W.onEvent('testing', function (this: typeof W) {
+      W.onEvent('internal', function (this: typeof W) {
         this.signalsToSnapshot_able({ value: new Map().set('a', 10) });
       });
-      W.emitEvent('testing');
+      W.emitEvent('internal');
     }).toThrow();
   });
   test('formattedSnapshotToUserFriendly', async () => {
@@ -161,25 +165,25 @@ describe('snapshot', () => {
       snapshot: {},
     });
     expect(() => {
-      W.onEvent('testing', function (this: typeof W) {
-        this.internalData.events['testing'] = null;
+      W.onEvent('internal', function (this: typeof W) {
+        this.internalData.events['internal'] = null;
         this.formattedSnapshotToUserFriendly({ 'CONVERTED::name::X1::uuid': 1 });
       });
-      W.emitEvent('testing');
+      W.emitEvent('internal');
     }).not.toThrow();
 
     expect(() => {
-      W.onEvent('testing', function (this: typeof W) {
+      W.onEvent('internal', function (this: typeof W) {
         this.formattedSnapshotToUserFriendly({ 'CONVERTED::name::X::uuid': 1 });
       });
-      W.emitEvent('testing');
+      W.emitEvent('internal');
     }).toThrow();
 
     expect(() => {
-      W.onEvent('testing', function (this: typeof W) {
+      W.onEvent('internal', function (this: typeof W) {
         this.formattedSnapshotToUserFriendly({ 'CONVERTED::name::uuid': 1 });
       });
-      W.emitEvent('testing');
+      W.emitEvent('internal');
     }).toThrow();
   });
   test('corrupted snapshot', async () => {
@@ -207,8 +211,13 @@ describe('snapshot', () => {
 
 describe('test real world use cases', () => {
   test('load objects - mode.no_auto', async () => {
-    expect.assertions(4);
+    expect.assertions(6);
     privates.clearVoltsWorld();
+
+    const fake = jest.fn();
+    World.subscribeToInstance(fake);
+    expect(fake).toHaveBeenCalledTimes(0);
+
     const world = World.getInstance({
       mode: PRODUCTION_MODES.NO_AUTO,
       assets: {
@@ -218,12 +227,12 @@ describe('test real world use cases', () => {
     expect(world.running).toEqual(false);
     // @ts-ignore
     await world.rawInitPromise.then(() => {
+      expect(fake).toHaveBeenCalledTimes(1);
       expect(world.loaded).toEqual(true);
       expect(world.running).toEqual(false);
       expect(world.stop()).toEqual(false);
     });
   });
-
   test('run - mode.dev', async () => {
     // expect.assertions(6);
     privates.clearVoltsWorld();
@@ -240,7 +249,7 @@ describe('test real world use cases', () => {
     await world.rawInitPromise.then(() => {
       expect(world.loaded).toEqual(true);
       expect(world.running).toEqual(true);
-      expect(world.assets.obj[0]).toBeInstanceOf(SceneObjectBase);
+      expect(world.assets.obj).toBeInstanceOf(SceneObjectBase);
       expect(world.frameCount).toBeDefined();
     });
 
@@ -256,7 +265,6 @@ describe('test real world use cases', () => {
 
     World.getInstance().stop();
   }, 500);
-
   test('onEvent & emitEvent', async () => {
     privates.clearVoltsWorld();
 
@@ -283,16 +291,14 @@ describe('test real world use cases', () => {
       /* eslint */
     };
 
-    expect(() => W.setTimeout(empty, 100)).toThrow();
-    expect(() => W.setInterval(empty, 100)).toThrow();
+    // W.setTimeout(empty, 100);
+    // W.setInterval(empty, 100);
+    // expect(Diagnostics.warn).toHaveBeenCalledTimes(2);
 
     let i = 0;
     const fn = function () {
       i++;
     }.bind(this);
-
-    // Technically just a warning, not a throw
-    // W.setTimeout(fn, 100);
 
     // @ts-ignore
     await W.rawInitPromise.then(() => {
@@ -324,11 +330,8 @@ describe('test real world use cases', () => {
       i += val;
     }.bind(this);
 
-    const empty = () => {
-      /**/
-    };
-
-    expect(() => W.setDebounce(empty, 200)).toThrow();
+    // W.setDebounce(empty, 200);
+    // expect(Diagnostics.warn).toHaveBeenCalledTimes(1);
 
     // @ts-ignore
     await W.rawInitPromise.then(() => {
@@ -362,10 +365,12 @@ describe('test real world use cases', () => {
     const W = World.getInstance({
       mode: 'DEV',
     });
-    // @ts-ignore
+
+    expect(W.getWorldSpaceScreenBounds).toThrow();
+
+    // @ts-expect-error
     await W.rawInitPromise.then(() => {
       jest.advanceTimersByTime(100);
-      W.emitEvent('testing');
       const vec = W.getWorldSpaceScreenBounds();
       expect(vec.dimension).toEqual(3);
     });

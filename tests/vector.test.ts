@@ -1,42 +1,29 @@
-import { Vector } from '../volts';
+import { Vector, World, privates } from '../volts';
+import Reactive from './__mocks__/Reactive';
+import { Camera } from './__mocks__/Scene';
+
+jest.useFakeTimers();
 
 describe('vector construction', () => {
-  test('default vector', () => {
-    const vector = new Vector();
-    expect(vector.values).toEqual([0, 0, 0]);
-  });
-  test('empty array as argument', () => {
-    const nonValidVec = () => new Vector([]);
-    expect(nonValidVec).toThrow();
-  });
-  test('string as argument', () => {
-    // @ts-ignore
-    const nonValidVec = () => new Vector('1', '2', '3');
-    expect(nonValidVec).toThrow();
-  });
-  test('object as argument', () => {
-    // @ts-ignore
-    const nonValidVec = () => new Vector({ x: 0, y: 1, z: 2 });
-    expect(nonValidVec).toThrow();
-  });
-  test('from another Vector', () => {
-    const firstVec = new Vector([1, 2, 3]);
-    const secondVec = new Vector(firstVec);
-    expect(secondVec.values).toEqual([1, 2, 3]);
-  });
-  test('partially valid arguments', () => {
-    // @ts-ignore
-    const nonValidVec = () => new Vector(1, 2, '3');
-    expect(nonValidVec).toThrow();
+  test('default', () => {
+    const V = new Vector();
+    expect(V.values).toEqual([0, 0, 0]);
   });
   test('scalar argument', () => {
     expect(new Vector(1).values).toEqual([1, 1, 1]);
   });
-  test('100D vector', () => {
-    const arr = new Array(100).fill(0).map((e, i) => i);
-    const vec = new Vector(arr);
-    expect(vec.dimension).toEqual(100);
-    expect(vec.add(vec).values).toEqual(arr.map((v) => v * 2));
+  test('rest parameters', () => {
+    const V = new Vector(1, 2, 3, 4);
+    expect(V.values).toEqual([1, 2, 3, 4]);
+  });
+  test('from array', () => {
+    const V = new Vector([1, 2, 3, 4]);
+    expect(V.values).toEqual([1, 2, 3, 4]);
+  });
+  test('from Vector', () => {
+    const A = new Vector([1, 2, 3, 4]);
+    const B = new Vector(A);
+    expect(B.values).toEqual(A.values);
   });
 });
 
@@ -72,7 +59,67 @@ describe('vector utils', () => {
   });
   test('toString', () => {
     const vec = new Vector();
-    expect(vec.toString()).toEqual(`Vector<3> [0,0,0]`);
+    expect(vec.toString(5)).toEqual(`Vector<3> [0.00000,0.00000,0.00000]`);
+  });
+  test('fromSignal', () => {
+    const Scalar = Reactive.val(1);
+    const Vec4Signal = Reactive.pack4(1, 2, 3, 4);
+    expect(Vector.fromSignal(Scalar).values).toEqual([1]);
+    expect(Vector.fromSignal(Vec4Signal).values).toEqual([1, 2, 3, 4]);
+  });
+  test('setSignalComponents', () => {
+    const Q = new Vector(0, 0, 0);
+    expect(() => Q.setSignalComponents()).not.toThrow();
+  });
+  test('disposeSignalResources', () => {
+    const Q = new Vector(0, 0, 0);
+    expect(() => Q.disposeSignalResources()).not.toThrow();
+  });
+  test('screenToWorld', async () => {
+    privates.clearVoltsWorld();
+
+    const W = World.getInstance({
+      mode: 'DEV',
+    });
+
+    expect(() => Vector.screenToWorld(1, 1, true)).toThrow();
+    // @ts-expect-error
+    expect(() => Vector.screenToWorld(false, undefined, true)).toThrow();
+
+    // @ts-expect-error
+    await W.rawInitPromise.then(() => {
+      jest.advanceTimersByTime(100);
+      const vecOnFocal = Vector.screenToWorld(0, 1, true);
+      const vecOnZero = Vector.screenToWorld(0.5, 1, false);
+      expect(vecOnFocal.dimension).toEqual(3);
+      expect(vecOnZero.z).toEqual(0);
+      expect(vecOnFocal.z).toEqual(new Camera('camera-mock').focalPlane.distance.pinLastValue());
+    });
+  });
+  test('random2D', () => {
+    const vec2 = Vector.random2D();
+    expect(vec2.dimension).toEqual(2);
+    expect(vec2.mag()).toBeCloseTo(1);
+  });
+  test('random3D', () => {
+    const vec3 = Vector.random3D();
+    expect(vec3.dimension).toEqual(3);
+    expect(vec3.mag()).toBeCloseTo(1);
+  });
+  test('copy', () => {
+    const a = new Vector([1, 2, 3]);
+    const b = a.copy();
+    expect(a).toEqual(b);
+    b.add(0.1);
+    expect(a).not.toEqual(b);
+    a.add(0.1);
+    expect(a).toEqual(b);
+  });
+  test('equals', () => {
+    expect(new Vector().equals(new Vector())).toEqual(true);
+    expect(new Vector([0]).equals(new Vector([0, 0]))).toEqual(false);
+    expect(new Vector(-1, 2).equals(new Vector(-1, 2))).toEqual(true);
+    expect(new Vector(0, 0).equals(undefined)).toEqual(false);
   });
 });
 
@@ -135,6 +182,13 @@ describe('math operations', () => {
     expect(new Vector([1]).mag()).toEqual(1);
     expect(new Vector([2]).mag()).toEqual(2);
     expect(new Vector([1, 2, 3]).mag()).toEqual(Math.sqrt(14));
+    expect(new Vector([0, 1]).mag()).toBeCloseTo(1);
+  });
+  test('setMag', () => {
+    const vec = new Vector(0, 0.1, 0);
+    vec.setMag(1);
+    expect(vec.mag()).toBeCloseTo(1);
+    expect(vec.y).toBeCloseTo(1);
   });
   test('abs', () => {
     expect(new Vector([-1]).abs().values).toEqual([1]);
@@ -146,27 +200,10 @@ describe('math operations', () => {
     expect(new Vector([1]).normalize().values).toEqual([1]);
     expect(new Vector([1, 1]).normalize().values).toEqual([1 / Math.sqrt(2), 1 / Math.sqrt(2)]);
   });
-  test('copy', () => {
-    const a = new Vector([1, 2, 3]);
-    const b = a.copy();
-    expect(a).toEqual(b);
-    b.add(0.1);
-    expect(a).not.toEqual(b);
-    a.add(0.1);
-    expect(a).toEqual(b);
-  });
-  test('equals', () => {
-    expect(new Vector().equals(new Vector())).toEqual(true);
-    expect(new Vector([0]).equals(new Vector([0, 0]))).toEqual(false);
-    expect(new Vector(-1, 2).equals(new Vector(-1, 2))).toEqual(true);
-    expect(new Vector(0, 0).equals(undefined)).toEqual(false);
-  });
-
   test('heading', () => {
     expect(new Vector(1, 1).heading()).toBeCloseTo(0.785398163);
     expect(new Vector(0, 0).heading()).toBeCloseTo(0);
   });
-
   test('rotate', () => {
     const vec = new Vector(1, 0);
     expect(vec.heading()).toBeCloseTo(0);
@@ -209,11 +246,9 @@ describe('accessors', () => {
     expect((fourD.w += 1)).toEqual(5);
     expect(fourD.w).toEqual(5);
   });
-});
-
-describe('testing doc', () => {
-  test('doc', () => {
-    const a = new Vector(3);
-    expect(a.values).toEqual([3, 3, 3]);
+  test('signal', () => {
+    expect(threeD.signal).toBeTruthy();
+    expect(threeD.signal.z).toBeTruthy();
+    expect(() => threeD.w).toThrow();
   });
 });

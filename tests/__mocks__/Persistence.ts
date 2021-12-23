@@ -28,7 +28,7 @@ const Persistence = {
   },
 };
 
-// export default Persistence;
+export default Persistence;
 
 // allow the use of require()
 module.exports = Persistence;
