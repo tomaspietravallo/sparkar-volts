@@ -70,3 +70,13 @@ Check the [issues](https://github.com/tomaspietravallo/sparkar-volts/issues) to 
 > Please check the [contributing.md](contributing.md) file if you wish to contribute to the development of the project.
 >
 > If you want to open a PR/Issue, please make sure to read the [code-of-conduct.md](code-of-conduct.md) before doing so.
+
+### Donations
+
+All proceeds will be split amongst all major contributors
+
+<form action="https://www.paypal.com/donate" method="post" target="_top">
+<input type="hidden" name="hosted_button_id" value="LEXFVQET96N2Y" />
+<input type="image" src="https://www.paypalobjects.com/en_US/i/btn/btn_donateCC_LG.gif" border="0" name="submit" title="PayPal - The safer, easier way to pay online!" alt="Donate with PayPal button" />
+<img alt="" border="0" src="https://www.paypal.com/en_AR/i/scr/pixel.gif" width="1" height="1" />
+</form>
