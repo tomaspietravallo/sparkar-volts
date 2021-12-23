@@ -1844,13 +1844,16 @@ export class Pool {
   public objects: Object3D<SceneObjectBase | BlockSceneRoot>[];
   protected seed: (string | BlockAsset)[];
   protected root: SceneObjectBase | Promise<SceneObjectBase>;
+  protected initialState: {
+    [Prop in keyof SceneObjectBase]+?: SceneObjectBase[Prop] | ReactiveToVanilla<SceneObjectBase[Prop]>;
+  };
   static SceneObjects: typeof SceneObjectClassNames;
   constructor(
     objectsOrPath: string | string[] | BlockAsset | BlockAsset[],
     root?: string | SceneObjectBase,
-    initialState: {
+    initialState?: {
       [Prop in keyof SceneObjectBase]+?: SceneObjectBase[Prop] | ReactiveToVanilla<SceneObjectBase[Prop]>;
-    } = { hidden: true },
+    } = {},
   ) {
     if (!Blocks.instantiate)
       throw new Error(
@@ -1859,17 +1862,18 @@ export class Pool {
     if (!objectsOrPath) throw new Error(`@ VOLTS.Pool.constructor: objectsOrPath is undefined`);
     this.seed = Array.isArray(objectsOrPath) ? objectsOrPath : [objectsOrPath];
     this.objects = [];
+    this.initialState = initialState;
     // Promise.resolve pushed further down to Pool.instantiate
     if (root) this.root = this.setRoot(root);
   }
   protected async instantiate(): Promise<void> {
     const assetName = this.seed[Math.floor(Math.random() * this.seed.length)];
     const i = await (Object.values(SceneObjectClassNames).includes(assetName as any)
-      ? Scene.create(assetName as string, {})
-      : Blocks.instantiate(assetName, {}));
+      ? Scene.create(assetName as string, this.initialState)
+      : Blocks.instantiate(assetName, this.initialState));
     // @ts-ignore
     this.root = (this.root || {}).then ? await this.root.catch(() => undefined) : this.root;
-    // @ts-expect-error
+
     if (!this.root || !this.root.addChild)
       throw new Error(
         `@ VOLTS.Pool.instantiate: No root was provided, or the string provided did not match a valid SceneObject`,
