@@ -67,6 +67,26 @@ describe('quaternion utils', () => {
     expect(A.values).toEqual([0, 0, 0, 1]);
     expect(B.values).toEqual([0, 0, 1, 0]);
   });
+  test('toString', () => {
+    const Q = new Quaternion(1, 0, 0, 0);
+    expect(Q.toString(0)).toEqual('Quaternion: [1,0,0,0]');
+  });
+  test('toArray', () => {
+    const Q = new Quaternion(1, 0, 0, 0);
+    expect(Q.toArray()).toEqual([1, 0, 0, 0]);
+  });
+  test('toEulerArray', () => {
+    const Q = new Quaternion(1, 0, 0, 0);
+    expect(Q.toEulerArray()).toEqual([0, 0, 0]);
+  });
+  test('setSignalComponents', () => {
+    const Q = new Quaternion(1, 0, 0, 0);
+    expect(() => Q.setSignalComponents()).not.toThrow();
+  });
+  test('disposeSignalResources', () => {
+    const Q = new Quaternion(1, 0, 0, 0);
+    expect(() => Q.disposeSignalResources()).not.toThrow();
+  });
 });
 
 describe('operations', () => {
@@ -88,6 +108,13 @@ describe('operations', () => {
     expect(Q.values).toEqual([1, 0, 0, 0]);
     Q.add(Q);
     expect(Q.normalized.values).toEqual([1, 0, 0, 0]);
+  });
+  test('lookAtOptimized', () => {
+    // already tested on "quaternion construction"
+    const nonOp = Quaternion.lookAt(new Vector(0, 0, 0), new Vector(0, 0, -1));
+    const op = Quaternion.lookAtOptimized(new Vector(0, 0, -1).values);
+    const match = nonOp.values.every((v, i) => Math.abs(v - op.values[i]) < 0.001);
+    expect(match).toEqual(true);
   });
 });
 
@@ -112,5 +139,9 @@ describe('accessors', () => {
     expect(Q1234.z).toEqual(4);
     Q1234.z *= 2;
     expect(Q1234.z).toEqual(8);
+  });
+  test('signal', () => {
+    expect(Q1234.signal).toBeTruthy();
+    expect(Q1234.signal.w).toBeTruthy();
   });
 });

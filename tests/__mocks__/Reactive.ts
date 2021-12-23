@@ -171,9 +171,9 @@ class NDVectorSignal {
     this._ops.push(['mul', args]);
     return this;
   }
-  sub(...args: number[]){
+  sub(...args: number[]) {
     this._ops.push(['sub', args]);
-    return this
+    return this;
   }
   // super basic, lacks a lot
   public pinLastValue(): Vector | number {
@@ -277,7 +277,7 @@ export class Quaternion extends NDVectorSignal {
     return new ScalarSignal(this._vector.values[3]);
   }
   get eulerAngles(): Object {
-    return {x: 0};
+    return { x: 0 };
   }
 }
 

@@ -67,6 +67,14 @@ describe('vector utils', () => {
     expect(Vector.fromSignal(Scalar).values).toEqual([1]);
     expect(Vector.fromSignal(Vec4Signal).values).toEqual([1, 2, 3, 4]);
   });
+  test('setSignalComponents', () => {
+    const Q = new Vector(0, 0, 0);
+    expect(() => Q.setSignalComponents()).not.toThrow();
+  });
+  test('disposeSignalResources', () => {
+    const Q = new Vector(0, 0, 0);
+    expect(() => Q.disposeSignalResources()).not.toThrow();
+  });
   test('screenToWorld', async () => {
     privates.clearVoltsWorld();
 
@@ -237,5 +245,10 @@ describe('accessors', () => {
     expect(fourD.w).toEqual(4);
     expect((fourD.w += 1)).toEqual(5);
     expect(fourD.w).toEqual(5);
+  });
+  test('signal', () => {
+    expect(threeD.signal).toBeTruthy();
+    expect(threeD.signal.z).toBeTruthy();
+    expect(() => threeD.w).toThrow();
   });
 });

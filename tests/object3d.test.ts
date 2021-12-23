@@ -11,7 +11,7 @@ describe('constructor', () => {
 
 describe('fetch reactive values', () => {
   test('from scene obj', async () => {
-    const Instance = World.getInstance({mode: 'DEV'});
+    const Instance = World.getInstance({ mode: 'DEV' });
     const sceneObj: SceneObjectBase = await Scene.root.findFirst('a-scene-obj');
     const obj = new Object3D(sceneObj);
     obj.body.transform.position = Reactive.vector(1, 2, 3);
@@ -20,20 +20,11 @@ describe('fetch reactive values', () => {
     await expect(obj.fetchLastPosition()).resolves.not.toThrow();
     await expect(obj.fetchLastRotation()).resolves.not.toThrow();
     await expect(obj.fetchSize()).resolves.not.toThrow();
-    
+
     await expect(obj.stayInPlace()).resolves.not.toThrow();
 
     expect(obj.pos.values).toEqual([1, 2, 3]);
-    expect(obj.rot.values).toEqual([1,2,3,4]);
-    Instance.stop();
-  });
-  test('stayInPlace', async () => {
-    const Instance = World.getInstance({mode: 'DEV'});
-    const sceneObj: SceneObjectBase = await Scene.root.findFirst('a-scene-obj');
-    const obj = new Object3D(sceneObj);
-
-    expect(obj.pos.values).toEqual([0, 0, 0]);
-    expect(obj.rot.values).toEqual([1, 0, 0, 0]);
+    expect(obj.rot.values).toEqual([1, 2, 3, 4]);
     Instance.stop();
   });
   test('update', async () => {
@@ -46,5 +37,30 @@ describe('fetch reactive values', () => {
 
     expect(obj.pos.values).toEqual([1, 2, 3]);
     expect(obj.rot.values).toEqual([1, 0, 0, 0]);
+  });
+});
+
+describe('utils', () => {
+  test('lookAtOther', async () => {
+    const sceneObjOne: SceneObjectBase = await Scene.root.findFirst('a-scene-obj');
+    const sceneObjTwo: SceneObjectBase = await Scene.root.findFirst('a-scene-obj');
+    const first = new Object3D(sceneObjOne);
+    const second = new Object3D(sceneObjTwo);
+
+    expect(() => first.lookAtOther(second)).not.toThrow();
+  });
+  test('lookAtHeading', async () => {
+    const sceneObjOne: SceneObjectBase = await Scene.root.findFirst('a-scene-obj');
+    const obj = new Object3D(sceneObjOne);
+    obj.vel = new Vector(0, 0, 1);
+
+    expect(() => obj.lookAtHeading()).not.toThrow();
+    expect(obj.rot.values).toEqual([1, 0, 0, 0]);
+  });
+  test('makeRigidBody', async () => {
+    const sceneObjOne: SceneObjectBase = await Scene.root.findFirst('a-scene-obj');
+    const obj = new Object3D(sceneObjOne);
+
+    expect(() => obj.makeRigidBody()).toThrow();
   });
 });

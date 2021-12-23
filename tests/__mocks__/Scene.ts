@@ -17,8 +17,8 @@ export class SceneObjectBase {
     };
     this.boundingBox = {
       max: Reactive.vector(0, 0, 0),
-      min: Reactive.vector(0, 0, 0)
-    }
+      min: Reactive.vector(0, 0, 0),
+    };
     this.identifier = 'a-unique-identifier';
     this.hidden = Reactive.boolSignal(false);
   }

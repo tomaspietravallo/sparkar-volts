@@ -15,29 +15,37 @@ let Persistence: {
   },
   Multipeer: {};
 
-const plugins: {
+/**
+ * Plugins are stored on `_plugins`
+ * `plugins` is a creator-facing interface
+ */
+const _plugins = {};
+
+export const plugins: {
   oimo: typeof import('./oimo.plugin');
   [key: string]: VoltsPlugin;
-} = { oimo: null };
+} = Object.defineProperties({} as any, {
+  oimo: { get: () => safeImportPlugins('oimo') },
+});
 
 /**
  * @description Allows the dynamic import of Volts' plugins
  * @see https://github.com/facebook/react-native/issues/6391#issuecomment-194581270
  */
 function safeImportPlugins(name: string, version?: number | string) {
-  if (!plugins[name]) {
+  if (!_plugins[name]) {
     const fileName = `${name}.plugin.js`;
     try {
       switch (name) {
         case 'oimo':
-          plugins['oimo'] = require('./oimo.plugin');
+          _plugins['oimo'] = require('./oimo.plugin');
           break;
         default:
           throw new Error(`Plugin name is undefined`);
       }
-      if (version && version !== plugins[name].VERSION)
+      if (version && version !== _plugins[name].VERSION)
         report(
-          `Plugin versions for "${name}" do not match. Expected version: ${version}, but received "${plugins[name].VERSION}". Please make sure you include a compatible version of "${name}" in your project.`,
+          `Plugin versions for "${name}" do not match. Expected version: ${version}, but received "${_plugins[name].VERSION}". Please make sure you include a compatible version of "${name}" in your project.`,
         ).asIssue('error');
     } catch (error) {
       report(
@@ -45,6 +53,7 @@ function safeImportPlugins(name: string, version?: number | string) {
       ).asIssue('error');
     }
   }
+  return _plugins[name];
 }
 
 //#endregion
@@ -63,7 +72,9 @@ interface VoltsPlugin {
   [key: string]: any;
 }
 
-type Snapshot = { [key: string]: ScalarSignal | Vec2Signal | VectorSignal | Vec4Signal | StringSignal | BoolSignal | QuaternionSignal };
+type Snapshot = {
+  [key: string]: ScalarSignal | Vec2Signal | VectorSignal | Vec4Signal | StringSignal | BoolSignal | QuaternionSignal;
+};
 
 type getDimsOfSignal<S> = S extends Vec4Signal
   ? 'x4' | 'y4' | 'z4' | 'w4'
@@ -78,7 +89,9 @@ type getDimsOfSignal<S> = S extends Vec4Signal
 type ObjectToSnapshotable<Obj> = {
   [Property in keyof Obj as `${Obj[Property] extends ISignal
     ? `CONVERTED::${Property extends string ? Property : never}::${getDimsOfSignal<Obj[Property]>}::UUID` & string
-    : never}`]: Obj[Property] extends Vec2Signal | VectorSignal | Vec4Signal | QuaternionSignal ? ScalarSignal : Obj[Property];
+    : never}`]: Obj[Property] extends Vec2Signal | VectorSignal | Vec4Signal | QuaternionSignal
+    ? ScalarSignal
+    : Obj[Property];
 };
 
 type SnapshotToVanilla<Obj> = {
@@ -163,7 +176,7 @@ function getUUIDv4(): string {
 /** @see https://gist.github.com/jcouyang/632709f30e12a7879a73e9e132c0d56b#gistcomment-3591045 */
 const pAll = async (queue: Promise<any>[], concurrency: number, areFn: boolean) => {
   let index = 0;
-  const results = [];
+  const results: any[] = [];
 
   // Run a pseudo-thread
   const execThread = async () => {
@@ -658,7 +671,7 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
     return () => (this.internalData.events[event] = (this.internalData.events[event] || []).filter((i) => i !== cb));
   }
   public onNextTick(cb): { clear: () => void } {
-    return this.setTimedEvent(cb, { ms: 0, recurring: false, onNext: this.frameCount, });
+    return this.setTimedEvent(cb, { ms: 0, recurring: false, onNext: this.frameCount });
   }
   /**
    * @description Creates a timeout that executes the function after a given number of milliseconds
@@ -669,7 +682,7 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
   public setTimeout(cb: TimedEventFunction, ms: number): { clear: () => void } {
     // if (!this.internalData.running)
     //   Diagnostics.warn('Warning @ Volts.World.setTimeout: created a timeout while the current instance is not running');
-    return this.setTimedEvent(cb, {ms, recurring: false});
+    return this.setTimedEvent(cb, { ms, recurring: false });
   }
   /**
    * @description Creates an interval that executes the function every [X] milliseconds
@@ -680,7 +693,7 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
   public setInterval(cb: TimedEventFunction, ms: number): { clear: () => void } {
     // if (!this.internalData.running)
     //   Diagnostics.warn( 'Warning @ Volts.World.setInterval: created an interval while the current instance is not running', );
-    return this.setTimedEvent(cb, {ms, recurring: true});
+    return this.setTimedEvent(cb, { ms, recurring: true });
   }
   /**
    * @param cb The function to be called
@@ -715,7 +728,10 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
       }, ms);
     };
   }
-  protected setTimedEvent(cb: TimedEventFunction, {ms, recurring, onNext}: {ms?: number, recurring?: boolean, onNext?: number}): { clear: () => void } {
+  protected setTimedEvent(
+    cb: TimedEventFunction,
+    { ms, recurring, onNext }: { ms?: number; recurring?: boolean; onNext?: number },
+  ): { clear: () => void } {
     const event: TimedEvent = {
       created: this.internalData.elapsedTime,
       lastCall: this.internalData.elapsedTime,
@@ -737,7 +753,10 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
     let i = this.internalData.timedEvents.length;
     while (i--) {
       const event = this.internalData.timedEvents[i];
-      if ( (event.onNext !== undefined && event.onNext !== this.frameCount) || (event.onNext === undefined && event.lastCall + event.delay < this.internalData.elapsedTime) ) {
+      if (
+        (event.onNext !== undefined && event.onNext !== this.frameCount) ||
+        (event.onNext === undefined && event.lastCall + event.delay < this.internalData.elapsedTime)
+      ) {
         event.cb.apply(this, [
           this.internalData.elapsedTime - event.created,
           event.count,
@@ -832,11 +851,11 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
         arr.push(snapshot[`CONVERTED::${name}::${Vector.components[index]}${dim}::${uuid}`]);
       }
 
-      if (this.internalData.quaternions.has(name)){
+      if (this.internalData.quaternions.has(name)) {
         result[name] = new Quaternion(arr[3], arr[0], arr[1], arr[2]);
       } else {
         result[name] = dim >= 2 ? new Vector(arr) : arr[0];
-      };
+      }
     }
 
     return result;
@@ -899,6 +918,7 @@ interface NDVectorInstance<D extends number> {
   normalize(): Vector<D>;
   equals(b: Vector<any>): boolean;
   toString(toFixed?: number): string;
+  toArray(): number[];
   get x(): number;
   set x(x: number);
   get signal(): D extends 2 ? Vec2Signal : D extends 3 ? VectorSignal : D extends 4 ? Vec4Signal : ScalarSignal;
@@ -1191,7 +1211,7 @@ Vector.prototype.normalize = function <D extends number>(this: Vector<D>): Vecto
 Vector.prototype.copy = function <D extends number>(this: Vector<D>): Vector<D> {
   return new Vector([...this.values]);
 };
-/** @description Test whether two Vectors are equal to each other */
+/** @description Test whether two Vectors are equal to each other. This does NOT test whether they are the same instance of Volts.Vector */
 Vector.prototype.equals = function <D extends number>(this: Vector<D>, b: Vector<number>): boolean {
   return !!b && this.dimension === b.dimension && this.values.every((v, i) => v === b.values[i]);
 };
@@ -1202,6 +1222,9 @@ Vector.prototype.toString = function <D extends number>(this: Vector<D>, toFixed
     ? this.values.map((v) => v.toFixed(toFixed))
     : this.values
   ).toString()}]`;
+};
+Vector.prototype.toArray = function () {
+  return [...this.values];
 };
 Vector.prototype.setSignalComponents = function (): void {
   this.rx && this.rx.set(this.values[0]);
@@ -1380,13 +1403,13 @@ export class Quaternion {
     // angles[2] = Math.atan2(siny_cosp, cosy_cosp);
     // return new EulerAngles(angles);
   }
-  toQuaternionSignal(): QuaternionSignal {
+  public toQuaternionSignal(): QuaternionSignal {
     return Reactive.quaternion(this.values[0], this.values[1], this.values[2], this.values[3]);
   }
-  protected calcNorm(): number {
+  public calcNorm(): number {
     return (this.values[0] ** 2 + this.values[1] ** 2 + this.values[2] ** 2 + this.values[3] ** 2) ** 0.5;
   }
-  normalize(): Quaternion {
+  public normalize(): Quaternion {
     const norm = this.calcNorm();
     this.values[0] /= norm;
     this.values[1] /= norm;
@@ -1397,13 +1420,13 @@ export class Quaternion {
   /**
    * @description Component-wise addition
    */
-  add(...other: QuaternionArgRest): Quaternion {
+  public add(...other: QuaternionArgRest): Quaternion {
     const b = Quaternion.convertToQuaternion(...other).values;
     this.values[0] = this.values[0] + b[0];
     this.values[1] = this.values[1] + b[1];
     this.values[2] = this.values[2] + b[2];
     this.values[3] = this.values[3] + b[3];
-    return this
+    return this;
   }
   /**
    * @description To compose two Quaternion rotations together you need to rotate one by the other (multiply them), this operation does that. Note: non-commutative
@@ -1411,7 +1434,7 @@ export class Quaternion {
    * @todo Tests
    * @returns
    */
-  mul(...other: QuaternionArgRest): Quaternion {
+  public mul(...other: QuaternionArgRest): Quaternion {
     const b = Quaternion.convertToQuaternion(...other);
     const w1 = this.w;
     const x1 = this.x;
@@ -1429,26 +1452,54 @@ export class Quaternion {
     this.z = w1 * z2 + z1 * w2 + x1 * y2 - y1 * x2;
     return this;
   }
-  copy(): Quaternion {
+  public copy(): Quaternion {
     return new Quaternion([...this.values]);
   }
-  setSignalComponents(): void {
+  public setSignalComponents(): void {
     // @ts-expect-error
     this.rw && this.rw.set(this.values[0]); // @ts-expect-error
     this.rx && this.rx.set(this.values[1]); // @ts-expect-error
     this.ry && this.ry.set(this.values[2]); // @ts-expect-error
     this.rz && this.rz.set(this.values[3]);
   }
-  disposeSignalResources(): void {
+  public disposeSignalResources(): void {
     // @ts-expect-error
     this.rw && this.rw.dispose(); // @ts-expect-error
     this.rx && this.rx.dispose(); // @ts-expect-error
     this.ry && this.ry.dispose(); // @ts-expect-error
     this.rz && this.rz.dispose();
   }
-  toString(toFixed = 5): string {
+  /**
+   * @description Returns an array containing the Euler angles (in radian) for the corresponding Quaternion.
+   *
+   * Note: Singularities
+   * @returns
+   */
+  public toEulerArray(): number[] {
+    const angles: number[] = [];
+    // roll (x-axis rotation)
+    const sinr_cosp = 2 * (this.w * this.x + this.y * this.z);
+    const cosr_cosp = 1 - 2 * (this.x * this.x + this.y * this.y);
+    angles[0] = Math.atan2(sinr_cosp, cosr_cosp);
+    // pitch (y-axis rotation)
+    const sinp = 2 * (this.w * this.y - this.z * this.x);
+    if (Math.abs(sinp) >= 1) {
+      angles[1] = (PI / 2) * Math.sign(sinp); // use 90 degrees if out of range
+    } else {
+      angles[1] = Math.asin(sinp);
+    }
+    // yaw (z-axis rotation)
+    const siny_cosp = 2 * (this.w * this.z + this.x * this.y);
+    const cosy_cosp = 1 - 2 * (this.y * this.y + this.z * this.z);
+    angles[2] = Math.atan2(siny_cosp, cosy_cosp);
+    return angles;
+  }
+  public toString(toFixed = 5): string {
     //@ts-expect-error
     return `Quaternion${this.rs ? ' (WRS)' : ''}: [${this.values.map((v) => v.toFixed(toFixed))}]`;
+  }
+  public toArray(): number[] {
+    return [...this.values];
   }
   get normalized(): Quaternion {
     return new Quaternion([...this.values]).normalize();
@@ -1633,7 +1684,7 @@ export class Object3D<T extends SceneObjectBase> implements Object3DSkeleton {
   public size: Vector<3>;
   public body: T;
   public readonly UUID: string;
-  constructor(body: T, ) {
+  constructor(body: T) {
     this._pos = new Vector();
     this._rot = new Quaternion();
     this.vel = new Vector();
@@ -1652,24 +1703,23 @@ export class Object3D<T extends SceneObjectBase> implements Object3DSkeleton {
     this.body.transform.rotation = this._rot.signal;
   }
   async stayInPlace(): Promise<void> {
-    return await Promise.all([
-      this.fetchLastPosition(),
-      this.fetchLastRotation(),
-      this.fetchSize(),
-    ]).then(([pos, rot, size])=>{
-      this._pos.values = pos.values;
-      this._rot.values = rot.values;
-      this.size.values = size.values;
-    });
+    return await Promise.all([this.fetchLastPosition(), this.fetchLastRotation(), this.fetchSize()]).then(
+      ([pos, rot, size]) => {
+        this._pos.values = pos.values;
+        this._rot.values = rot.values;
+        this.size.values = size.values;
+      },
+    );
   }
   async fetchLastPosition(): Promise<Vector<3>> {
     const Instance = World.getInstance(false);
     if (!Instance) throw new Error(`No VOLTS.World Instance found`);
-    const props: {[key: string]: any} = {}; props[this.UUID + 'pos'] = this.body.transform.position;
+    const props: { [key: string]: any } = {};
+    props[this.UUID + 'pos'] = this.body.transform.position;
     Instance.addToSnapshot(props);
-    return new Promise(resolve=>{
-      Instance.onNextTick(()=>{
-        Instance.removeFromSnapshot(props[this.UUID + 'pos']);
+    return await new Promise((resolve) => {
+      Instance.onNextTick(() => {
+        Instance.removeFromSnapshot(this.UUID + 'pos');
         resolve(Instance.snapshot[this.UUID + 'pos']);
       });
     });
@@ -1677,11 +1727,12 @@ export class Object3D<T extends SceneObjectBase> implements Object3DSkeleton {
   async fetchLastRotation(): Promise<Quaternion> {
     const Instance = World.getInstance(false);
     if (!Instance) throw new Error(`No VOLTS.World Instance found`);
-    const props: {[key: string]: any} = {}; props[this.UUID + 'rot'] = this.body.transform.rotation;
+    const props: { [key: string]: any } = {};
+    props[this.UUID + 'rot'] = this.body.transform.rotation;
     Instance.addToSnapshot(props);
-    return new Promise(resolve=>{
-      Instance.onNextTick(()=>{
-        Instance.removeFromSnapshot(props[this.UUID + 'rot']);
+    return await new Promise((resolve) => {
+      Instance.onNextTick(() => {
+        Instance.removeFromSnapshot(this.UUID + 'rot');
         resolve(Instance.snapshot[this.UUID + 'rot']);
       });
     });
@@ -1689,11 +1740,15 @@ export class Object3D<T extends SceneObjectBase> implements Object3DSkeleton {
   async fetchSize(): Promise<Vector<3>> {
     const Instance = World.getInstance(false);
     if (!Instance) throw new Error(`No VOLTS.World Instance found`);
-    const props: {[key: string]: any} = {}; props[this.UUID + 'size'] = this.body.boundingBox.max.sub(this.body.boundingBox.min);
+    const props: { [key: string]: any } = {};
+    props[this.UUID + 'size'] = this.body.boundingBox.max.sub(this.body.boundingBox.min);
     Instance.addToSnapshot(props);
-    return new Promise(resolve=>{
-      Instance.onNextTick(()=>{
-        Instance.removeFromSnapshot(props[this.UUID + 'size']);
+    return await new Promise((resolve) => {
+      Instance.onNextTick(() => {
+        const snap = Instance.snapshot[this.UUID + 'size'];
+        if (JSON.stringify(snap).indexOf('null,null,null') !== -1)
+          report('Cannot run Object3D.fetchSize on non-mesh object').asBackwardsCompatibleDiagnosticsError();
+        Instance.removeFromSnapshot(this.UUID + 'size');
         resolve(Instance.snapshot[this.UUID + 'size']);
       });
     });
@@ -1708,8 +1763,47 @@ export class Object3D<T extends SceneObjectBase> implements Object3DSkeleton {
   lookAtHeading(): void {
     this._rot.values = Quaternion.lookAtOptimized(this.vel.values).values;
   }
+  /**
+   * @description Uses the Oimo plugin to implement RigidBody physics
+   *
+   * **This is BETA functionality**, it will likely change in future versions.
+   *
+   * There may be no warning about breaking changes, please aware of this.
+   *
+   * @requires module:oimo.plugin
+   * @see https://github.com/tomaspietravallo/sparkar-volts/issues/6
+   *
+   * @version 1.0
+   */
   makeRigidBody(): void {
     safeImportPlugins('oimo', 1.0);
+    // returns an existing world if found
+    const w = _plugins.oimo.createOimoWorld(
+      { World },
+      {
+        timestep: 1 / 30,
+        iterations: 8,
+        broadphase: 2, // 1 brute force, 2 sweep and prune, 3 volume tree
+        worldscale: 1,
+        random: true,
+        info: false,
+        gravity: [0, -0.9807, 0],
+      },
+    );
+    const o = w.add({
+      type: 'box', // type of shape : sphere, box, cylinder
+      size: this.size.toArray(),
+      pos: this._pos.toArray(),
+      rot: this._rot.toEulerArray().map((v) => v * 57.2958),
+      move: true, // dynamic or static
+      density: 1,
+      friction: 1.0,
+      restitution: 1.0,
+      belongsTo: 1, // The bits of the collision groups to which the shape belongs.
+      collidesWith: 0xffffffff, // The bits of the collision groups with which the shape collides.
+    });
+    o.connectMesh(this);
+    // (new _plugins.oimo.RigidBody())
   }
   set pos(xyz: Vector<3>): void {
     this._pos.values = xyz.values;
@@ -1837,6 +1931,7 @@ const makeDevEnvOnly = (d: any) => {
   }
 };
 
+/* istanbul ignore next */
 function privateRead<T extends { [key: string]: any }>(obj: T): T {
   const tmp = {};
   const keys = Object.keys(obj);
@@ -1874,9 +1969,10 @@ export default {
   Object3D: Object3D,
   Pool: Pool,
   PRODUCTION_MODES: PRODUCTION_MODES,
+  plugins,
 };
 
 //#endregion
 
 // prettier-ignore
-(!(Scene.create && Reactive.scalarSignalSource)) && report('Please enable Dynamic Instancing and Writeable Signal Sources in the project capabilities for Volts to work properly').asBackwardsCompatibleDiagnosticsError();
+(!(Reactive.scalarSignalSource)) && report('Please enable Writeable Signal Sources in the project capabilities for Volts to work properly').asBackwardsCompatibleDiagnosticsError();
