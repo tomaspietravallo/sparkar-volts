@@ -19,7 +19,7 @@ let Persistence: {
  * Plugins are stored on `_plugins`
  * `plugins` is a creator-facing interface
  */
-const _plugins = {};
+const _plugins: {[key: string]: any} = {};
 
 export const plugins: {
   oimo: typeof import('./oimo.plugin');
