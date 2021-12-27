@@ -19,7 +19,7 @@ let Persistence: {
  * Plugins are stored on `_plugins`
  * `plugins` is a creator-facing interface
  */
-const _plugins: {[key: string]: any} = {};
+const _plugins: { [key: string]: VoltsPlugin } = {};
 
 export const plugins: {
   oimo: typeof import('./oimo.plugin');
@@ -32,7 +32,7 @@ export const plugins: {
  * @description Allows the dynamic import of Volts' plugins
  * @see https://github.com/facebook/react-native/issues/6391#issuecomment-194581270
  */
-function safeImportPlugins(name: string, version?: number | string) {
+function safeImportPlugins(name: string, version?: number | string): VoltsPlugin {
   if (!_plugins[name]) {
     const fileName = `${name}.plugin.js`;
     try {
@@ -47,6 +47,8 @@ function safeImportPlugins(name: string, version?: number | string) {
         report(
           `Plugin versions for "${name}" do not match. Expected version: ${version}, but received "${_plugins[name].VERSION}". Please make sure you include a compatible version of "${name}" in your project.`,
         ).asIssue('error');
+      if (_plugins[name].onImport && !_plugins[name].onImport())
+        report(`Plugin "${name} onImport function failed. Please check with the Plugin's creator"`);
     } catch (error) {
       report(
         `Could not find module "${name}". Please make sure you include the "${fileName}" file in your project.\n${error}`,
@@ -69,6 +71,7 @@ interface FixedLengthArray<T, L extends number> extends Array<T> {
 
 interface VoltsPlugin {
   VERSION: number | string;
+  onImport?: () => boolean;
   [key: string]: any;
 }
 
@@ -621,9 +624,16 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
   get snapshot(): SnapshotToVanilla<WorldConfigParams['snapshot']> & { [key: string]: any } {
     return this.internalData.userFriendlySnapshot;
   }
+  /**
+   * @description Runs World.init. **This is NOT RECOMMENDED**. This function will not load new assets or states.
+   */
   public forceAssetReload(): Promise<void> {
     return this.internalData.initPromise();
   }
+  /**
+   * @description Freezes the World instance in time.
+   * @returns
+   */
   public stop({ clearTimedEvents } = { clearTimedEvents: false }): boolean {
     if (!this.internalData.running) return false;
 
@@ -665,7 +675,7 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
     (this.internalData.events[event] = this.internalData.events[event] || []).push(cb);
     return () => (this.internalData.events[event] = (this.internalData.events[event] || []).filter((i) => i !== cb));
   }
-  public onNextTick(cb): { clear: () => void } {
+  public onNextTick(cb: () => void): { clear: () => void } {
     return this.setTimedEvent(cb, { ms: 0, recurring: false, onNext: this.frameCount });
   }
   /**
@@ -856,7 +866,12 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
     return result;
   }
 
-  public addToSnapshot(obj: Snapshot): void {
+  public addToSnapshot(obj: Snapshot = {}): void {
+    if (
+      this.internalData.FLAGS.lockInternalSnapshotOverride &&
+      !Object.keys(obj).every((k) => k.indexOf('__volts_internal') === -1)
+    )
+      throw new Error('Cannot override internal key after the internal snapshot override has been locked');
     this.internalData.formattedValuesToSnapshot = Object.assign(
       this.internalData.formattedValuesToSnapshot,
       this.signalsToSnapshot_able(obj),
@@ -865,6 +880,11 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
 
   public removeFromSnapshot(keys: string | string[]): void {
     const keysToRemove = Array.isArray(keys) ? keys : [keys];
+    if (
+      this.internalData.FLAGS.lockInternalSnapshotOverride &&
+      !keysToRemove.every((k) => k.indexOf('__volts_internal') === -1)
+    )
+      throw new Error('Cannot remove internal key after the internal snapshot override has been locked');
     const snapKeys = Object.keys(this.internalData.formattedValuesToSnapshot);
     const matches = snapKeys.filter((k) => keysToRemove.indexOf(k.split('::')[1]) !== -1);
 
@@ -1556,7 +1576,7 @@ Quaternion.components = ['w', 'x', 'y', 'z'];
  * This feature is still on an early state
  * @see https://github.com/tomaspietravallo/sparkar-volts/issues/4
  */
-export class State<Data extends { [key: string]: Vector<any> | number | string | boolean }> {
+export class State<Data extends { [key: string]: Vector<any> | Quaternion | number | string | boolean }> {
   protected _data: { [Property in keyof Data]+?: Data[Property] };
   protected key: string;
   protected loaded: boolean;
@@ -1644,9 +1664,9 @@ export class State<Data extends { [key: string]: Vector<any> | number | string |
    * @todo Add support for Reactive values
    * @body Improve the use experience by allowing Reactive values to be used as values
    */
-  setValue(key: keyof Data, value: Vector<any> | number | string | boolean): void {
+  setValue(key: keyof Data, value: Data[typeof key]): void {
     // @ts-ignore
-    this.data[key] = value instanceof Vector ? value.copy() : value;
+    this.data[key] = value instanceof Vector ? value.copy() : value instanceof Quaternion ? value.copy() : value;
     // rate limit (?)
     this.setPersistenceAPI();
   }
@@ -1655,6 +1675,8 @@ export class State<Data extends { [key: string]: Vector<any> | number | string |
     return this._data;
   }
 }
+
+// new State<{a: Vector<3>}>('any').setValue('a', true);
 
 //#endregion
 
