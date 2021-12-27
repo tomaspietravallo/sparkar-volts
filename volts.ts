@@ -599,11 +599,6 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
           this.internalData.frameCount += 1;
           //#endregion
 
-          if (this.w) {
-            this.w.timeElapsed = this.internalData.elapsedTime;
-            this.w.step();
-          }
-
           if (!this.internalData.FLAGS.stopTimeout) return loop();
         },
         0,
