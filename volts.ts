@@ -4,6 +4,7 @@ import Diagnostics from 'Diagnostics';
 import Reactive from 'Reactive';
 import Time from 'Time';
 import Blocks from 'Blocks';
+import CameraInfo from 'CameraInfo';
 
 // 👇 may be dynamically imported using `require`
 let Persistence: {
@@ -512,11 +513,13 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
   }
   private async init(assets: WorldConfig['assets'], states: State<any>[]): Promise<void> {
     this.internalData.Camera = (await Scene.root.findFirst('Camera')) as Camera;
-    this.addToSnapshot({
-      __volts__internal__focalDistance: this.internalData.Camera.focalPlane.distance,
-      __volts__internal__time: Time.ms,
-      __volts__internal__screen: Scene.unprojectToFocalPlane(Reactive.point2d(0, 0)),
-    });
+    if (!this.internalData.FLAGS.lockInternalSnapshotOverride)
+      this.addToSnapshot({
+        __volts__internal__focalDistance: this.internalData.Camera.focalPlane.distance,
+        __volts__internal__time: Time.ms,
+        __volts__internal__screen: Scene.unprojectToFocalPlane(Reactive.point2d(0, 0)),
+        __volts__internal_screenSizePixels: CameraInfo.previewSize,
+      });
     this.internalData.FLAGS.lockInternalSnapshotOverride = true;
 
     // load states
@@ -544,6 +547,7 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
   public run(): boolean {
     if (this.internalData.running) return false;
 
+    this.internalData.FLAGS.stopTimeout = false;
     this.internalData.running = true;
     // Fun fact: Time.setTimeoutWithSnapshot will run even if the Studio is paused
     // Meaning this would keep executing, along with any onFrame function
@@ -869,7 +873,7 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
   public addToSnapshot(obj: Snapshot = {}): void {
     if (
       this.internalData.FLAGS.lockInternalSnapshotOverride &&
-      !Object.keys(obj).every((k) => k.indexOf('__volts_internal') === -1)
+      !Object.keys(obj).every((k) => k.indexOf('__volts__internal') === -1)
     )
       throw new Error('Cannot override internal key after the internal snapshot override has been locked');
     this.internalData.formattedValuesToSnapshot = Object.assign(
@@ -882,7 +886,7 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
     const keysToRemove = Array.isArray(keys) ? keys : [keys];
     if (
       this.internalData.FLAGS.lockInternalSnapshotOverride &&
-      !keysToRemove.every((k) => k.indexOf('__volts_internal') === -1)
+      !keysToRemove.every((k) => k.indexOf('__volts__internal') === -1)
     )
       throw new Error('Cannot remove internal key after the internal snapshot override has been locked');
     const snapKeys = Object.keys(this.internalData.formattedValuesToSnapshot);

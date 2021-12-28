@@ -94,7 +94,7 @@ describe('load assets', () => {
         }).rawInitPromise,
     ).rejects.toThrow();
 
-    await expect(() => World.getInstance().forceAssetReload()).rejects.toThrow();
+    await expect(World.getInstance().forceAssetReload()).rejects.toThrow();
   });
 });
 
@@ -113,9 +113,13 @@ describe('snapshot', () => {
       },
     });
 
+    // @ts-expect-error
+    await W.rawInitPromise;
+
     W.addToSnapshot({ added: Reactive.point2d(1, 2) });
 
     expect(() => W.addToSnapshot({ notSupported: { definitelyNotASignal: null } })).toThrow();
+    expect(() => W.addToSnapshot({ __volts__internal__scalar: Reactive.val(1) })).toThrow();
 
     // @ts-ignore
     await W.rawInitPromise.then(() => {
