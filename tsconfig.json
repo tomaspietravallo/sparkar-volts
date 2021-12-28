@@ -1,13 +1,13 @@
 {
   "compilerOptions": {
     "esModuleInterop": true,
+    "target": "ES5",
     "module": "ES6",
     "noImplicitAny": true,
     "removeComments": true,
     "preserveConstEnums": true,
     "sourceMap": true,
-    "types": ["node", "jest"]
+    "types": ["node", "@types/jest"]
   },
-  "include": ["./volts.ts"],
-  "exclude": ["node_modules", "**/*.spec.ts", "**/*.test.ts", "**/*.test.tsx"]
+  "include": ["./volts.ts"]
 }
