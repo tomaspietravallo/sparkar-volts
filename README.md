@@ -46,6 +46,12 @@ npm i
 - [ ] Use rollup.js to add a minified version of VOLTS
 - [ ] Improve support for Plugins
 - [ ] Add support for Async onLoad/frameUpdate functions. Quite a large change, beware unintended side effects
+- [ ] String matching based DEV mode. Eg. mode="400x400", use a simulator window of 400x400px in Spark AR Studio to use DEV mode
+- Open a PR/issue & add/request features!
+
+# v5.0.0
+
+- [ ]
 - Open a PR/issue & add/request features!
 
 # two-dot-diff shortcut
