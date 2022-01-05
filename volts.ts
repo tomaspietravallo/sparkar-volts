@@ -1046,53 +1046,53 @@ export const Vector = function <D extends number, args extends VectorArgRest = [
   } else {
     this.values = args as number[];
   }
-  if (!this.values.every((v) => typeof v === 'number') || this.values.length === 0)
-    throw new Error(`@ Vector.constructor: Values provided are not valid. args: ${args}. this.values: ${this.values}`);
+  let e = this.values.length === 0;
+  for (let i = 0; i < this.values.length; i++){
+    e = e || typeof this.values[i] !== 'number'
+  };
+  if (e) throw new Error(`@ Vector.constructor: Values provided are not valid. args: ${args}. this.values: ${this.values}`);
   // @ts-expect-error
   this.dimension = this.values.length;
-
-  // prettier-ignore
-  Object.defineProperties(this, {
-    x: {
-      get:    () =>{                                                                                    return this.values[0]},
-      set:    (x)=>{                                                                                    this.values[0] = x}},
-    y: {
-      get:    () =>{if (this.dimension < 2) throw new Error(`Cannot get Vector.y, vector is a scalar`); return this.values[1]},
-      set:    (y)=>{if (this.dimension < 2) throw new Error(`Cannot get Vector.y, vector is a scalar`); this.values[1] = y}},
-    z: {
-      get:    () =>{if (this.dimension < 3) throw new Error(`Cannot get Vector.z, vector is not 3D`);   return this.values[2]},
-      set:    (z)=>{if (this.dimension < 3) throw new Error(`Cannot get Vector.z, vector is not 3D`);   this.values[2] = z}},
-    w: {
-      get:    () =>{if (this.dimension < 4) throw new Error(`Cannot get Vector.w, vector is not 4D`);   return this.values[3]},
-      set:    (w)=>{if (this.dimension < 4) throw new Error(`Cannot get Vector.w, vector is not 4D`);   this.values[3] = w}
-    },
-    signal: {
-      get: () => {
-          // @ts-expect-error
-          if (this.rs) return this.rs;
-
-          for (let index = 0; index < this.dimension; index++) {
-            const c = Vector.components[index];
-            this[`r${c}`] = Reactive.scalarSignalSource(`v${this.dimension}-${c}-${getUUIDv4()}`);
-            this[`r${c}`].set(this[c]);
-          };
-
-          if (this.dimension === 1) {this.rs = this.rx.signal}
-          else if (this.dimension === 2) {this.rs = Reactive.point2d(this.rx.signal, this.ry.signal)}
-          else if (this.dimension === 3) {this.rs = Reactive.vector(this.rx.signal, this.ry.signal, this.rz.signal)}
-          else if (this.dimension === 4)  {this.rs = Reactive.pack4(this.rx.signal, this.ry.signal, this.rz.signal, this.rw.signal)}
-          else {
-            throw new Error(`Tried to get the Signal of a N>4 Vector instance. Signals are only available for Vectors with up to 4 dimensions`);
-          };
-
-          return this.rs;
-        
-      }
-    }
-  });
-
+  // @ts-expect-error
   return this;
 } as unknown as NDVector;
+
+Object.defineProperties(Vector.prototype, {
+  x: {
+    get:    function(){                                                                                    return this.values[0]},
+    set:    function(x){                                                                                    this.values[0] = x}},
+  y: {
+    get:    function(){if (this.dimension < 2) throw new Error(`Cannot get Vector.y, vector is a scalar`); return this.values[1]},
+    set:    function(y){if (this.dimension < 2) throw new Error(`Cannot get Vector.y, vector is a scalar`); this.values[1] = y}},
+  z: {
+    get:    function(){if (this.dimension < 3) throw new Error(`Cannot get Vector.z, vector is not 3D`);   return this.values[2]},
+    set:    function(z){if (this.dimension < 3) throw new Error(`Cannot get Vector.z, vector is not 3D`);   this.values[2] = z}},
+  w: {
+    get:    function(){if (this.dimension < 4) throw new Error(`Cannot get Vector.w, vector is not 4D`);   return this.values[3]},
+    set:    function(w){if (this.dimension < 4) throw new Error(`Cannot get Vector.w, vector is not 4D`);   this.values[3] = w}
+  },
+  signal: {
+    get: function(){
+        if (this.rs) return this.rs;
+
+        for (let index = 0; index < this.dimension; index++) {
+          const c = Vector.components[index];
+          this[`r${c}`] = Reactive.scalarSignalSource(`v${this.dimension}-${c}-${getUUIDv4()}`);
+          this[`r${c}`].set(this[c]);
+        };
+
+        if (this.dimension === 1) {this.rs = this.rx.signal}
+        else if (this.dimension === 2) {this.rs = Reactive.point2d(this.rx.signal, this.ry.signal)}
+        else if (this.dimension === 3) {this.rs = Reactive.vector(this.rx.signal, this.ry.signal, this.rz.signal)}
+        else if (this.dimension === 4)  {this.rs = Reactive.pack4(this.rx.signal, this.ry.signal, this.rz.signal, this.rw.signal)}
+        else {
+          throw new Error(`Tried to get the Signal of a N>4 Vector instance. Signals are only available for Vectors with up to 4 dimensions`);
+        };
+
+        return this.rs;
+    }
+  }
+});
 
 //#region static
 Vector.convertToSameDimVector = function <D extends number>(dim: D, ...args: VectorArgRest): Vector<D> {
