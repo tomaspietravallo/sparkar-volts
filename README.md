@@ -49,6 +49,11 @@ npm i
 - [ ] String matching based DEV mode. Eg. mode="400x400", use a simulator window of 400x400px in Spark AR Studio to use DEV mode
 - Open a PR/issue & add/request features!
 
+```sh
+npx tsc -p .
+terser volts.min.js -c passes=5 -o volts.min.js
+```
+
 # v5.0.0
 
 - [ ]
