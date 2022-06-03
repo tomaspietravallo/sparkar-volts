@@ -1,3 +1,3 @@
-{"total": {"lines":{"total":787,"covered":756,"skipped":0,"pct":96.06},"statements":{"total":975,"covered":914,"skipped":0,"pct":93.74},"functions":{"total":194,"covered":183,"skipped":0,"pct":94.33},"branches":{"total":484,"covered":374,"skipped":0,"pct":77.27}}
-,"/Users/tomaspietravallo/Documents/GitHub/sparkar-volts/volts.ts": {"lines":{"total":787,"covered":756,"skipped":0,"pct":96.06},"functions":{"total":194,"covered":183,"skipped":0,"pct":94.33},"statements":{"total":975,"covered":914,"skipped":0,"pct":93.74},"branches":{"total":484,"covered":374,"skipped":0,"pct":77.27}}
+{"total": {"lines":{"total":756,"covered":713,"skipped":0,"pct":94.31},"statements":{"total":811,"covered":760,"skipped":0,"pct":93.71},"functions":{"total":186,"covered":177,"skipped":0,"pct":95.16},"branches":{"total":471,"covered":363,"skipped":0,"pct":77.07}}
+,"/Users/tomaspietravallo/Documents/GitHub/sparkar-volts/volts.ts": {"lines":{"total":756,"covered":713,"skipped":0,"pct":94.31},"functions":{"total":186,"covered":177,"skipped":0,"pct":95.16},"statements":{"total":811,"covered":760,"skipped":0,"pct":93.71},"branches":{"total":471,"covered":363,"skipped":0,"pct":77.07}}
 }

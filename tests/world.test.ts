@@ -240,6 +240,7 @@ describe('test real world use cases', () => {
   test('run - mode.dev', async () => {
     // expect.assertions(6);
     privates.clearVoltsWorld();
+
     const world = World.getInstance({
       mode: PRODUCTION_MODES.DEV,
       assets: {
@@ -248,7 +249,9 @@ describe('test real world use cases', () => {
       snapshot: {},
       loadStates: undefined,
     });
+
     expect(world.running).toEqual(false);
+
     // @ts-ignore
     await world.rawInitPromise.then(() => {
       expect(world.loaded).toEqual(true);
@@ -256,10 +259,6 @@ describe('test real world use cases', () => {
       expect(world.assets.obj).toBeInstanceOf(SceneObjectBase);
       expect(world.frameCount).toBeDefined();
     });
-
-    // await new Promise((resolve) => {
-    //   setTimeout(resolve, 300);
-    // });
 
     jest.advanceTimersByTime(100);
 

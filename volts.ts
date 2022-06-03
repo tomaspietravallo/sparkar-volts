@@ -594,19 +594,22 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
           //#endregion
 
           //#region onLoad function
-          VoltsWorld.userConfig.mode !== PRODUCTION_MODES.NO_AUTO &&
-            this.internalData.frameCount === 0 &&
-            this.emitEvent('load', this.internalData.userFriendlySnapshot);
+          const loadReturn: Promise<void> = (VoltsWorld.userConfig.mode !== PRODUCTION_MODES.NO_AUTO &&
+            this.internalData.frameCount === 0) ?
+            this.emitEvent('load', this.internalData.userFriendlySnapshot)
+            : undefined;
           //#endregion
 
-          //#region onRun/onFrame
-          const onFramePerformanceData = { fps, delta, frameCount: this.internalData.frameCount };
-          this.runTimedEvents(onFramePerformanceData);
-          this.emitEvent('frameUpdate', this.internalData.userFriendlySnapshot, onFramePerformanceData);
-          this.internalData.frameCount += 1;
-          //#endregion
+          ((loadReturn && loadReturn.then) ? loadReturn : Promise.resolve()).then((function (){
+            //#region onRun/onFrame
+            const onFramePerformanceData = { fps, delta, frameCount: this.internalData.frameCount };
+            this.runTimedEvents(onFramePerformanceData);
+            this.emitEvent('frameUpdate', this.internalData.userFriendlySnapshot, onFramePerformanceData);
+            this.internalData.frameCount += 1;
+            //#endregion
+            if (!this.internalData.FLAGS.stopTimeout) return loop();
+          }).bind(this)());
 
-          if (!this.internalData.FLAGS.stopTimeout) return loop();
         },
         0,
       );
