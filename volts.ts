@@ -1732,6 +1732,16 @@ export class Object3D<T extends SceneObjectBase> {
             resolve(body);
         }); })
   }
+
+  lookAtOther(){
+
+  }
+
+  lookAtHeading(){
+
+  }
+
+  update(){}
 }
 
 //#endregion

@@ -1,5 +1,7 @@
-import { Vector } from '../../volts';
+import { Vector, Pool } from '../../volts';
 import Reactive, { ScalarSignal, VectorSignal, BoolSignal } from './Reactive';
+
+let instanced = 0;
 
 const FOCAL_DISTANCE = 0.586;
 const SCREEN_SIZE = [Math.random(), Math.random()];
@@ -81,4 +83,9 @@ export default {
       1,
     );
   },
+  create: (className: string) => {
+    instanced++;
+    if (!Pool.SceneObjects[className]) throw `${className} is not a dynamic object class (Scene mock)`
+    return new SceneObjectBase(className + instanced)
+  }
 };
