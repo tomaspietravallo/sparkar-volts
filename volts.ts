@@ -1163,6 +1163,7 @@ Vector.fromSignal = function <sT extends ScalarSignal | Vec2Signal | VectorSigna
   }
   return new Vector(tmp);
 };
+
 Vector.random2D = function random2D(): Vector<2> {
   const angle = Math.random();
   return new Vector(Math.cos(angle), Math.sin(angle));
@@ -1195,7 +1196,7 @@ Vector.prototype.mul = function <D extends number>(this: Vector<D>, ...args: Vec
 };
 Vector.prototype.div = function <D extends number>(this: Vector<D>, ...args: VectorArgRest): Vector<D> {
   const b = Vector.convertToSameDimVector(this.dimension, ...args).values;
-  if (![...this.values, ...b].every((v) => typeof v === 'number' && Number.isFinite(v) && v !== 0)) {
+  if (!([...this.values, ...b].every((v) => typeof v === 'number' && Number.isFinite(v)) && b.every(v => v !== 0))) {
     throw new Error(`@ Vector.div: values provided are not valid. this value(s): ${this.values}\n\nb value(s): ${b}`);
   }
   this.values = this.values.map((v, i) => v / b[i]);
