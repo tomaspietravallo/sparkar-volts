@@ -1701,146 +1701,36 @@ export interface Object3DSkeleton {
   update(): void;
 }
 
-export class Object3D<T extends SceneObjectBase> implements Object3DSkeleton {
-  protected _pos: Vector<3>;
-  protected _rot: Quaternion;
-  public vel: Vector<3>;
-  public acc: Vector<3>;
-  public size: Vector<3>;
-  public body: T;
-  public readonly UUID: string;
-  constructor(body: T) {
-    this._pos = new Vector();
-    this._rot = new Quaternion();
-    this.vel = new Vector();
-    this.acc = new Vector();
-    this.size = new Vector();
-    this.body = body;
-    this.UUID = getUUIDv4();
-    if (!(this.body && this.body.transform)) {
-      throw new Error(
-        `Object3D.constructor: Object body "${
-          this.body && this.body.name ? this.body.name : this.body
-        }" is not a valid Object3D body (needs to extend SceneObjectBase)`,
-      );
-    }
-    this.body.transform.position = this._pos.signal;
-    this.body.transform.rotation = this._rot.signal;
-  }
-  async stayInPlace(): Promise<void> {
-    return await Promise.all([this.fetchLastPosition(), this.fetchLastRotation(), this.fetchSize()]).then(
-      ([pos, rot, size]) => {
-        this._pos.values = pos.values;
-        this._rot.values = rot.values;
-        this.size.values = size.values;
-      },
-    );
-  }
-  async fetchLastPosition(): Promise<Vector<3>> {
-    const Instance = World.getInstance(false);
-    if (!Instance) throw new Error(`No VOLTS.World Instance found`);
-    const props: { [key: string]: any } = {};
-    props[this.UUID + 'pos'] = this.body.transform.position;
-    Instance.addToSnapshot(props);
-    return await new Promise((resolve) => {
-      Instance.onNextTick(() => {
-        Instance.removeFromSnapshot(this.UUID + 'pos');
-        resolve(Instance.snapshot[this.UUID + 'pos']);
-      });
-    });
-  }
-  async fetchLastRotation(): Promise<Quaternion> {
-    const Instance = World.getInstance(false);
-    if (!Instance) throw new Error(`No VOLTS.World Instance found`);
-    const props: { [key: string]: any } = {};
-    props[this.UUID + 'rot'] = this.body.transform.rotation;
-    Instance.addToSnapshot(props);
-    return await new Promise((resolve) => {
-      Instance.onNextTick(() => {
-        Instance.removeFromSnapshot(this.UUID + 'rot');
-        resolve(Instance.snapshot[this.UUID + 'rot']);
-      });
-    });
-  }
-  async fetchSize(): Promise<Vector<3>> {
-    const Instance = World.getInstance(false);
-    if (!Instance) throw new Error(`No VOLTS.World Instance found`);
-    const props: { [key: string]: any } = {};
-    props[this.UUID + 'size'] = this.body.boundingBox.max.sub(this.body.boundingBox.min);
-    Instance.addToSnapshot(props);
-    return await new Promise((resolve) => {
-      Instance.onNextTick(() => {
-        const snap = Instance.snapshot[this.UUID + 'size'];
-        if (JSON.stringify(snap).indexOf('null,null,null') !== -1)
-          report('Cannot run Object3D.fetchSize on non-mesh object').asBackwardsCompatibleDiagnosticsError();
-        Instance.removeFromSnapshot(this.UUID + 'size');
-        resolve(Instance.snapshot[this.UUID + 'size']);
-      });
-    });
-  }
-  update(update: { position?: boolean; rotation?: boolean } = { position: true, rotation: true }): void {
-    if (update.position) this._pos.setSignalComponents();
-    if (update.rotation) this._rot.setSignalComponents();
-  }
-  lookAtOther(otherObject: Object3DSkeleton): void {
-    this._rot.values = Quaternion.lookAt(this.pos, otherObject.pos).values;
-  }
-  lookAtHeading(): void {
-    this._rot.values = Quaternion.lookAtOptimized(this.vel.values).values;
-  }
-  /**
-   * @description Uses the Oimo plugin to implement RigidBody physics
-   *
-   * **This is BETA functionality**, it will likely change in future versions.
-   *
-   * There may be no warning about breaking changes, please aware of this.
-   *
-   * @requires module:oimo.plugin
-   * @see https://github.com/tomaspietravallo/sparkar-volts/issues/6
-   *
-   * @version 1.0
-   */
-  makeRigidBody(): void {
-    safeImportPlugins('oimo', 1.0);
-    // returns an existing world if found
-    const w = _plugins.oimo.createOimoWorld(
-      { World },
-      {
-        timestep: 1 / 30,
-        iterations: 8,
-        broadphase: 2, // 1 brute force, 2 sweep and prune, 3 volume tree
-        worldscale: 1,
-        random: true,
-        info: false,
-        gravity: [0, -0.9807, 0],
-      },
-    );
-    const o = w.add({
-      type: 'box', // type of shape : sphere, box, cylinder
-      size: this.size.toArray(),
-      pos: this._pos.toArray(),
-      rot: this._rot.toEulerArray().map((v) => v * 57.2958),
-      move: true, // dynamic or static
-      density: 1,
-      friction: 1.0,
-      restitution: 1.0,
-      belongsTo: 1, // The bits of the collision groups to which the shape belongs.
-      collidesWith: 0xffffffff, // The bits of the collision groups with which the shape collides.
-    });
-    o.connectMesh(this);
-    // (new _plugins.oimo.RigidBody())
-  }
-  set pos(xyz: Vector<3>): void {
-    this._pos.values = xyz.values;
-  }
-  get pos(): Vector<3> {
-    return this._pos;
-  }
-  set rot(quat: Quaternion): void {
-    this._rot.values = quat.values;
-  }
-  get rot(): Quaternion {
-    return this._rot;
+
+export class Object3D {
+  position: Vector<3>;
+  acc: Vector<3>;
+  vel: Vector<3>;
+  box: Vector<3>;
+  awake: boolean;
+  body: Promise<SceneObjectBase>;
+  
+  constructor(body?: SceneObjectBase) {
+    this.position = new Vector(),
+    this.acc = new Vector(),
+    this.vel = new Vector(),
+    this.box = new Vector(0.05),
+    this.awake = true;
+  
+    /**
+     * The key idea behind this, is decoupling processing from rendering.
+     */
+    this.body =
+        new Promise<SceneObjectBase>(resolve => {
+        (!!body ? Promise.resolve(body) : Scene.create('Plane')).then(async (plane)=>{
+            await Scene.root.addChild(plane);
+            plane.transform.position = this.position.signal;
+            // Improve with volts snapshot fetch
+            // const boxSignal = plane.getBoundingBox();
+            // box.values = Vector.fromSignal(boxSignal.max.sub(boxSignal.min)).values;
+            // if (box.values.every((v) => v < 1e-6)) throw new Error('1e-6 limit not exceeded ')
+            resolve(body);
+        }); })
   }
 }
 
