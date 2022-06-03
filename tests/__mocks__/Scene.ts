@@ -49,6 +49,7 @@ declare global {
 
 export default {
   root: {
+    addChild: async () => { return }, 
     findFirst: (s: string): Promise<SceneObjectBase> => {
       return new Promise((resolve) => {
         const shouldFail = s.toLowerCase().indexOf('fail') !== -1;

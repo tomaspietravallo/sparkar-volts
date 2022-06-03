@@ -1702,15 +1702,15 @@ export interface Object3DSkeleton {
 }
 
 
-export class Object3D {
+export class Object3D<T extends SceneObjectBase> {
   position: Vector<3>;
   acc: Vector<3>;
   vel: Vector<3>;
   box: Vector<3>;
   awake: boolean;
-  body: Promise<SceneObjectBase>;
+  body: Promise<T>;
   
-  constructor(body?: SceneObjectBase) {
+  constructor(body?: T) {
     this.position = new Vector(),
     this.acc = new Vector(),
     this.vel = new Vector(),
@@ -1721,7 +1721,7 @@ export class Object3D {
      * The key idea behind this, is decoupling processing from rendering.
      */
     this.body =
-        new Promise<SceneObjectBase>(resolve => {
+        new Promise<T>(resolve => {
         (!!body ? Promise.resolve(body) : Scene.create('Plane')).then(async (plane)=>{
             await Scene.root.addChild(plane);
             plane.transform.position = this.position.signal;
@@ -1766,7 +1766,7 @@ export class Pool {
   constructor(
     objectsOrPath: string | string[] | BlockAsset | BlockAsset[],
     root?: string | SceneObjectBase,
-    initialState?: {
+    initialState: {
       [Prop in keyof SceneObjectBase]+?: SceneObjectBase[Prop] | ReactiveToVanilla<SceneObjectBase[Prop]>;
     } = {},
   ) {
