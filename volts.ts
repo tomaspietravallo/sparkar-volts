@@ -1722,7 +1722,7 @@ export interface Object3DSkeleton {
 }
 
 
-export class Object3D<T extends SceneObjectBase> {
+export class Object3D<T extends SceneObjectBase = SceneObjectBase> {
   pos: Vector<3>;
   rot: Quaternion;
   acc: Vector<3>;
