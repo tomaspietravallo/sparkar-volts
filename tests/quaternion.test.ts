@@ -151,3 +151,32 @@ describe('accessors', () => {
     expect(Q1234.signal.w).toBeTruthy();
   });
 });
+
+describe('consistency test', () => {
+  test('origin-up', () => {
+    // origin
+    const p1 = new Vector(0,0,0);
+    // up
+    const p2 = new Vector(0,1,0);
+
+    const lookAt = new Vector(0,0,1).applyQuaternion(Quaternion.lookAt(p1, p2));
+    expect(lookAt.x).toBeCloseTo(0, 8);
+    expect(lookAt.y).toBeCloseTo(1, 8);
+    expect(lookAt.z).toBeCloseTo(0, 8);
+  })
+
+  test('non-zero-origin', () => {
+    // origin
+    const p1 = new Vector(1,-0.5,3);
+    // up
+    const p2 = new Vector(1,2,3);
+
+    // normalized difference
+    const subNorm = p2.copy().sub(p1).normalize();
+
+    const lookAt = new Vector(0,0,1).applyQuaternion(Quaternion.lookAt(p1, p2));
+    expect(lookAt.x).toBeCloseTo(subNorm.x, 8);
+    expect(lookAt.y).toBeCloseTo(subNorm.y, 8);
+    expect(lookAt.z).toBeCloseTo(subNorm.z, 8);
+  })
+})
