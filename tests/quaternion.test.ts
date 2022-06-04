@@ -116,6 +116,12 @@ describe('operations', () => {
     const match = nonOp.values.every((v, i) => Math.abs(v - op.values[i]) < 0.001);
     expect(match).toEqual(true);
   });
+  test('Vector.applyQuaternion', () => {
+    // 180º turn on the x axis
+    const v = new Vector(1,0,0);
+    const q = new Quaternion(0,0,1,0);
+    expect(v.applyQuaternion(q).values).toEqual([-1,0,0])
+  })
 });
 
 describe('accessors', () => {

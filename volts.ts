@@ -965,6 +965,7 @@ interface Vector3DInstance {
   get z(): number;
   set z(z: number);
   cross(...args: VectorArgRest<3>): Vector<3>;
+  applyQuaternion(q: Quaternion): Vector<3>;
 }
 
 interface Vector4DInstance {
@@ -1272,6 +1273,25 @@ Vector.prototype.cross = function (this: Vector<3>, ...args: VectorArgRest): Vec
     this.values[0] * b.values[1] - this.values[1] * b.values[0],
   );
 };
+/** @see https://math.stackexchange.com/questions/40164/how-do-you-rotate-a-vector-by-a-unit-quaternion */
+Vector.prototype.applyQuaternion = function(this: Vector<3>, q: Quaternion): Vector<3> {
+    q = q.normalized;
+		const x = this.x, y = this.y, z = this.z;
+		const qx = q.x, qy = q.y, qz = q.z, qw = q.w;
+
+		const ix = qw * x + qy * z - qz * y;
+		const iy = qw * y + qz * x - qx * z;
+		const iz = qw * z + qx * y - qy * x;
+		const iw = - qx * x - qy * y - qz * z;
+
+		this.values = [
+      ix * qw + iw * - qx + iy * - qz - iz * - qy,
+      iy * qw + iw * - qy + iz * - qx - ix * - qz,
+      iz * qw + iw * - qz + ix * - qy - iy * - qx
+    ];
+
+  return this;
+}
 //#endregion
 //#region Vector<2>
 Vector.prototype.heading = function <D extends number>(): number {
@@ -1703,7 +1723,8 @@ export interface Object3DSkeleton {
 
 
 export class Object3D<T extends SceneObjectBase> {
-  position: Vector<3>;
+  pos: Vector<3>;
+  rot: Quaternion;
   acc: Vector<3>;
   vel: Vector<3>;
   box: Vector<3>;
@@ -1711,7 +1732,8 @@ export class Object3D<T extends SceneObjectBase> {
   body: Promise<T>;
   
   constructor(body?: T) {
-    this.position = new Vector(),
+    this.pos = new Vector(),
+    this.rot = new Quaternion(),
     this.acc = new Vector(),
     this.vel = new Vector(),
     this.box = new Vector(0.05),
@@ -1724,7 +1746,7 @@ export class Object3D<T extends SceneObjectBase> {
         new Promise<T>(resolve => {
         (!!body ? Promise.resolve(body) : Scene.create('Plane')).then(async (plane)=>{
             await Scene.root.addChild(plane);
-            plane.transform.position = this.position.signal;
+            plane.transform.position = this.pos.signal;
             // Improve with volts snapshot fetch
             // const boxSignal = plane.getBoundingBox();
             // box.values = Vector.fromSignal(boxSignal.max.sub(boxSignal.min)).values;
