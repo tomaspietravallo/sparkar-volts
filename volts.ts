@@ -1741,7 +1741,17 @@ export class Object3D<T extends SceneObjectBase = SceneObjectBase> {
   
     /**
      * The key idea behind this, is decoupling processing from rendering.
+     * 
+     * Use `null` to have no body.
+     * 
+     * `undefined` will instance an object for you. This choice boils down to two things:
+     * 
+     * 1. Non-body objects are useful and should be easy to create
+     * 
+     * 2. out of bounds array creating dynamic objects may help identify an issue,
+     * and instancing without hassle can be useful while iterating
      */
+    if (body !== null)
     this.body =
         new Promise<T>(resolve => {
         (!!body ? Promise.resolve(body) : Scene.create('Plane')).then(async (plane)=>{
