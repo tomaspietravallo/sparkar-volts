@@ -1755,7 +1755,7 @@ export class Object3D<T extends SceneObjectBase = SceneObjectBase> {
     this.body =
         new Promise<T>(resolve => {
         (!!body ? Promise.resolve(body) : Scene.create('Plane')).then(async (plane)=>{
-            await Scene.root.addChild(plane);
+            !body && await Scene.root.addChild(plane);
             plane.transform.position = this.pos.signal;
             // Improve with volts snapshot fetch
             // const boxSignal = plane.getBoundingBox();
