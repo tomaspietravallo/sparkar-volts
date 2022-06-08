@@ -1417,17 +1417,17 @@ export class Quaternion {
     // The assumptions above allow for skipping some calculations, since multiplying/adding 0 is irrelevant
     const forwardVector: number[] = [...headingVector3DArray];
     let mag = Math.sqrt(forwardVector[0] ** 2 + forwardVector[1] ** 2 + forwardVector[2] ** 2);
-    forwardVector[0] /= mag;
-    forwardVector[1] /= mag;
-    forwardVector[2] /= mag;
+    mag !== 0 && (forwardVector[0] /= mag);
+    mag !== 0 && (forwardVector[1] /= mag);
+    mag !== 0 && (forwardVector[2] /= mag);
     const dot = forwardVector[2];
     if (Math.abs(dot + 1) < 0.00001) return new Quaternion(0, 1, 0, PI);
     if (Math.abs(dot - 1) < 0.00001) return new Quaternion(1, 0, 0, 0);
     let rotAngle = Math.acos(dot);
     const rotAxis = [-forwardVector[1], forwardVector[0], 0];
-    mag = Math.sqrt(rotAxis[0] ** 2 + rotAxis[1] ** 2);
-    rotAxis[0] /= mag;
-    rotAxis[1] /= mag;
+    mag = (rotAxis[0] ** 2 + rotAxis[1] ** 2) ** 0.5;
+    mag !== 0 && (rotAxis[0] /= mag);
+    mag !== 0 && (rotAxis[1] /= mag);
     rotAngle *= 0.5;
     const s = Math.sin(rotAngle);
     return new Quaternion(Math.cos(rotAngle), rotAxis[0] * s, rotAxis[1] * s, rotAxis[2] * s);
