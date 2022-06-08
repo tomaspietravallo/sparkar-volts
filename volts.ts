@@ -1765,12 +1765,12 @@ export class Object3D<T extends SceneObjectBase = SceneObjectBase> {
         }); })
   }
 
-  lookAtOther(){
-
+  lookAtOther(other: Object3D){
+    this.rot.values = Quaternion.lookAt(this.pos, other.pos).values;
   }
 
   lookAtHeading(){
-
+    this.rot.values = Quaternion.lookAtOptimized(this.vel.values).values;
   }
 
   update(){}
