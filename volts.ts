@@ -1079,10 +1079,11 @@ Object.defineProperties(Vector.prototype, {
     get: function(){
         if (this.rs) return this.rs;
 
+        const uuid = getUUIDv4(), vals = this.values;
         for (let index = 0; index < this.dimension; index++) {
           const c = Vector.components[index];
-          this[`r${c}`] = Reactive.scalarSignalSource(`v${this.dimension}-${c}-${getUUIDv4()}`);
-          this[`r${c}`].set(this[c]);
+          this[`r${c}`] = Reactive.scalarSignalSource(`v${this.dimension}-${c}-${uuid}`);
+          this[`r${c}`].set(vals[index]);
         };
 
         if (this.dimension === 1) {this.rs = this.rx.signal}
@@ -1575,10 +1576,11 @@ export class Quaternion {
     // @ts-expect-error
     if (this.rs) return this.rs;
 
-    for (let index = 0; index < Quaternion.components.length; index++) {
+    const uuid = getUUIDv4(), vals = this.values;
+    for (let index = 0; index < 4; index++) {
       const c = Quaternion.components[index];
-      this[`r${c}`] = Reactive.scalarSignalSource(`quat-${c}-${getUUIDv4()}`);
-      this[`r${c}`].set(this[c]);
+      this[`r${c}`] = Reactive.scalarSignalSource(`quat-${c}-${uuid}`);
+      this[`r${c}`].set(vals[index]);
     }
 
     // @ts-expect-error
