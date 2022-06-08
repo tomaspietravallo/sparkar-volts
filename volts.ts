@@ -1447,6 +1447,44 @@ export class Quaternion {
     // angles[2] = Math.atan2(siny_cosp, cosy_cosp);
     // return new EulerAngles(angles);
   }
+  /**
+   * @todo Add tests
+   */
+  static slerp(q1: Quaternion, q2: Quaternion, t: number) {
+    const q = new Quaternion();
+    const q1v = [...q1.values] as Quaternion["values"], q2v = [...q2.values] as Quaternion["values"];
+    const cosHalfTheta = q1v[0] * q2v[0] + q1v[1] * q2v[1] + q1v[2] * q2v[2] + q1v[3] * q2v[3];
+
+    if (Math.abs(cosHalfTheta) >= 1.0){
+      q.values = q1v;
+      return q;
+    }
+
+    const halfTheta = Math.acos(cosHalfTheta);
+    const sinHalfTheta = (1.0 - cosHalfTheta*cosHalfTheta) ** 0.5;
+
+    if (Math.abs(sinHalfTheta) < 0.001){
+      q.values = [
+        q1v[0] * 0.5 + q2v[0] * 0.5,
+        q1v[1] * 0.5 + q2v[1] * 0.5,
+        q1v[2] * 0.5 + q2v[2] * 0.5,
+        q1v[3] * 0.5 + q2v[3] * 0.5
+      ];
+      return q;
+    }
+
+    const ra = Math.sin((1 - t) * halfTheta) / sinHalfTheta;
+    const rb = Math.sin(t * halfTheta) / sinHalfTheta;
+
+    q.values = [
+      q1v[0] * ra + q2v[0] * rb,
+      q1v[1] * ra + q2v[1] * rb,
+      q1v[2] * ra + q2v[2] * rb,
+      q1v[3] * ra + q2v[3] * rb
+    ];
+
+    return q;
+  }
   public toQuaternionSignal(): QuaternionSignal {
     return Reactive.quaternion(this.values[0], this.values[1], this.values[2], this.values[3]);
   }
