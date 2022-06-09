@@ -964,6 +964,7 @@ interface Vector3DInstance {
   set y(y: number);
   get z(): number;
   set z(z: number);
+  get pointSignal(): PointSignal;
   cross(...args: VectorArgRest<3>): Vector<3>;
   applyQuaternion(q: Quaternion): Vector<3>;
 }
@@ -1096,6 +1097,24 @@ Object.defineProperties(Vector.prototype, {
 
         return this.rs;
     }
+  },
+  pointSignal: {
+    get: function(){
+      // reactive point signal
+      if (this.rps) return this.rps;
+      if (this.dimension !== 3) throw new Error(`@Vector.pointSignal accessor only available on 3D Vectors. Please use Vector.signal instead`);
+
+      const uuid = getUUIDv4(), vals = this.values;
+      for (let index = 0; index < 3; index++) {
+        const c = Vector.components[index];
+        this[`r${c}`] = Reactive.scalarSignalSource(`v${this.dimension}-${c}-${uuid}`);
+        this[`r${c}`].set(vals[index]);
+      };
+
+      this.rps = Reactive.point(this.rx.signal, this.ry.signal, this.rz.signal);
+
+      return this.rps;
+  }
   }
 });
 
