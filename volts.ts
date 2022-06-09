@@ -1447,16 +1447,12 @@ export class Quaternion {
     // angles[2] = Math.atan2(siny_cosp, cosy_cosp);
     // return new EulerAngles(angles);
   }
-  /**
-   * @todo Add tests
-   */
   static slerp(q1: Quaternion, q2: Quaternion, t: number) {
     const q = new Quaternion();
-    const q1v = [...q1.values] as Quaternion["values"], q2v = [...q2.values] as Quaternion["values"];
-    const cosHalfTheta = q1v[0] * q2v[0] + q1v[1] * q2v[1] + q1v[2] * q2v[2] + q1v[3] * q2v[3];
+    const cosHalfTheta = q1.w * q2.w + q1.x * q2.x + q1.y * q2.y + q1.z * q2.z;
 
     if (Math.abs(cosHalfTheta) >= 1.0){
-      q.values = q1v;
+      q.w = q1.w;q.x = q1.x;q.y = q1.y;q.z = q1.z;
       return q;
     }
 
@@ -1464,24 +1460,19 @@ export class Quaternion {
     const sinHalfTheta = (1.0 - cosHalfTheta*cosHalfTheta) ** 0.5;
 
     if (Math.abs(sinHalfTheta) < 0.001){
-      q.values = [
-        q1v[0] * 0.5 + q2v[0] * 0.5,
-        q1v[1] * 0.5 + q2v[1] * 0.5,
-        q1v[2] * 0.5 + q2v[2] * 0.5,
-        q1v[3] * 0.5 + q2v[3] * 0.5
-      ];
+      q.w = (q1.w * 0.5 + q2.w * 0.5);
+      q.x = (q1.x * 0.5 + q2.x * 0.5);
+      q.y = (q1.y * 0.5 + q2.y * 0.5);
+      q.z = (q1.z * 0.5 + q2.z * 0.5);
       return q;
     }
-
     const ra = Math.sin((1 - t) * halfTheta) / sinHalfTheta;
     const rb = Math.sin(t * halfTheta) / sinHalfTheta;
 
-    q.values = [
-      q1v[0] * ra + q2v[0] * rb,
-      q1v[1] * ra + q2v[1] * rb,
-      q1v[2] * ra + q2v[2] * rb,
-      q1v[3] * ra + q2v[3] * rb
-    ];
+    q.w = (q1.w * ra + q2.w * rb);
+    q.x = (q1.x * ra + q2.x * rb);
+    q.y = (q1.y * ra + q2.y * rb);
+    q.z = (q1.z * ra + q2.z * rb);
 
     return q;
   }
