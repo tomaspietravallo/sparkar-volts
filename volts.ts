@@ -1761,7 +1761,7 @@ export class State<Data extends { [key: string]: Vector<any> | Quaternion | numb
 //#region Object3D
 
 /**
- * @description A base type to be implemented by other classes that want to implement Object3D-like behaviour.
+ * @description A base type to be implemented by other classes that want to implement Object3D-like behavior.
  *
  * Named `Skeleton` instead of `Base` to avoid confusion with Spark's class names
  */
@@ -1771,15 +1771,14 @@ export interface Object3DSkeleton {
   update(): void;
 }
 
-
-export class Object3D<T extends SceneObjectBase = SceneObjectBase> {
+export class Object3D<T extends SceneObjectBase = any > {
   pos: Vector<3>;
   rot: Quaternion;
   acc: Vector<3>;
   vel: Vector<3>;
   box: Vector<3>;
   awake: boolean;
-  body: Promise<T>;
+  body: T extends Exclude<T, undefined> ? Promise<SceneObjectBase> : T;
   
   constructor(body?: T) {
     this.pos = new Vector(),
@@ -1801,10 +1800,10 @@ export class Object3D<T extends SceneObjectBase = SceneObjectBase> {
      * 2. out of bounds array creating dynamic objects may help identify an issue,
      * and instancing without hassle can be useful while iterating
      */
-    if (body !== null)
-    this.body =
-        new Promise<T>(resolve => {
-        (!!body ? Promise.resolve(body) : Scene.create('Plane')).then(async (plane)=>{
+    this.body = body;
+    if (body !== null) {
+      const p = new Promise<T>(resolve => {
+        (!!body ? Promise.resolve(body) : Scene.create('Plane')).then(async (plane: T)=>{
             !body && await Scene.root.addChild(plane);
             plane.transform.position = this.pos.signal;
             plane.transform.rotation = this.rot.signal;
@@ -1812,8 +1811,10 @@ export class Object3D<T extends SceneObjectBase = SceneObjectBase> {
             // const boxSignal = plane.getBoundingBox();
             // box.values = Vector.fromSignal(boxSignal.max.sub(boxSignal.min)).values;
             // if (box.values.every((v) => v < 1e-6)) throw new Error('1e-6 limit not exceeded ')
-            resolve(body);
-        }); })
+            resolve(plane);
+        }); });
+      !body && (this.body = p)
+    }
   }
 
   lookAtOther(other: Object3D){

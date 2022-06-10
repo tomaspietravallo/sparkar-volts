@@ -51,7 +51,9 @@ declare global {
 
 export default {
   root: {
-    addChild: async () => { return }, 
+    addChild: async (obj: SceneObjectBase) => { if (!obj || !obj.name || obj.name.indexOf('JEST_DYNAMIC_INSTANCE') === -1) {
+      throw new Error(`The object passed to addChild is not a dynamic instance. This can result in unpredictable behaviour inside of Spark. Object is not marked with JEST_DYNAMIC_INSTANCE`)
+    } }, 
     findFirst: (s: string): Promise<SceneObjectBase> => {
       return new Promise((resolve) => {
         const shouldFail = s.toLowerCase().indexOf('fail') !== -1;
@@ -83,9 +85,9 @@ export default {
       1,
     );
   },
-  create: (className: string) => {
+  create: async (className: string) => {
     instanced++;
     if (!Pool.SceneObjects[className]) throw `${className} is not a dynamic object class (Scene mock)`
-    return new SceneObjectBase(className + instanced)
+    return new SceneObjectBase(className + instanced + 'JEST_DYNAMIC_INSTANCE')
   }
 };

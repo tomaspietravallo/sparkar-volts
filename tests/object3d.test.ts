@@ -57,10 +57,13 @@ describe('utils', () => {
     expect(() => obj.lookAtHeading()).not.toThrow();
     expect(obj.rot.values).toEqual([1, 0, 0, 0]);
   });
-  test('makeRigidBody', async () => {
-    const sceneObjOne: SceneObjectBase = await Scene.root.findFirst('a-scene-obj');
-    const obj = new Object3D(sceneObjOne);
+  test('body promise', async () => {
+    const sceneObj: SceneObjectBase = await Scene.root.findFirst('a-scene-obj');
+    const obj3d = new Object3D(sceneObj);
+    const dynamicInstance = new Object3D();
 
-    expect(() => obj.makeRigidBody()).toThrow();
+    expect(obj3d.body).toBe(sceneObj);
+    expect(dynamicInstance.body).toBeTruthy();
+    await expect(dynamicInstance.body).resolves.toBeInstanceOf(SceneObjectBase)
   });
 });
