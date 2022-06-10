@@ -101,6 +101,7 @@ describe('load assets', () => {
 describe('snapshot', () => {
   test('snapshot', async () => {
     privates.clearVoltsWorld();
+
     const W = World.getInstance({
       mode: 'DEV',
       snapshot: {
@@ -109,7 +110,7 @@ describe('snapshot', () => {
         point3D: Reactive.vector(1, 5, 10),
         point4D: Reactive.pack4(1, 5, 10, 15),
         string: Reactive.stringSignal('a-string'),
-        // quat: Reactive.quaternion(1, 2, 3, 4),
+        quat: Reactive.quaternion(1, 2, 3, 4),
       },
     });
 
@@ -129,9 +130,8 @@ describe('snapshot', () => {
       expect(W.snapshot.point3D.values).toEqual([1, 5, 10]);
       expect(W.snapshot.point4D.values).toEqual([1, 5, 10, 15]);
       expect(W.snapshot.string).toEqual('a-string');
-      /** @todo */
-      // expect(W.snapshot.quat.values).toEqual([1,2,3,4]);
-      // expect(W.snapshot.quat.w).toEqual(1);
+      expect(W.snapshot.quat.values).toEqual([1,2,3,4]);
+      expect(W.snapshot.quat.w).toEqual(1);
 
       // @ts-ignore
       expect(W.snapshot.added.values).toEqual([1, 2]);

@@ -260,7 +260,7 @@ export class Vec4Signal extends NDVectorSignal {
   }
 }
 
-export class Quaternion extends NDVectorSignal {
+export class QuaternionSignal extends NDVectorSignal {
   constructor(...args: number[] | [() => number[]]) {
     super(...args);
   }
@@ -308,7 +308,7 @@ declare global {
     export type Vec2Signal = typeof Vec2Signal.prototype;
     export type VectorSignal = typeof VectorSignal.prototype;
     export type Vec4Signal = typeof Vec4Signal.prototype;
-    export type Quaternion = typeof Quaternion.prototype;
+    export type QuaternionSignal = typeof QuaternionSignal.prototype;
     export type BoolSignal = typeof BoolSignal.prototype;
   }
 }
@@ -320,6 +320,6 @@ export default {
   point2d: (...args: [number, number]): Vec2Signal => new Vec2Signal(...args),
   vector: (...args: [number, number, number]): VectorSignal => new VectorSignal(...args),
   pack4: (...args: [number, number, number, number]): Vec4Signal => new Vec4Signal(...args),
-  quaternion: (...args: [number, number, number, number]): Quaternion => new Quaternion(...args),
+  quaternion: (...args: [number, number, number, number]): QuaternionSignal => new QuaternionSignal(...args),
   boolSignal: (x: boolean): BoolSignal => new BoolSignal(x),
 };

@@ -444,7 +444,7 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
       timedEvents: [],
       // @ts-ignore missing props are assigned at runtime
       userFriendlySnapshot: {},
-      formattedValuesToSnapshot: this.signalsToSnapshot_able(VoltsWorld.userConfig.snapshot),
+      formattedValuesToSnapshot: {},
       FLAGS: {
         stopTimeout: false,
         lockInternalSnapshotOverride: false,
@@ -452,6 +452,10 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
       quaternions: new Map<string, boolean>(),
       Camera: null,
     };
+
+    // Quaternion support needs the internalData.quaternion map
+    this.internalData.formattedValuesToSnapshot = this.signalsToSnapshot_able(VoltsWorld.userConfig.snapshot);
+
     // Making the promise public makes it easier to test with Jest
     // Using Object.define so it doesn't show on the type def & doesn't raise ts errors
     Object.defineProperty(this, 'rawInitPromise', {
