@@ -39,7 +39,7 @@ describe('world construction', () => {
       mode: 'NO_AUTO',
     });
     expect(World.getInstance().run()).toBeTruthy();
-    expect(World.getInstance().stop()).toBeTruthy();
+    expect(World.getInstance().stop({ clearTimedEvents: true })).toBeTruthy();
     expect(World.getInstance().stop()).toBeFalsy();
   });
   test('instance already created', () => {
@@ -130,7 +130,7 @@ describe('snapshot', () => {
       expect(W.snapshot.point3D.values).toEqual([1, 5, 10]);
       expect(W.snapshot.point4D.values).toEqual([1, 5, 10, 15]);
       expect(W.snapshot.string).toEqual('a-string');
-      expect(W.snapshot.quat.values).toEqual([1,2,3,4]);
+      expect(W.snapshot.quat.values).toEqual([1, 2, 3, 4]);
       expect(W.snapshot.quat.w).toEqual(1);
 
       // @ts-ignore
@@ -143,10 +143,7 @@ describe('snapshot', () => {
   }, 500);
   test('signalToSnapshotable', async () => {
     privates.clearVoltsWorld();
-    const W = World.getInstance({
-      mode: 'DEV',
-      snapshot: {},
-    });
+    let W = World.getInstance({ mode: 'DEV', snapshot: {} });
     expect(() => {
       W.onEvent('internal', function (this: typeof W) {
         this.internalData.events['internal'] = null;
@@ -154,6 +151,9 @@ describe('snapshot', () => {
       });
       W.emitEvent('internal');
     }).toThrow();
+
+    privates.clearVoltsWorld();
+    W = World.getInstance({ mode: 'DEV', snapshot: {} });
 
     expect(() => {
       W.onEvent('internal', function (this: typeof W) {

@@ -1,4 +1,4 @@
-import { privates, randomBetween } from '../volts';
+import { privates, randomBetween, PRODUCTION_MODES } from '../volts';
 
 describe('promiseAllConcurrent', () => {
   test('simple test', async () => {
@@ -13,5 +13,6 @@ describe('promiseAllConcurrent', () => {
 describe('randomBetween', () => {
   test('randomBetween', () => {
     expect(randomBetween.bind(0, 1)).not.toThrow();
+    expect(randomBetween(0.4, 0.6)).toBeCloseTo(0.5, 0);
   });
 });

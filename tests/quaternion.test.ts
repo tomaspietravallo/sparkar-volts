@@ -118,10 +118,10 @@ describe('operations', () => {
   });
   test('Vector.applyQuaternion', () => {
     // 180º turn on the x axis
-    const v = new Vector(1,0,0);
-    const q = new Quaternion(0,0,1,0);
-    expect(v.applyQuaternion(q).values).toEqual([-1,0,0])
-  })
+    const v = new Vector(1, 0, 0);
+    const q = new Quaternion(0, 0, 1, 0);
+    expect(v.applyQuaternion(q).values).toEqual([-1, 0, 0]);
+  });
 });
 
 describe('accessors', () => {
@@ -155,28 +155,35 @@ describe('accessors', () => {
 describe('consistency test', () => {
   test('origin-up', () => {
     // origin
-    const p1 = new Vector(0,0,0);
+    const p1 = new Vector(0, 0, 0);
     // up
-    const p2 = new Vector(0,1,0);
+    const p2 = new Vector(0, 1, 0);
 
-    const lookAt = new Vector(0,0,1).applyQuaternion(Quaternion.lookAt(p1, p2));
+    const lookAt = new Vector(0, 0, 1).applyQuaternion(Quaternion.lookAt(p1, p2));
     expect(lookAt.x).toBeCloseTo(0, 8);
     expect(lookAt.y).toBeCloseTo(1, 8);
     expect(lookAt.z).toBeCloseTo(0, 8);
-  })
+  });
 
   test('non-zero-origin', () => {
+    expect.assertions(3);
     // origin
-    const p1 = new Vector(1,-0.5,3);
+    const p1 = new Vector(1, -0.5, 3);
     // up
-    const p2 = new Vector(1,2,3);
+    const p2 = new Vector(1, 2, 3);
 
     // normalized difference
     const subNorm = p2.copy().sub(p1).normalize();
 
-    const lookAt = new Vector(0,0,1).applyQuaternion(Quaternion.lookAt(p1, p2));
-    expect(lookAt.x).toBeCloseTo(subNorm.x, 8);
-    expect(lookAt.y).toBeCloseTo(subNorm.y, 8);
-    expect(lookAt.z).toBeCloseTo(subNorm.z, 8);
-  })
-})
+    const lookAt = new Vector(0, 0, 1).applyQuaternion(Quaternion.lookAt(p1, p2));
+    lookAt.values.map((v, i) => expect(v).toBeCloseTo(subNorm.values[i], 8));
+  });
+
+  test('near zero dot product', () => {
+    expect.assertions(8);
+    const A = new Vector(0, 0, 1);
+    const B = new Vector(0, 0, 0);
+    Quaternion.lookAt(A, B).values.map((v, i) => expect(v).toBeCloseTo([0, 1, 0, Math.PI][i]));
+    Quaternion.lookAt(B, A).values.map((v, i) => expect(v).toBeCloseTo(Quaternion.identity().values[i]));
+  });
+});

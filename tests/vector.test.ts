@@ -219,6 +219,7 @@ describe('accessors', () => {
   const twoD = new Vector(1, 2);
   const threeD = new Vector(1, 2, 3);
   const fourD = new Vector(1, 2, 3, 4);
+  const fiveD = new Vector(1, 2, 3, 4, 5);
 
   test('1d', () => {
     expect(scalar.x).toEqual(1);
@@ -247,8 +248,24 @@ describe('accessors', () => {
     expect(fourD.w).toEqual(5);
   });
   test('signal', () => {
-    expect(threeD.signal).toBeTruthy();
-    expect(threeD.signal.z).toBeTruthy();
-    expect(() => threeD.w).toThrow();
+    // Reset
+    scalar.values = [1];
+    twoD.values = [1, 2];
+    threeD.values = [1, 2, 3];
+    fourD.values = [1, 2, 3, 4];
+    fiveD.values = [1, 2, 3, 4, 5];
+    // 1d
+    expect(scalar.signal).toEqual(Reactive.val(1));
+    // 2d
+    expect(twoD.signal).toEqual(Reactive.point2d(1, 2));
+    // 3d
+    expect(threeD.signal).toEqual(Reactive.vector(1, 2, 3));
+    expect(threeD.signal.z).toEqual(Reactive.val(3));
+    expect(threeD.signal.w).toBeUndefined();
+    expect(threeD.pointSignal).toEqual(Reactive.point(1, 2, 3));
+    // 4d
+    expect(fourD.signal).toEqual(Reactive.pack4(1, 2, 3, 4));
+
+    expect(() => fiveD.signal).toThrow();
   });
 });

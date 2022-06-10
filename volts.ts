@@ -70,6 +70,11 @@ interface FixedLengthArray<T, L extends number> extends Array<T> {
   length: L;
 }
 
+// https://stackoverflow.com/a/53808212
+type IfEquals<T, U, Y=unknown, N=never> =
+  (<G>() => G extends T ? 1 : 2) extends
+  (<G>() => G extends U ? 1 : 2) ? Y : N;
+
 interface VoltsPlugin {
   VERSION: number | string;
   onImport?: () => boolean;
@@ -598,22 +603,23 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
           //#endregion
 
           //#region onLoad function
-          const loadReturn: Promise<void> = (VoltsWorld.userConfig.mode !== PRODUCTION_MODES.NO_AUTO &&
-            this.internalData.frameCount === 0) ?
-            this.emitEvent('load', this.internalData.userFriendlySnapshot)
-            : undefined;
+          const loadReturn: Promise<void> =
+            VoltsWorld.userConfig.mode !== PRODUCTION_MODES.NO_AUTO && this.internalData.frameCount === 0
+              ? this.emitEvent('load', this.internalData.userFriendlySnapshot)
+              : undefined;
           //#endregion
 
-          ((loadReturn && loadReturn.then) ? loadReturn : Promise.resolve()).then((function (){
-            //#region onRun/onFrame
-            const onFramePerformanceData = { fps, delta, frameCount: this.internalData.frameCount };
-            this.runTimedEvents(onFramePerformanceData);
-            this.emitEvent('frameUpdate', this.internalData.userFriendlySnapshot, onFramePerformanceData);
-            this.internalData.frameCount += 1;
-            //#endregion
-            if (!this.internalData.FLAGS.stopTimeout) return loop();
-          }).bind(this)());
-
+          (loadReturn && loadReturn.then ? loadReturn : Promise.resolve()).then(
+            function (this: typeof VoltsWorld.prototype) {
+              //#region onRun/onFrame
+              const onFramePerformanceData = { fps, delta, frameCount: this.internalData.frameCount };
+              this.runTimedEvents(onFramePerformanceData);
+              this.emitEvent('frameUpdate', this.internalData.userFriendlySnapshot, onFramePerformanceData);
+              this.internalData.frameCount += 1;
+              //#endregion
+              if (!this.internalData.FLAGS.stopTimeout) return loop();
+            }.bind(this)(),
+          );
         },
         0,
       );
@@ -1056,10 +1062,11 @@ export const Vector = function <D extends number, args extends VectorArgRest = [
     this.values = args as number[];
   }
   let e = this.values.length === 0;
-  for (let i = 0; i < this.values.length; i++){
-    e = e || typeof this.values[i] !== 'number'
-  };
-  if (e) throw new Error(`@ Vector.constructor: Values provided are not valid. args: ${args}. this.values: ${this.values}`);
+  for (let i = 0; i < this.values.length; i++) {
+    e = e || typeof this.values[i] !== 'number';
+  }
+  if (e)
+    throw new Error(`@ Vector.constructor: Values provided are not valid. args: ${args}. this.values: ${this.values}`);
   // @ts-expect-error
   this.dimension = this.values.length;
   // @ts-expect-error
@@ -1068,58 +1075,92 @@ export const Vector = function <D extends number, args extends VectorArgRest = [
 
 Object.defineProperties(Vector.prototype, {
   x: {
-    get:    function(){                                                                                    return this.values[0]},
-    set:    function(x){                                                                                    this.values[0] = x}},
+    get: function () {
+      return this.values[0];
+    },
+    set: function (x) {
+      this.values[0] = x;
+    },
+  },
   y: {
-    get:    function(){if (this.dimension < 2) throw new Error(`Cannot get Vector.y, vector is a scalar`); return this.values[1]},
-    set:    function(y){if (this.dimension < 2) throw new Error(`Cannot get Vector.y, vector is a scalar`); this.values[1] = y}},
+    get: function () {
+      if (this.dimension < 2) throw new Error(`Cannot get Vector.y, vector is a scalar`);
+      return this.values[1];
+    },
+    set: function (y) {
+      if (this.dimension < 2) throw new Error(`Cannot get Vector.y, vector is a scalar`);
+      this.values[1] = y;
+    },
+  },
   z: {
-    get:    function(){if (this.dimension < 3) throw new Error(`Cannot get Vector.z, vector is not 3D`);   return this.values[2]},
-    set:    function(z){if (this.dimension < 3) throw new Error(`Cannot get Vector.z, vector is not 3D`);   this.values[2] = z}},
+    get: function () {
+      if (this.dimension < 3) throw new Error(`Cannot get Vector.z, vector is not 3D`);
+      return this.values[2];
+    },
+    set: function (z) {
+      if (this.dimension < 3) throw new Error(`Cannot get Vector.z, vector is not 3D`);
+      this.values[2] = z;
+    },
+  },
   w: {
-    get:    function(){if (this.dimension < 4) throw new Error(`Cannot get Vector.w, vector is not 4D`);   return this.values[3]},
-    set:    function(w){if (this.dimension < 4) throw new Error(`Cannot get Vector.w, vector is not 4D`);   this.values[3] = w}
+    get: function () {
+      if (this.dimension < 4) throw new Error(`Cannot get Vector.w, vector is not 4D`);
+      return this.values[3];
+    },
+    set: function (w) {
+      if (this.dimension < 4) throw new Error(`Cannot get Vector.w, vector is not 4D`);
+      this.values[3] = w;
+    },
   },
   signal: {
-    get: function(){
-        if (this.rs) return this.rs;
+    get: function () {
+      if (this.rs) return this.rs;
 
-        const uuid = getUUIDv4(), vals = this.values;
-        for (let index = 0; index < this.dimension; index++) {
-          const c = Vector.components[index];
-          this[`r${c}`] = Reactive.scalarSignalSource(`v${this.dimension}-${c}-${uuid}`);
-          this[`r${c}`].set(vals[index]);
-        };
+      const uuid = getUUIDv4(),
+        vals = this.values;
+      for (let index = 0; index < this.dimension; index++) {
+        const c = Vector.components[index];
+        this[`r${c}`] = Reactive.scalarSignalSource(`v${this.dimension}-${c}-${uuid}`);
+        this[`r${c}`].set(vals[index]);
+      }
 
-        if (this.dimension === 1) {this.rs = this.rx.signal}
-        else if (this.dimension === 2) {this.rs = Reactive.point2d(this.rx.signal, this.ry.signal)}
-        else if (this.dimension === 3) {this.rs = Reactive.vector(this.rx.signal, this.ry.signal, this.rz.signal)}
-        else if (this.dimension === 4)  {this.rs = Reactive.pack4(this.rx.signal, this.ry.signal, this.rz.signal, this.rw.signal)}
-        else {
-          throw new Error(`Tried to get the Signal of a N>4 Vector instance. Signals are only available for Vectors with up to 4 dimensions`);
-        };
+      if (this.dimension === 1) {
+        this.rs = this.rx.signal;
+      } else if (this.dimension === 2) {
+        this.rs = Reactive.point2d(this.rx.signal, this.ry.signal);
+      } else if (this.dimension === 3) {
+        this.rs = Reactive.vector(this.rx.signal, this.ry.signal, this.rz.signal);
+      } else if (this.dimension === 4) {
+        this.rs = Reactive.pack4(this.rx.signal, this.ry.signal, this.rz.signal, this.rw.signal);
+      } else {
+        throw new Error(
+          `Tried to get the Signal of a N>4 Vector instance. Signals are only available for Vectors with up to 4 dimensions`,
+        );
+      }
 
-        return this.rs;
-    }
+      return this.rs;
+    },
   },
   pointSignal: {
-    get: function(){
+    get: function () {
       // reactive point signal
       if (this.rps) return this.rps;
-      if (this.dimension !== 3) throw new Error(`@Vector.pointSignal accessor only available on 3D Vectors. Please use Vector.signal instead`);
+      if (this.dimension !== 3)
+        throw new Error(`@Vector.pointSignal accessor only available on 3D Vectors. Please use Vector.signal instead`);
 
-      const uuid = getUUIDv4(), vals = this.values;
+      const uuid = getUUIDv4(),
+        vals = this.values;
       for (let index = 0; index < 3; index++) {
         const c = Vector.components[index];
         this[`r${c}`] = Reactive.scalarSignalSource(`v${this.dimension}-${c}-${uuid}`);
         this[`r${c}`].set(vals[index]);
-      };
+      }
 
       this.rps = Reactive.point(this.rx.signal, this.ry.signal, this.rz.signal);
 
       return this.rps;
-  }
-  }
+    },
+  },
 });
 
 //#region static
@@ -1224,7 +1265,7 @@ Vector.prototype.mul = function <D extends number>(this: Vector<D>, ...args: Vec
 };
 Vector.prototype.div = function <D extends number>(this: Vector<D>, ...args: VectorArgRest): Vector<D> {
   const b = Vector.convertToSameDimVector(this.dimension, ...args).values;
-  if (!([...this.values, ...b].every((v) => typeof v === 'number' && Number.isFinite(v)) && b.every(v => v !== 0))) {
+  if (!([...this.values, ...b].every((v) => typeof v === 'number' && Number.isFinite(v)) && b.every((v) => v !== 0))) {
     throw new Error(`@ Vector.div: values provided are not valid. this value(s): ${this.values}\n\nb value(s): ${b}`);
   }
   this.values = this.values.map((v, i) => v / b[i]);
@@ -1298,24 +1339,29 @@ Vector.prototype.cross = function (this: Vector<3>, ...args: VectorArgRest): Vec
   );
 };
 /** @see https://math.stackexchange.com/questions/40164/how-do-you-rotate-a-vector-by-a-unit-quaternion */
-Vector.prototype.applyQuaternion = function(this: Vector<3>, q: Quaternion): Vector<3> {
-    q = q.normalized;
-		const x = this.x, y = this.y, z = this.z;
-		const qx = q.x, qy = q.y, qz = q.z, qw = q.w;
+Vector.prototype.applyQuaternion = function (this: Vector<3>, q: Quaternion): Vector<3> {
+  q = q.normalized;
+  const x = this.x,
+    y = this.y,
+    z = this.z;
+  const qx = q.x,
+    qy = q.y,
+    qz = q.z,
+    qw = q.w;
 
-		const ix = qw * x + qy * z - qz * y;
-		const iy = qw * y + qz * x - qx * z;
-		const iz = qw * z + qx * y - qy * x;
-		const iw = - qx * x - qy * y - qz * z;
+  const ix = qw * x + qy * z - qz * y;
+  const iy = qw * y + qz * x - qx * z;
+  const iz = qw * z + qx * y - qy * x;
+  const iw = -qx * x - qy * y - qz * z;
 
-		this.values = [
-      ix * qw + iw * - qx + iy * - qz - iz * - qy,
-      iy * qw + iw * - qy + iz * - qx - ix * - qz,
-      iz * qw + iw * - qz + ix * - qy - iy * - qx
-    ];
+  this.values = [
+    ix * qw + iw * -qx + iy * -qz - iz * -qy,
+    iy * qw + iw * -qy + iz * -qx - ix * -qz,
+    iz * qw + iw * -qz + ix * -qy - iy * -qx,
+  ];
 
   return this;
-}
+};
 //#endregion
 //#region Vector<2>
 Vector.prototype.heading = function <D extends number>(): number {
@@ -1419,6 +1465,7 @@ export class Quaternion {
   static lookAt(sourcePoint: Vector<3>, destPoint: Vector<3>): Quaternion {
     const forwardVector = destPoint.copy().sub(sourcePoint).normalize();
     const dot = new Vector(0, 0, 1).dot(forwardVector);
+    // @todo replace with a single if statement that gets skipped if none are met
     if (Math.abs(dot + 1.0) < 0.000001) {
       return new Quaternion(0, 1, 0, PI);
     }
@@ -1470,32 +1517,35 @@ export class Quaternion {
     // angles[2] = Math.atan2(siny_cosp, cosy_cosp);
     // return new EulerAngles(angles);
   }
-  static slerp(q1: Quaternion, q2: Quaternion, t: number) {
+  static slerp(q1: Quaternion, q2: Quaternion, t: number): Quaternion {
     const q = new Quaternion();
     const cosHalfTheta = q1.w * q2.w + q1.x * q2.x + q1.y * q2.y + q1.z * q2.z;
 
-    if (Math.abs(cosHalfTheta) >= 1.0){
-      q.w = q1.w;q.x = q1.x;q.y = q1.y;q.z = q1.z;
+    if (Math.abs(cosHalfTheta) >= 1.0) {
+      q.w = q1.w;
+      q.x = q1.x;
+      q.y = q1.y;
+      q.z = q1.z;
       return q;
     }
 
     const halfTheta = Math.acos(cosHalfTheta);
-    const sinHalfTheta = (1.0 - cosHalfTheta*cosHalfTheta) ** 0.5;
+    const sinHalfTheta = (1.0 - cosHalfTheta * cosHalfTheta) ** 0.5;
 
-    if (Math.abs(sinHalfTheta) < 0.001){
-      q.w = (q1.w * 0.5 + q2.w * 0.5);
-      q.x = (q1.x * 0.5 + q2.x * 0.5);
-      q.y = (q1.y * 0.5 + q2.y * 0.5);
-      q.z = (q1.z * 0.5 + q2.z * 0.5);
+    if (Math.abs(sinHalfTheta) < 0.001) {
+      q.w = q1.w * 0.5 + q2.w * 0.5;
+      q.x = q1.x * 0.5 + q2.x * 0.5;
+      q.y = q1.y * 0.5 + q2.y * 0.5;
+      q.z = q1.z * 0.5 + q2.z * 0.5;
       return q;
     }
     const ra = Math.sin((1 - t) * halfTheta) / sinHalfTheta;
     const rb = Math.sin(t * halfTheta) / sinHalfTheta;
 
-    q.w = (q1.w * ra + q2.w * rb);
-    q.x = (q1.x * ra + q2.x * rb);
-    q.y = (q1.y * ra + q2.y * rb);
-    q.z = (q1.z * ra + q2.z * rb);
+    q.w = q1.w * ra + q2.w * rb;
+    q.x = q1.x * ra + q2.x * rb;
+    q.y = q1.y * ra + q2.y * rb;
+    q.z = q1.z * ra + q2.z * rb;
 
     return q;
   }
@@ -1628,7 +1678,8 @@ export class Quaternion {
     // @ts-expect-error
     if (this.rs) return this.rs;
 
-    const uuid = getUUIDv4(), vals = this.values;
+    const uuid = getUUIDv4(),
+      vals = this.values;
     for (let index = 0; index < 4; index++) {
       const c = Quaternion.components[index];
       this[`r${c}`] = Reactive.scalarSignalSource(`quat-${c}-${uuid}`);
@@ -1775,61 +1826,65 @@ export interface Object3DSkeleton {
   update(): void;
 }
 
-export class Object3D<T extends SceneObjectBase = any > {
+export class Object3D<T extends SceneObjectBase = any> {
   pos: Vector<3>;
   rot: Quaternion;
   acc: Vector<3>;
   vel: Vector<3>;
   box: Vector<3>;
   awake: boolean;
-  body: T extends Exclude<T, undefined> ? Promise<SceneObjectBase> : T;
-  
+  body: IfEquals<any, T, Promise<SceneObjectBase>, T>
+
   constructor(body?: T) {
-    this.pos = new Vector(),
-    this.rot = new Quaternion(),
-    this.acc = new Vector(),
-    this.vel = new Vector(),
-    this.box = new Vector(0.05),
-    this.awake = true;
-  
+    (this.pos = new Vector()),
+      (this.rot = new Quaternion()),
+      (this.acc = new Vector()),
+      (this.vel = new Vector()),
+      (this.box = new Vector(0.05)),
+      (this.awake = true);
+
     /**
      * The key idea behind this, is decoupling processing from rendering.
-     * 
+     *
      * Use `null` to have no body.
-     * 
+     *
      * `undefined` will instance an object for you. This choice boils down to two things:
-     * 
+     *
      * 1. Non-body objects are useful and should be easy to create
-     * 
+     *
      * 2. out of bounds array creating dynamic objects may help identify an issue,
      * and instancing without hassle can be useful while iterating
      */
     this.body = body;
     if (body !== null) {
-      const p = new Promise<T>(resolve => {
-        (!!body ? Promise.resolve(body) : Scene.create('Plane')).then(async (plane: T)=>{
-            !body && await Scene.root.addChild(plane);
-            plane.transform.position = this.pos.signal;
-            plane.transform.rotation = this.rot.signal;
-            // Improve with volts snapshot fetch
-            // const boxSignal = plane.getBoundingBox();
-            // box.values = Vector.fromSignal(boxSignal.max.sub(boxSignal.min)).values;
-            // if (box.values.every((v) => v < 1e-6)) throw new Error('1e-6 limit not exceeded ')
-            resolve(plane);
-        }); });
-      !body && (this.body = p)
+      const p = new Promise<T>((resolve) => {
+        (body ? Promise.resolve(body) : Scene.create('Plane')).then(async (plane: T) => {
+          !body && (await Scene.root.addChild(plane));
+          plane.transform.position = this.pos.signal;
+          plane.transform.rotation = this.rot.signal;
+          // Improve with volts snapshot fetch
+          // const boxSignal = plane.getBoundingBox();
+          // box.values = Vector.fromSignal(boxSignal.max.sub(boxSignal.min)).values;
+          // if (box.values.every((v) => v < 1e-6)) throw new Error('1e-6 limit not exceeded ')
+          resolve(plane);
+        });
+      });
+      !body && (this.body = p);
     }
   }
 
-  lookAtOther(other: Object3D){
+  lookAtOther(other: Object3D): void {
     this.rot.values = Quaternion.lookAt(this.pos, other.pos).values;
   }
 
-  lookAtHeading(){
+  lookAtHeading(): void {
     this.rot.values = Quaternion.lookAtOptimized(this.vel.values).values;
   }
 
-  update(){}
+  update({ pos, rot }: { pos?: boolean; rot?: boolean } = {}): void {
+    pos;
+    rot;
+  }
 }
 
 //#endregion
