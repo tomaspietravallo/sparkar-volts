@@ -71,9 +71,9 @@ interface FixedLengthArray<T, L extends number> extends Array<T> {
 }
 
 // https://stackoverflow.com/a/53808212
-type IfEquals<T, U, Y=unknown, N=never> =
-  (<G>() => G extends T ? 1 : 2) extends
-  (<G>() => G extends U ? 1 : 2) ? Y : N;
+type IfEquals<T, U, Y = unknown, N = never> = (<G>() => G extends T ? 1 : 2) extends <G>() => G extends U ? 1 : 2
+  ? Y
+  : N;
 
 interface VoltsPlugin {
   VERSION: number | string;
@@ -82,7 +82,15 @@ interface VoltsPlugin {
 }
 
 type Snapshot = {
-  [key: string]: ScalarSignal | Vec2Signal | VectorSignal | PointSignal | Vec4Signal | StringSignal | BoolSignal | QuaternionSignal;
+  [key: string]:
+    | ScalarSignal
+    | Vec2Signal
+    | VectorSignal
+    | PointSignal
+    | Vec4Signal
+    | StringSignal
+    | BoolSignal
+    | QuaternionSignal;
 };
 
 type getDimsOfSignal<S> = S extends Vec4Signal
@@ -100,7 +108,7 @@ type getDimsOfSignal<S> = S extends Vec4Signal
 type ObjectToSnapshotable<Obj> = {
   [Property in keyof Obj as `${Obj[Property] extends ISignal
     ? `CONVERTED::${Property extends string ? Property : never}::${getDimsOfSignal<Obj[Property]>}::UUID` & string
-    : never}`]: Obj[Property] extends Vec2Signal | VectorSignal| PointSignal | Vec4Signal | QuaternionSignal
+    : never}`]: Obj[Property] extends Vec2Signal | VectorSignal | PointSignal | Vec4Signal | QuaternionSignal
     ? ScalarSignal
     : Obj[Property];
 };
@@ -610,21 +618,24 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
             this.emitEvent('frameUpdate', this.internalData.userFriendlySnapshot, onFramePerformanceData);
             this.internalData.frameCount += 1;
             if (!this.internalData.FLAGS.stopTimeout) return loop();
-          }
+          };
 
-          if ( this.frameCount === 0 ) {
+          if (this.frameCount === 0) {
             let loadReturn;
-            if ( VoltsWorld.userConfig.mode !== PRODUCTION_MODES.NO_AUTO ) {
-              delete this.internalData.formattedValuesToSnapshot["__volts__internal__screen"];
-              delete this.internalData.formattedValuesToSnapshot["__volts__internal__screenSizePixels"];
-              delete this.internalData.formattedValuesToSnapshot["__volts__internal__focalDistance"];
+            if (VoltsWorld.userConfig.mode !== PRODUCTION_MODES.NO_AUTO) {
+              delete this.internalData.formattedValuesToSnapshot['__volts__internal__screen'];
+              delete this.internalData.formattedValuesToSnapshot['__volts__internal__screenSizePixels'];
+              delete this.internalData.formattedValuesToSnapshot['__volts__internal__focalDistance'];
               this.emitEvent('load', this.internalData.userFriendlySnapshot);
             }
-            if (loadReturn && loadReturn.then) { loadReturn.then(run) } else { run() };
+            if (loadReturn && loadReturn.then) {
+              loadReturn.then(run);
+            } else {
+              run();
+            }
           } else {
             run();
           }
-
         },
         0,
       );
@@ -1842,7 +1853,7 @@ export class Object3D<T extends SceneObjectBase = any> {
   vel: Vector<3>;
   box: Vector<3>;
   awake: boolean;
-  body: IfEquals<any, T, Promise<SceneObjectBase>, T>
+  body: IfEquals<any, T, Promise<SceneObjectBase>, T>;
 
   constructor(body?: T) {
     (this.pos = new Vector()),
@@ -1995,7 +2006,6 @@ Pool.SceneObjects = SceneObjectClassNames;
 //#endregion
 
 //#region exports
-
 
 export const privates = {
   clearVoltsWorld: VoltsWorld.devClear,
