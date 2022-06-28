@@ -138,7 +138,7 @@ describe('snapshot', () => {
       expect(() => W.removeFromSnapshot('added')).not.toThrow();
       jest.advanceTimersByTime(100);
       // @ts-ignore
-      expect(W.snapshot.added).not.toBeDefined();
+      expect(W.snapshot.added).toBeDefined();
     });
   }, 500);
   test('signalToSnapshotable', async () => {

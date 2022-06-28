@@ -527,10 +527,10 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
         __volts__internal__focalDistance: this.internalData.Camera.focalPlane.distance,
         __volts__internal__time: Time.ms,
         __volts__internal__screen: Scene.unprojectToFocalPlane(Reactive.point2d(0, 0)),
-        __volts__internal_screenSizePixels: CameraInfo.previewSize,
+        __volts__internal__screenSizePixels: CameraInfo.previewSize,
       });
+    // (three internal keys are manually deleted on load)
     this.internalData.FLAGS.lockInternalSnapshotOverride = true;
-
     // load states
     // States are automatically loaded when created
     // @ts-ignore loadState is purposely not part of the type
@@ -561,7 +561,7 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
     // Fun fact: Time.setTimeoutWithSnapshot will run even if the Studio is paused
     // Meaning this would keep executing, along with any onFrame function
     // For DEV purposes, the function will not execute if it detects the studio is on pause
-    // This won't be the case when the mode is set to PROD, in case some device has undocumented behaviour within the margin of error (3 frames)
+    // This won't be the case when the mode is set to PROD, in case some device has undocumented behavior within the margin of error (3 frames)
     const lastThreeFrames: number[] = [];
     let offset = 0;
 
@@ -571,7 +571,7 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
         (_: number, snapshot: any) => {
           //#region Snapshot
           snapshot = this.formattedSnapshotToUserFriendly(snapshot);
-          this.internalData.userFriendlySnapshot = snapshot;
+          this.internalData.userFriendlySnapshot = { ...this.internalData.userFriendlySnapshot, ...snapshot };
           //#endregion
 
           //#region Capture data & analytics
@@ -592,7 +592,6 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
           }
           //#endregion
 
-          //#region Duct tape
           // For DEV purposes, the function will not execute if it detects the studio is on pause
           if (
             lastThreeFrames[0] === lastThreeFrames[1] &&
@@ -600,26 +599,28 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
             VoltsWorld.userConfig.mode !== PRODUCTION_MODES.PRODUCTION
           )
             return loop();
-          //#endregion
 
-          //#region onLoad function
-          const loadReturn: Promise<void> =
-            VoltsWorld.userConfig.mode !== PRODUCTION_MODES.NO_AUTO && this.internalData.frameCount === 0
-              ? this.emitEvent('load', this.internalData.userFriendlySnapshot)
-              : undefined;
-          //#endregion
+          const run = () => {
+            const onFramePerformanceData = { fps, delta, frameCount: this.internalData.frameCount };
+            this.runTimedEvents(onFramePerformanceData);
+            this.emitEvent('frameUpdate', this.internalData.userFriendlySnapshot, onFramePerformanceData);
+            this.internalData.frameCount += 1;
+            if (!this.internalData.FLAGS.stopTimeout) return loop();
+          }
 
-          (loadReturn && loadReturn.then ? loadReturn : Promise.resolve()).then(
-            function (this: typeof VoltsWorld.prototype) {
-              //#region onRun/onFrame
-              const onFramePerformanceData = { fps, delta, frameCount: this.internalData.frameCount };
-              this.runTimedEvents(onFramePerformanceData);
-              this.emitEvent('frameUpdate', this.internalData.userFriendlySnapshot, onFramePerformanceData);
-              this.internalData.frameCount += 1;
-              //#endregion
-              if (!this.internalData.FLAGS.stopTimeout) return loop();
-            }.bind(this)(),
-          );
+          if ( this.frameCount === 0 ) {
+            let loadReturn;
+            if ( VoltsWorld.userConfig.mode !== PRODUCTION_MODES.NO_AUTO ) {
+              delete this.internalData.formattedValuesToSnapshot["__volts__internal__screen"];
+              delete this.internalData.formattedValuesToSnapshot["__volts__internal__screenSizePixels"];
+              delete this.internalData.formattedValuesToSnapshot["__volts__internal__focalDistance"];
+              this.emitEvent('load', this.internalData.userFriendlySnapshot);
+            }
+            if (loadReturn && loadReturn.then) { loadReturn.then(run) } else { run() };
+          } else {
+            run();
+          }
+
         },
         0,
       );
