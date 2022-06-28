@@ -1988,41 +1988,12 @@ Pool.SceneObjects = SceneObjectClassNames;
 
 //#region exports
 
-interface Privates {
-  clearVoltsWorld: () => void;
-  report: reportFn;
-  promiseAllConcurrent: (n: number, areFn: boolean) => (list: Promise<any>[]) => Promise<any[]>;
-}
 
-/* istanbul ignore next */
-const makeDevEnvOnly = (d: any) => {
-  try {
-    jest;
-    return d;
-  } catch {
-    throw `Cannot read 'private.clearVoltsWorld' in the current environment. To be read by jest/testing env only`;
-  }
-};
-
-/* istanbul ignore next */
-function privateRead<T extends { [key: string]: any }>(obj: T): T {
-  const tmp = {};
-  const keys = Object.keys(obj);
-  for (let index = 0; index < keys.length; index++) {
-    const k = keys[index];
-    Object.defineProperty(tmp, k, {
-      /* istanbul ignore next */
-      get: () => makeDevEnvOnly(obj[k]),
-    });
-  }
-  return obj;
-}
-
-export const privates: Privates = privateRead({
+export const privates = {
   clearVoltsWorld: VoltsWorld.devClear,
   report: report,
   promiseAllConcurrent: promiseAllConcurrent,
-});
+};
 
 export const World = {
   /**
