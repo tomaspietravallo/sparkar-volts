@@ -1242,17 +1242,17 @@ Vector.fromSignal = function <sT extends ScalarSignal | Vec2Signal | VectorSigna
   return new Vector(tmp);
 };
 
-Vector.random2D = function random2D(): Vector<2> {
+Vector.random2D = function random2D(magnitude = 1): Vector<2> {
   const angle = Math.random();
-  return new Vector(Math.cos(angle), Math.sin(angle));
+  return new Vector(Math.cos(angle) * magnitude, Math.sin(angle) * magnitude);
 };
-Vector.random3D = function random3D(): Vector<3> {
+Vector.random3D = function random3D(magnitude = 1): Vector<3> {
   const angle = Math.random() * TWO_PI;
   const vz = Math.random() * 2 - 1;
   const vzBase = Math.sqrt(1 - vz * vz);
   const vx = vzBase * Math.cos(angle);
   const vy = vzBase * Math.sin(angle);
-  return new Vector(vx, vy, vz);
+  return new Vector(vx * magnitude, vy * magnitude, vz * magnitude);
 };
 Vector.components = ['x', 'y', 'z', 'w'];
 //#endregion
