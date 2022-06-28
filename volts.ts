@@ -2012,6 +2012,7 @@ export default {
   State: State,
   Object3D: Object3D,
   Pool: Pool,
+  /* Tree: Tree, */
   PRODUCTION_MODES: PRODUCTION_MODES,
   plugins,
 };
