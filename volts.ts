@@ -82,12 +82,14 @@ interface VoltsPlugin {
 }
 
 type Snapshot = {
-  [key: string]: ScalarSignal | Vec2Signal | VectorSignal | Vec4Signal | StringSignal | BoolSignal | QuaternionSignal;
+  [key: string]: ScalarSignal | Vec2Signal | VectorSignal | PointSignal | Vec4Signal | StringSignal | BoolSignal | QuaternionSignal;
 };
 
 type getDimsOfSignal<S> = S extends Vec4Signal
   ? 'x4' | 'y4' | 'z4' | 'w4'
   : S extends VectorSignal
+  ? 'x3' | 'y3' | 'z3'
+  : S extends PointSignal
   ? 'x3' | 'y3' | 'z3'
   : S extends Vec2Signal
   ? 'x2' | 'y2'
@@ -98,7 +100,7 @@ type getDimsOfSignal<S> = S extends Vec4Signal
 type ObjectToSnapshotable<Obj> = {
   [Property in keyof Obj as `${Obj[Property] extends ISignal
     ? `CONVERTED::${Property extends string ? Property : never}::${getDimsOfSignal<Obj[Property]>}::UUID` & string
-    : never}`]: Obj[Property] extends Vec2Signal | VectorSignal | Vec4Signal | QuaternionSignal
+    : never}`]: Obj[Property] extends Vec2Signal | VectorSignal| PointSignal | Vec4Signal | QuaternionSignal
     ? ScalarSignal
     : Obj[Property];
 };
@@ -107,6 +109,8 @@ type SnapshotToVanilla<Obj> = {
   [Property in keyof Obj]: Obj[Property] extends Vec2Signal
     ? Vector<2>
     : Obj[Property] extends VectorSignal
+    ? Vector<3>
+    : Obj[Property] extends PointSignal
     ? Vector<3>
     : Obj[Property] extends Vec4Signal
     ? Vector<4>
@@ -358,10 +362,10 @@ report.getSceneInfo = async function (
  * ```
  */
 export function transformAcrossSpaces(
-  vec: VectorSignal,
+  vec: VectorSignal | PointSignal,
   vecParentSpace: TransformSignal,
   targetParentSpace: TransformSignal,
-): VectorSignal {
+): PointSignal {
   if (!(vec && vec.z && vec.pinLastValue))
     throw new Error(`@ transformAcrossSpaces: Argument vec is not defined, or is not a VectorSignal`);
   if (!(vecParentSpace && vecParentSpace.inverse && vecParentSpace.pinLastValue))
@@ -954,7 +958,7 @@ interface NDVectorInstance<D extends number> {
   toArray(): number[];
   get x(): number;
   set x(x: number);
-  get signal(): D extends 2 ? Vec2Signal : D extends 3 ? VectorSignal : D extends 4 ? Vec4Signal : ScalarSignal;
+  get signal(): D extends 2 ? Vec2Signal : D extends 3 ? PointSignal : D extends 4 ? Vec4Signal : ScalarSignal;
   setSignalComponents(): void;
   disposeSignalResources(): void;
 }
@@ -1010,7 +1014,7 @@ interface NDVector {
     : never;
   convertToSameDimVector<D extends number>(dim: D, ...args: VectorArgRest): Vector<D>;
   screenToWorld(x: number, y: number, focalPlane: boolean): Vector<3>;
-  fromSignal<sT extends ScalarSignal | Vec2Signal | VectorSignal | Vec4Signal>(
+  fromSignal<sT extends ScalarSignal | Vec2Signal | VectorSignal | PointSignal | Vec4Signal>(
     s: sT,
   ): Vector<
     sT extends ScalarSignal
@@ -1018,6 +1022,8 @@ interface NDVector {
       : sT extends Vec2Signal
       ? 2
       : sT extends VectorSignal
+      ? 3
+      : sT extends PointSignal
       ? 3
       : sT extends Vec4Signal
       ? 4
@@ -1209,7 +1215,7 @@ Vector.screenToWorld = function (x: number, y: number, focalPlane = true): Vecto
     focalPlane ? (Instance.snapshot.__volts__internal__focalDistance as unknown as number) : 0,
   );
 };
-Vector.fromSignal = function <sT extends ScalarSignal | Vec2Signal | VectorSignal | Vec4Signal>(
+Vector.fromSignal = function <sT extends ScalarSignal | Vec2Signal | VectorSignal | PointSignal | Vec4Signal>(
   s: any,
 ): Vector<
   sT extends ScalarSignal
@@ -1217,6 +1223,8 @@ Vector.fromSignal = function <sT extends ScalarSignal | Vec2Signal | VectorSigna
     : sT extends Vec2Signal
     ? 2
     : sT extends VectorSignal
+    ? 3
+    : sT extends PointSignal
     ? 3
     : sT extends Vec4Signal
     ? 4
