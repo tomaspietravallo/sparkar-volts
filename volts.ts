@@ -1902,9 +1902,15 @@ export class Object3D<T extends SceneObjectBase = any> {
   }
 
   update({ pos, rot }: { pos?: boolean; rot?: boolean } = {}): void {
-    pos;
-    rot;
+    if (pos) this.pos.setSignalComponents();
+    if (rot) this.rot.setSignalComponents();
   }
+
+  bindMesh(sceneObjectBase: SceneObjectBase) {
+    sceneObjectBase.transform.position = this.pos.signal;
+    sceneObjectBase.transform.rotation = this.rot.signal;
+  }
+
 }
 
 //#endregion
