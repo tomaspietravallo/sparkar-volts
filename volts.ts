@@ -1906,11 +1906,10 @@ export class Object3D<T extends SceneObjectBase = any> {
     if (rot) this.rot.setSignalComponents();
   }
 
-  bindMesh(sceneObjectBase: SceneObjectBase) {
+  bindMesh(sceneObjectBase: SceneObjectBase): void {
     sceneObjectBase.transform.position = this.pos.signal;
     sceneObjectBase.transform.rotation = this.rot.signal;
   }
-
 }
 
 //#endregion
@@ -2011,6 +2010,40 @@ Pool.SceneObjects = SceneObjectClassNames;
 
 //#endregion
 
+//#region Tree
+
+export class Cube {
+  protected x: number;
+  protected y: number;
+  protected z: number;
+  protected s: number;
+  constructor(origin = new Vector(), size = 0.5) {
+    this.x = origin.x;
+    this.y = origin.y;
+    this.z = origin.z;
+    this.s = size;
+  }
+
+  contains(Object3D: Object3D): boolean {
+    return (
+      Object3D.pos.x > this.x - this.s &&
+      Object3D.pos.x < this.x + this.s &&
+      Object3D.pos.y > this.y - this.s &&
+      Object3D.pos.y < this.y + this.s &&
+      Object3D.pos.z > this.z - this.s &&
+      Object3D.pos.z < this.z + this.s
+    );
+  }
+}
+
+export class Tree {
+  constructor() {
+    /* ... */
+  }
+}
+
+//#endregion
+
 //#region exports
 
 export const privates = {
@@ -2036,7 +2069,8 @@ export default {
   State: State,
   Object3D: Object3D,
   Pool: Pool,
-  /* Tree: Tree, */
+  Cube: Cube,
+  Tree: Tree,
   PRODUCTION_MODES: PRODUCTION_MODES,
   plugins,
 };
