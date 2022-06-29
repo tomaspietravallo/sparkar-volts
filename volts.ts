@@ -2248,7 +2248,14 @@ export class Tree {
   }
 
   debugVisualize(hue?: number): void {
-    this.boundary.debugVisualize(hue);
+    const stack: Tree[] = [this];
+    while(stack.length !== 0) {
+      const e = stack.pop() as Tree;
+      if (e.boundary && e.divided){
+        stack.push(...(e.points as Tree[]));
+        e.boundary.debugVisualize();
+      }
+    };
   }
 }
 
