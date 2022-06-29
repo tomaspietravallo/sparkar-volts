@@ -30,24 +30,28 @@ describe('functionality', () => {
   });
 
   test('subdivide on insert', () => {
-    expect.assertions(13);
+    expect.assertions(14);
 
     const spySubdivide = jest.spyOn(Tree.prototype, 'subdivide').mockImplementation( function(this: Tree) {
+      /** @Note COPY OVER CHANGES TO TREE.TEST.TS JEST MOCK */
       this.divided = true;
       const cubePos = new Vector(this.boundary.x, this.boundary.y, this.boundary.z);
+      let tmp = this.points as Object3D[];
       this.points = allBinaryOptions(3, -this.boundary.s / 2, this.boundary.s / 2).map(
         (o) => new Tree(new Cube(cubePos.copy().add(o), this.boundary.s / 2), this.capacity, this.level + 1),
       );
+      if (!tmp.map(o => this.insert(o)).every(v => v)) throw new Error(` Panic `) ;
     });
 
     const tree = new Tree(bounds, 8, 0);
     const onePerQuadrant = allBinaryOptions(3, -0.05, 0.05).map((pos) => new Object3D().setPos(pos) );
     onePerQuadrant.forEach( o => expect(tree.insert(o) ).toEqual(true) );
 
-    expect(tree.points.length).toEqual(8);
     expect(tree.divided).toEqual(false);
+    expect(tree.getTotalObjectCount()).toEqual(8);
 
-    expect( tree.insert( new Object3D() ) ).toBeDefined();
+    expect( tree.insert( new Object3D() ) ).toEqual(true);
+    expect( tree.getTotalObjectCount() ).toEqual(9);
 
     expect(tree.divided).toEqual(true)
 

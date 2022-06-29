@@ -2141,6 +2141,7 @@ export class Tree {
   level: number;
   divided: boolean;
   points: Tree[] | Object3D[];
+  map: Map<Object3D, Object3D[]>;
   constructor(boundary: Cube, capacity: number, level: number) {
     if (!(boundary.contains && typeof capacity === 'number' && typeof level === 'number' && level < 5))
       throw new Error(
@@ -2154,8 +2155,10 @@ export class Tree {
   }
 
   subdivide() {
+    /** @Note COPY OVER CHANGES TO TREE.TEST.TS JEST MOCK */
     this.divided = true;
     const cubePos = new Vector(this.boundary.x, this.boundary.y, this.boundary.z);
+    let tmp = this.points as Object3D[];
     this.points = allBinaryOptions(3, -this.boundary.s / 2, this.boundary.s / 2).map(
       (o) => new Tree(new Cube(cubePos.copy().add(o), this.boundary.s / 2), this.capacity, this.level + 1),
     );
@@ -2181,6 +2184,27 @@ export class Tree {
         );
       return false;
     }
+  }
+
+  /**
+   * @description Gets all Object3D instances contained within the same cell as `other`
+   */
+  allSharingSubTree(other: Object3D) {
+    
+  }
+
+  getTotalObjectCount() {
+    let total = 0;
+    const stack: Tree[] = [this];
+    while(stack.length !== 0) {
+      const e = stack.pop();
+      if (e.points && e.divided) {
+        stack.push(...(e.points as Tree[]));
+      } else {
+        total += e.points.length;
+      }
+    };
+    return total
   }
 
   debugVisualize(): void {
