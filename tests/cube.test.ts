@@ -70,15 +70,17 @@ describe('Cube debug utils', () => {
         expect(typeof cube.toString()).toEqual('string')
     });
 
-    test('debugVisualize', () => {
-        const spy = jest.spyOn(Object3D.prototype, 'createDebugMaterial').mockImplementation( (_hue?) => {} )
+    test('debugVisualize', async () => {
+        const createMaterialMock = jest.spyOn(Object3D, 'createDebugMaterial').mockImplementation( async (_hue?) => {} )
+        const setMaterial = jest.spyOn(Object3D.prototype, 'setMaterial').mockImplementation( function(mat) { return this } );
 
         const cube = new Cube(new Vector(0,0,0), 1);
     
-        expect(() => cube.debugVisualize() ).not.toThrow();
-        expect(spy).toHaveBeenCalledTimes(2);
+        await expect( cube.debugVisualize() ).resolves.not.toThrow();
+        expect(createMaterialMock).toHaveBeenCalledTimes(1);
+        expect(setMaterial).toHaveBeenCalledTimes(8);
     
-        spy.mockReset();
-        spy.mockRestore();
+        jest.resetAllMocks();
+        jest.restoreAllMocks();
     })
 })

@@ -1086,9 +1086,9 @@ export type Vector<D extends number> = NDVectorInstance<D> & getVecTypeForD<D>;
  * Note: this is not optimized for incredible performance, but it provides a lot of flexibility to users of the framework/lib
  */
 
-export const Vector = function <D extends number, args extends VectorArgRest = []>(
+export const Vector = function <D extends number>(
   this: Vector<number>,
-  ...args: args
+  ...args: VectorArgRest
 ): Vector<D> {
   if (args[0] instanceof Vector) {
     // @ts-ignore
@@ -1892,6 +1892,7 @@ export class Object3D<T extends SceneObjectBase = any> {
   rot: Quaternion;
   acc: Vector<3>;
   vel: Vector<3>;
+  scl: Vector<3>;
   box: Vector<3>;
   awake: boolean;
   body: IfEquals<any, T, Promise<SceneObjectBase>, T>;
@@ -1901,6 +1902,7 @@ export class Object3D<T extends SceneObjectBase = any> {
       (this.rot = new Quaternion()),
       (this.acc = new Vector()),
       (this.vel = new Vector()),
+      (this.scl = new Vector()),
       (this.box = new Vector(0.05)),
       (this.awake = true);
 
@@ -1923,6 +1925,7 @@ export class Object3D<T extends SceneObjectBase = any> {
           !body && (await Scene.root.addChild(plane));
           plane.transform.position = this.pos.signal;
           plane.transform.rotation = this.rot.signal;
+          plane.transform.scale = this.scl.signal;
           // Improve with volts snapshot fetch
           // const boxSignal = plane.getBoundingBox();
           // box.values = Vector.fromSignal(boxSignal.max.sub(boxSignal.min)).values;
@@ -1934,12 +1937,14 @@ export class Object3D<T extends SceneObjectBase = any> {
     }
   }
 
-  lookAtOther(other: Object3D): void {
+  lookAtOther(other: Object3D): Object3D {
     this.rot.values = Quaternion.lookAt(this.pos, other.pos).values;
+    return this
   }
 
-  lookAtHeading(): void {
+  lookAtHeading(): Object3D {
     this.rot.values = Quaternion.lookAtOptimized(this.vel.values).values;
+    return this
   }
 
   update({ pos, rot }: { pos?: boolean; rot?: boolean } = {}): void {
@@ -1947,19 +1952,39 @@ export class Object3D<T extends SceneObjectBase = any> {
     if (rot) this.rot.setSignalComponents();
   }
 
-  bindMesh(sceneObjectBase: SceneObjectBase): void {
-    sceneObjectBase.transform.position = this.pos.signal;
-    sceneObjectBase.transform.rotation = this.rot.signal;
+  setPos(...newPos: VectorArgRest): Object3D {
+    this.pos.values = Vector.convertToSameDimVector(3, ...newPos).values;
+    return this
   }
 
-  createDebugMaterial(hue?: number) {
-    Materials.create(MaterialClassNames.DefaultMaterial, { opacity: 1.0, blendMode: "ALPHA", doubleSided: true })
-    .then(m => {
-      m.setTextureSlot('DIFFUSE', Reactive.pack4(...hsv2rgb(hue, 1, 1), 1) as any);
-      // @ts-expect-error
-      this.body.then ? this.body.then(b => b.material = m) : (this.body.material = m)
-    });
+  setRot(...newRot: QuaternionArgRest): Object3D {
+    this.rot.values = Quaternion.convertToQuaternion(...newRot).values;
+    return this
+  }
 
+  setScl(...newScl: VectorArgRest): Object3D {
+    this.scl.values = Vector.convertToSameDimVector(3, ...newScl).values;
+    return this
+  }
+
+  bindMesh(sceneObjectBase: SceneObjectBase): Object3D {
+    sceneObjectBase.transform.position = this.pos.signal;
+    sceneObjectBase.transform.rotation = this.rot.signal;
+    return this
+  }
+
+  static async createDebugMaterial (hue?: number): Promise<MaterialBase> {
+    if (hue === undefined) hue = 0;
+    return Materials.create(MaterialClassNames.DefaultMaterial, { opacity: 1.0, blendMode: "ALPHA", doubleSided: true })
+    .then(m => {
+      return (m.setTextureSlot('DIFFUSE', Reactive.pack4(...hsv2rgb(hue, 1, 1), 1) as any), m);
+    });
+  }
+
+  setMaterial<T extends MaterialBase>(material: T): Object3D {
+    // @ts-expect-error
+    this.body.then ? this.body.then(b => b.material = material) : (this.body.material = material)
+    return this;
   }
 }
 
@@ -2079,12 +2104,17 @@ export class Cube {
   /**
    * @description for debugging purposes. Creates dynamic planes two opposing corner
    */
-  debugVisualize(){
+  debugVisualize(): Promise<void> {
     const origin = new Vector(this.x, this.y, this.z);
-    const a = new Object3D(undefined); a.pos.values = origin.copy().add(this.s).values;
-    const b = new Object3D(undefined); b.pos.values = origin.copy().sub(this.s).values;
     const hue = Math.random();
-    a.createDebugMaterial(hue), b.createDebugMaterial(hue);
+    return Object3D.createDebugMaterial(hue).then(mat => {
+      allBinaryOptions(3, -this.s, this.s).forEach(o =>
+        new Object3D(undefined)
+        .setPos(origin.copy().add(o))
+        .setScl(0.1)
+        .setMaterial(mat)
+        )
+    });
   }
 
   toString(): string {
