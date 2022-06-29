@@ -2220,8 +2220,35 @@ export class Tree {
     return total
   }
 
-  debugVisualize(): void {
-    this.boundary.debugVisualize();
+  /**
+   * @description Calling `subdivide` after this function may result in an `Error`
+   */
+  forceSubdivideAndColorAround(object: Object3D, downToLevel = 5){
+    const stack: Tree[] = [this];
+    const cubes = [];
+    let hue = -0.1;
+    
+    while(stack.length !== 0) {
+      const e = stack.pop() as Tree;
+      if (e.boundary && e.boundary.contains(object)){
+        if (e.divided) {
+          cubes.push(e);
+          stack.push(...(e.points as Tree[]));
+        } else if (e.level < downToLevel) {
+          e.subdivide();
+          cubes.push(e);
+          stack.push(...(e.points as Tree[]));
+        } else {
+          break
+        }
+      }
+    };
+
+    cubes.forEach((c) => c.debugVisualize(hue += 0.1 ));
+  }
+
+  debugVisualize(hue?: number): void {
+    this.boundary.debugVisualize(hue);
   }
 }
 

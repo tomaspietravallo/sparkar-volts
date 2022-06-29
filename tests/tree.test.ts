@@ -83,7 +83,19 @@ describe('functionality', () => {
 
   test('subdivided past limit', () => {
     const tree = new Tree(bounds, 8, 0);
+    // Recurses indefinitely if not stopped
+    expect(() => new Array(100).fill(null).forEach(_ => tree.insert(new Object3D())) ).toThrow();
   });
+
+  test('allSharingSubTree', () => {
+    const tree = new Tree(bounds, 8, 0);
+    const o1 = new Object3D().setPos(0.005, 0., 0.); tree.insert(o1);
+    const o2 = new Object3D().setPos(0.004, 0., 0.); tree.insert(o2);
+    tree.subdivide();
+    console.log(tree)
+    expect(tree.allSharingSubTree(o1).length).toEqual(1);
+    expect(tree.allSharingSubTree(o1, true).length).toEqual(2);
+  })
 });
 
 describe('debug utils', () => {
@@ -91,4 +103,10 @@ describe('debug utils', () => {
     const bounds = new Cube(new Vector(), 0.1);
     const tree = new Tree(bounds, 8, 1);
   });
+  test('forceSubdivideAndColorAround', () => {
+    const bounds = new Cube(new Vector(), 0.1);
+    const tree = new Tree(bounds, 8, 1);
+    tree.subdivide();
+    expect(() => tree.forceSubdivideAndColorAround(new Object3D(), 5)).not.toThrow();
+  })
 });
