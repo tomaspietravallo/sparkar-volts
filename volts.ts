@@ -403,6 +403,17 @@ export function hsv2rgb(h,s,v) {
 } 
 //#endregion
 
+//#region allBinaryOptions
+
+export function allBinaryOptions(len: number, a: number, b: number): (typeof a | typeof b)[][] {
+  let binary: (typeof a | typeof b)[][] = [];
+  for (let index = 0; index < 2 ** len; index++) {
+    let binaryString = index.toString(2);
+    binary.push( (Array(len - binaryString.length).fill('0').join('') + binaryString).split('').map((n) => Number(n) ? a : b) );
+  }
+  return binary
+}
+
 //#endregion
 
 //#region World
@@ -2086,6 +2097,11 @@ export class Cube {
 //#region Tree
 
 export class Tree {
+  boundary: Cube;
+  capacity: number;
+  level: number;
+  points: Vector<3>[];
+  divided: boolean
   constructor(boundary: Cube, capacity: number, level: number) {
     if (!(boundary.contains && (typeof capacity === 'number') && (typeof level === 'number'))) throw new Error(`@ Volts.Tree.constructor: Values provided are not valid. boundary: ${boundary}, capacity: ${capacity}, level: ${level}`)
     /* ... */

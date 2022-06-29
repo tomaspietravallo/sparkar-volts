@@ -1,4 +1,4 @@
-import { Cube, Object3D, Vector } from '../volts';
+import { Cube, Object3D, Vector, allBinaryOptions } from '../volts';
 
 jest.useFakeTimers();
 
@@ -36,12 +36,10 @@ describe('Cube contains', () => {
 
     test('contains object close to limit', () => {
         const obj = new Object3D();
+        const options = allBinaryOptions(3, -0.0999, 0.0999);
         expect.assertions(8);
         for (let index = 0; index < 8; index++) {
-            // all permutations from 000 to 111 mapped to 0.0999 and 0
-            const binary = String(index.toString(2)).padStart(3, '0').split('').map((n)=> Number(n) ? 0.0999 : -0.0999);
-            // this line is redundant, but i hope it makes clear what's happening
-            obj.pos.values = new Vector( binary[0], binary[1], binary[2]).values;
+            obj.pos.values = options[index];
             const cube = new Cube(new Vector(), 0.1);
             expect(cube.contains(obj)).toEqual(true);   
         }
@@ -49,9 +47,10 @@ describe('Cube contains', () => {
 
     test('contains object on the limit', () => {
         const obj = new Object3D();
+        const options = allBinaryOptions(3, -0.1, 0.1);
         expect.assertions(8);
         for (let index = 0; index < 8; index++) {
-            obj.pos.values = String(index.toString(2)).padStart(3, '0').split('').map((n)=>Number(n) ? 0.1 : -0.1);
+            obj.pos.values = options[index];
             const cube = new Cube(new Vector(), 0.1);
             expect(cube.contains(obj)).toEqual(false);   
         }
