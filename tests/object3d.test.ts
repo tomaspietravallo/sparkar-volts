@@ -66,4 +66,9 @@ describe('utils', () => {
     expect(dynamicInstance.body).toBeTruthy();
     await expect(dynamicInstance.body).resolves.toBeInstanceOf(SceneObjectBase);
   });
+  test('createDebugMaterial', async () => {
+    const sceneObj: SceneObjectBase = await Scene.root.findFirst('a-scene-obj');
+    const obj3d = new Object3D(sceneObj);
+    expect(() => obj3d.createDebugMaterial()).not.toThrow();
+  })
 });

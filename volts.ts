@@ -5,6 +5,7 @@ import Reactive from 'Reactive';
 import Time from 'Time';
 import Blocks from 'Blocks';
 import CameraInfo from 'CameraInfo';
+import Materials from 'Materials';
 
 // 👇 may be dynamically imported using `require`
 let Persistence: {
@@ -389,6 +390,17 @@ export function transformAcrossSpaces(
 export const randomBetween = (min: number, max: number): number => {
   return Math.random() * (max - min) + min;
 };
+//#endregion
+
+//#region HSVtoRGB
+/**
+ * @see https://stackoverflow.com/a/54024653
+ */
+export function hsv2rgb(h,s,v) {
+  h *= 360;                        
+  let f = (n,k=(n+h/60)%6) => v - v*s*Math.max( Math.min(k,4-k,1), 0);     
+  return [f(5),f(3),f(1)] as [number, number, number];       
+} 
 //#endregion
 
 //#endregion
@@ -1835,6 +1847,24 @@ export class State<Data extends { [key: string]: Vector<any> | Quaternion | numb
 
 //#region Object3D
 
+export enum SceneObjectClassNames {
+  'Plane' = 'Plane',
+  'Canvas' = 'Canvas',
+  'PlanarImage' = 'PlanarImage',
+  'AmbientLightSource' = 'AmbientLightSource',
+  'DirectionalLightSource' = 'DirectionalLightSource',
+  'PointLightSource' = 'PointLightSource',
+  'SpotLightSource' = 'SpotLightSource',
+  'ParticleSystem' = 'ParticleSystem',
+  'SceneObject' = 'SceneObject',
+}
+
+export enum MaterialClassNames {
+  'DefaultMaterial' = 'DefaultMaterial',
+  'BlendedMaterial' = 'BlendedMaterial',
+  'PhysicallyBasedMaterial' = 'PhysicallyBasedMaterial',
+  'FacePaintMaterial' = 'FacePaintMaterial'
+};
 /**
  * @description A base type to be implemented by other classes that want to implement Object3D-like behavior.
  *
@@ -1889,7 +1919,7 @@ export class Object3D<T extends SceneObjectBase = any> {
           resolve(plane);
         });
       });
-      !body && (this.body = p);
+      if (body === undefined || body === null) this.body = p;
     }
   }
 
@@ -1910,6 +1940,16 @@ export class Object3D<T extends SceneObjectBase = any> {
     sceneObjectBase.transform.position = this.pos.signal;
     sceneObjectBase.transform.rotation = this.rot.signal;
   }
+
+  createDebugMaterial(hue?: number) {
+    Materials.create(MaterialClassNames.DefaultMaterial, { opacity: 1.0, blendMode: "ALPHA", doubleSided: true })
+    .then(m => {
+      m.setTextureSlot('DIFFUSE', Reactive.pack4(...hsv2rgb(hue, 1, 1), 1) as any);
+      // @ts-expect-error
+      this.body.then ? this.body.then(b => b.material = m) : (this.body.material = m)
+    });
+
+  }
 }
 
 //#endregion
@@ -1917,18 +1957,6 @@ export class Object3D<T extends SceneObjectBase = any> {
 //#region Pool
 
 type PooledObject<obj> = obj & { returnToPool: () => void };
-
-enum SceneObjectClassNames {
-  'Plane' = 'Plane',
-  'Canvas' = 'Canvas',
-  'PlanarImage' = 'PlanarImage',
-  'AmbientLightSource' = 'AmbientLightSource',
-  'DirectionalLightSource' = 'DirectionalLightSource',
-  'PointLightSource' = 'PointLightSource',
-  'SpotLightSource' = 'SpotLightSource',
-  'ParticleSystem' = 'ParticleSystem',
-  'SceneObject' = 'SceneObject',
-}
 
 /**
  * @description Still in EARLY development
@@ -2010,7 +2038,7 @@ Pool.SceneObjects = SceneObjectClassNames;
 
 //#endregion
 
-//#region Tree
+//#region Cube
 
 export class Cube {
   protected x: number;
@@ -2036,10 +2064,30 @@ export class Cube {
       Object3D.pos.z < this.z + this.s
     );
   }
+
+  /**
+   * @description for debugging purposes. Creates dynamic planes two opposing corner
+   */
+  debugVisualize(){
+    const origin = new Vector(this.x, this.y, this.z);
+    const a = new Object3D(undefined); a.pos.values = origin.copy().add(this.s).values;
+    const b = new Object3D(undefined); b.pos.values = origin.copy().sub(this.s).values;
+    const hue = Math.random();
+    a.createDebugMaterial(hue), b.createDebugMaterial(hue);
+  }
+
+  toString(): string {
+    return `x: ${this.x.toFixed(5)} y: ${this.y.toFixed(5)} z: ${this.z.toFixed(5)} s: ${this.s.toFixed(5)}`;
+  }
 }
 
+//#endregion
+
+//#region Tree
+
 export class Tree {
-  constructor() {
+  constructor(boundary: Cube, capacity: number, level: number) {
+    if (!(boundary.contains && (typeof capacity === 'number') && (typeof level === 'number'))) throw new Error(`@ Volts.Tree.constructor: Values provided are not valid. boundary: ${boundary}, capacity: ${capacity}, level: ${level}`)
     /* ... */
   }
 }

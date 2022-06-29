@@ -1,5 +1,7 @@
 import { Cube, Object3D, Vector } from '../volts';
 
+jest.useFakeTimers();
+
 describe('Cube construction', () => {
 
     test('correct parameters', () => {
@@ -11,7 +13,7 @@ describe('Cube construction', () => {
         expect(() => new Cube(1, undefined)).toThrowError();
         // @ts-expect-error
         expect(() => new Cube(undefined, 1)).toThrowError();
-        // technically any should be tested but in most situations, if one coordinate is NaN, all are
+        // technically any should be checked & tested but in most situations, if one coordinate is NaN, all are
         expect(() => new Cube(new Vector(Number.NaN,0,0), 1)).toThrowError();
         // @ts-expect-error
         expect(() => new Cube({}, 1)).toThrowError();
@@ -53,5 +55,31 @@ describe('Cube contains', () => {
             const cube = new Cube(new Vector(), 0.1);
             expect(cube.contains(obj)).toEqual(false);   
         }
+    })
+
+    test('non zero origin cube', () => {
+        const obj = new Object3D();
+        obj.pos.values = [0.01,0,0];
+        const cube = new Cube(new Vector(0.05,0,0), 0.05);
+        expect(cube.contains(obj)).toEqual(true)
+    })
+})
+
+describe('Cube debug utils', () => {
+    test('toString', () => {
+        const cube = new Cube(new Vector(0,0,0), 1);
+        expect(typeof cube.toString()).toEqual('string')
+    });
+
+    test('debugVisualize', () => {
+        const spy = jest.spyOn(Object3D.prototype, 'createDebugMaterial').mockImplementation( (_hue?) => {} )
+
+        const cube = new Cube(new Vector(0,0,0), 1);
+    
+        expect(() => cube.debugVisualize() ).not.toThrow();
+        expect(spy).toHaveBeenCalledTimes(2);
+    
+        spy.mockReset();
+        spy.mockRestore();
     })
 })
