@@ -1910,7 +1910,7 @@ export class Object3D<T extends SceneObjectBase = any> {
       (this.rot = new Quaternion()),
       (this.acc = new Vector()),
       (this.vel = new Vector()),
-      (this.scl = new Vector()),
+      (this.scl = new Vector(1,1,1)),
       (this.box = new Vector(0.05)),
       (this.awake = true);
 
