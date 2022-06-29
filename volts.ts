@@ -396,23 +396,31 @@ export const randomBetween = (min: number, max: number): number => {
 /**
  * @see https://stackoverflow.com/a/54024653
  */
-export function hsv2rgb(h,s,v) {
-  h *= 360;                        
-  let f = (n,k=(n+h/60)%6) => v - v*s*Math.max( Math.min(k,4-k,1), 0);     
-  return [f(5),f(3),f(1)] as [number, number, number];       
-} 
+export function hsv2rgb(h: number, s: number, v: number): [number, number, number] {
+  h *= 360;
+  /* istanbul ignore next */
+  const f = (n: number, k = (n + h / 60) % 6) => v - v * s * Math.max(Math.min(k, 4 - k, 1), 0);
+  return [f(5), f(3), f(1)];
+}
 //#endregion
-
 
 //#region allBinaryOptions
 
 export function allBinaryOptions(len: number, a: number, b: number): (typeof a | typeof b)[][] {
-  let binary: (typeof a | typeof b)[][] = [];
+  const binary: (typeof a | typeof b)[][] = [];
   for (let index = 0; index < 2 ** len; index++) {
-    let binaryString = index.toString(2);
-    binary.push( (Array(len - binaryString.length).fill('0').join('') + binaryString).split('').map((n) => Number(n) ? a : b) );
+    const binaryString = index.toString(2);
+    binary.push(
+      (
+        Array(len - binaryString.length)
+          .fill('0')
+          .join('') + binaryString
+      )
+        .split('')
+        .map((n) => (Number(n) ? a : b)),
+    );
   }
-  return binary
+  return binary;
 }
 
 //#endregion
@@ -1089,10 +1097,7 @@ export type Vector<D extends number> = NDVectorInstance<D> & getVecTypeForD<D>;
  * Note: this is not optimized for incredible performance, but it provides a lot of flexibility to users of the framework/lib
  */
 
-export const Vector = function <D extends number>(
-  this: Vector<number>,
-  ...args: VectorArgRest
-): Vector<D> {
+export const Vector = function <D extends number>(this: Vector<number>, ...args: VectorArgRest): Vector<D> {
   if (args[0] instanceof Vector) {
     // @ts-ignore
     return args[0].copy();
@@ -1877,8 +1882,8 @@ export enum MaterialClassNames {
   'DefaultMaterial' = 'DefaultMaterial',
   'BlendedMaterial' = 'BlendedMaterial',
   'PhysicallyBasedMaterial' = 'PhysicallyBasedMaterial',
-  'FacePaintMaterial' = 'FacePaintMaterial'
-};
+  'FacePaintMaterial' = 'FacePaintMaterial',
+}
 /**
  * @description A base type to be implemented by other classes that want to implement Object3D-like behavior.
  *
@@ -1942,12 +1947,12 @@ export class Object3D<T extends SceneObjectBase = any> {
 
   lookAtOther(other: Object3D): Object3D {
     this.rot.values = Quaternion.lookAt(this.pos, other.pos).values;
-    return this
+    return this;
   }
 
   lookAtHeading(): Object3D {
     this.rot.values = Quaternion.lookAtOptimized(this.vel.values).values;
-    return this
+    return this;
   }
 
   update({ pos, rot }: { pos?: boolean; rot?: boolean } = {}): void {
@@ -1957,36 +1962,39 @@ export class Object3D<T extends SceneObjectBase = any> {
 
   setPos(...newPos: VectorArgRest): Object3D {
     this.pos.values = Vector.convertToSameDimVector(3, ...newPos).values;
-    return this
+    return this;
   }
 
   setRot(...newRot: QuaternionArgRest): Object3D {
     this.rot.values = Quaternion.convertToQuaternion(...newRot).values;
-    return this
+    return this;
   }
 
   setScl(...newScl: VectorArgRest): Object3D {
     this.scl.values = Vector.convertToSameDimVector(3, ...newScl).values;
-    return this
+    return this;
   }
 
   bindMesh(sceneObjectBase: SceneObjectBase): Object3D {
     sceneObjectBase.transform.position = this.pos.signal;
     sceneObjectBase.transform.rotation = this.rot.signal;
-    return this
+    return this;
   }
 
-  static async createDebugMaterial (hue?: number): Promise<MaterialBase> {
+  static async createDebugMaterial(hue?: number): Promise<MaterialBase> {
     if (hue === undefined) hue = 0;
-    return Materials.create(MaterialClassNames.DefaultMaterial, { opacity: 1.0, blendMode: "ALPHA", doubleSided: true })
-    .then(m => {
-      return (m.setTextureSlot('DIFFUSE', Reactive.pack4(...hsv2rgb(hue, 1, 1), 1) as any), m);
+    return Materials.create(MaterialClassNames.DefaultMaterial, {
+      opacity: 1.0,
+      blendMode: 'ALPHA',
+      doubleSided: true,
+    }).then((m) => {
+      return m.setTextureSlot('DIFFUSE', Reactive.pack4(...hsv2rgb(hue, 1, 1), 1) as any), m;
     });
   }
 
   setMaterial<T extends MaterialBase>(material: T): Object3D {
     // @ts-expect-error
-    this.body.then ? this.body.then(b => b.material = material) : (this.body.material = material)
+    this.body.then ? this.body.then((b) => (b.material = material)) : (this.body.material = material);
     return this;
   }
 }
@@ -2086,7 +2094,7 @@ export class Cube {
   public readonly s: number;
   constructor(origin: Vector<3>, size: number) {
     if (!(origin && origin.values && Number.isFinite(origin.values[0]) && typeof size === 'number'))
-    throw new Error(`@ Volts.Cube.constructor: Values provided are not valid. origin: ${origin}, size: ${origin}`);
+      throw new Error(`@ Volts.Cube.constructor: Values provided are not valid. origin: ${origin}, size: ${origin}`);
     this.x = origin.x;
     this.y = origin.y;
     this.z = origin.z;
@@ -2095,11 +2103,12 @@ export class Cube {
 
   contains(Object3D: Object3D): boolean {
     return (
-      Object3D.pos.x > this.x - this.s &&
+      // The front-bottom-left vertex is contained. This ensures stacked cubes don't overlap
+      Object3D.pos.x >= this.x - this.s &&
       Object3D.pos.x < this.x + this.s &&
-      Object3D.pos.y > this.y - this.s &&
+      Object3D.pos.y >= this.y - this.s &&
       Object3D.pos.y < this.y + this.s &&
-      Object3D.pos.z > this.z - this.s &&
+      Object3D.pos.z >= this.z - this.s &&
       Object3D.pos.z < this.z + this.s
     );
   }
@@ -2110,13 +2119,10 @@ export class Cube {
   debugVisualize(): Promise<void> {
     const origin = new Vector(this.x, this.y, this.z);
     const hue = Math.random();
-    return Object3D.createDebugMaterial(hue).then(mat => {
-      allBinaryOptions(3, -this.s, this.s).forEach(o =>
-        new Object3D(undefined)
-        .setPos(origin.copy().add(o))
-        .setScl(0.1)
-        .setMaterial(mat)
-        )
+    return Object3D.createDebugMaterial(hue).then((mat) => {
+      allBinaryOptions(3, -this.s, this.s).forEach((o) =>
+        new Object3D(undefined).setPos(origin.copy().add(o)).setScl(0.1).setMaterial(mat),
+      );
     });
   }
 
@@ -2133,22 +2139,51 @@ export class Tree {
   boundary: Cube;
   capacity: number;
   level: number;
-  points: Tree[] | Vector<3>[];
-  divided: boolean
+  divided: boolean;
+  points: Tree[] | Object3D[];
   constructor(boundary: Cube, capacity: number, level: number) {
-    if (!(boundary.contains && (typeof capacity === 'number') && (typeof level === 'number'))) throw new Error(`@ Volts.Tree.constructor: Values provided are not valid. boundary: ${boundary}, capacity: ${capacity}, level: ${level}`)
+    if (!(boundary.contains && typeof capacity === 'number' && typeof level === 'number' && level < 5))
+      throw new Error(
+        `@ Volts.Tree.constructor: Values provided are not valid. boundary: ${boundary}, capacity: ${capacity}, level: ${level}`,
+      );
     this.boundary = boundary;
     this.capacity = capacity;
     this.level = level;
+    this.points = [];
+    this.divided = false;
   }
 
   subdivide() {
     this.divided = true;
     const cubePos = new Vector(this.boundary.x, this.boundary.y, this.boundary.z);
-    this.points = allBinaryOptions(3, -this.boundary.s / 2, this.boundary.s / 2).map((o) => new Tree(new Cube(cubePos.copy().add(o), this.boundary.s / 2), this.capacity, this.level + 1) );
+    this.points = allBinaryOptions(3, -this.boundary.s / 2, this.boundary.s / 2).map(
+      (o) => new Tree(new Cube(cubePos.copy().add(o), this.boundary.s / 2), this.capacity, this.level + 1),
+    );
   }
 
-  debugVisualize() {
+  insert(Object3D: Object3D): boolean {
+    if (this.boundary.contains(Object3D)) {
+      if (this.divided) {
+        for (let index = 0; index < 8; index++) {
+          if ((this.points[index] as Tree).insert(Object3D)) return true;
+        }
+      } else if (!this.divided && this.points.length < this.capacity) {
+        (this.points as Object3D[]).push(Object3D);
+        return true;
+      } else if (!this.divided) {
+        this.subdivide();
+        return this.insert(Object3D);
+      }
+    } else {
+      if (this.level === 0)
+        Diagnostics.warn(
+          `Out of bounds contains on level 0. Tree.boundary: ${this.boundary.toString()}. Point: ${Object3D.pos.toString()}`,
+        );
+      return false;
+    }
+  }
+
+  debugVisualize(): void {
     this.boundary.debugVisualize();
   }
 }

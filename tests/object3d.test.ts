@@ -43,13 +43,9 @@ describe('fetch reactive values', () => {
 describe('utils', () => {
   test('setPos setRot setScl setMaterial', () => {
     expect(() =>
-    new Object3D(undefined)
-    .setPos(1,1,1)
-    .setRot(Quaternion.identity())
-    .setScl(0.1)
-    .setMaterial(undefined)
-    ).not.toThrow()
-  })
+      new Object3D(undefined).setPos(1, 1, 1).setRot(Quaternion.identity()).setScl(0.1).setMaterial(undefined),
+    ).not.toThrow();
+  });
   test('lookAtOther', async () => {
     const sceneObjOne: SceneObjectBase = await Scene.root.findFirst('a-scene-obj');
     const sceneObjTwo: SceneObjectBase = await Scene.root.findFirst('a-scene-obj');
@@ -79,5 +75,5 @@ describe('utils', () => {
     const sceneObj: SceneObjectBase = await Scene.root.findFirst('a-scene-obj');
     const obj3d = new Object3D(sceneObj);
     expect(Object3D.createDebugMaterial()).resolves.not.toThrow();
-  })
+  });
 });
