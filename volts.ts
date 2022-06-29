@@ -2017,7 +2017,9 @@ export class Cube {
   protected y: number;
   protected z: number;
   protected s: number;
-  constructor(origin = new Vector(), size = 0.5) {
+  constructor(origin: Vector<3>, size: number) {
+    if (!(origin && origin.values && Number.isFinite(origin.values[0]) && typeof size === 'number'))
+    throw new Error(`@ Volts.Cube.constructor: Values provided are not valid. origin: ${origin}, size: ${origin}`);
     this.x = origin.x;
     this.y = origin.y;
     this.z = origin.z;
