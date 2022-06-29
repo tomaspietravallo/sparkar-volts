@@ -403,6 +403,7 @@ export function hsv2rgb(h,s,v) {
 } 
 //#endregion
 
+
 //#region allBinaryOptions
 
 export function allBinaryOptions(len: number, a: number, b: number): (typeof a | typeof b)[][] {
@@ -413,6 +414,8 @@ export function allBinaryOptions(len: number, a: number, b: number): (typeof a |
   }
   return binary
 }
+
+//#endregion
 
 //#endregion
 
@@ -2077,10 +2080,10 @@ Pool.SceneObjects = SceneObjectClassNames;
 //#region Cube
 
 export class Cube {
-  protected x: number;
-  protected y: number;
-  protected z: number;
-  protected s: number;
+  public readonly x: number;
+  public readonly y: number;
+  public readonly z: number;
+  public readonly s: number;
   constructor(origin: Vector<3>, size: number) {
     if (!(origin && origin.values && Number.isFinite(origin.values[0]) && typeof size === 'number'))
     throw new Error(`@ Volts.Cube.constructor: Values provided are not valid. origin: ${origin}, size: ${origin}`);
@@ -2130,11 +2133,23 @@ export class Tree {
   boundary: Cube;
   capacity: number;
   level: number;
-  points: Vector<3>[];
+  points: Tree[] | Vector<3>[];
   divided: boolean
   constructor(boundary: Cube, capacity: number, level: number) {
     if (!(boundary.contains && (typeof capacity === 'number') && (typeof level === 'number'))) throw new Error(`@ Volts.Tree.constructor: Values provided are not valid. boundary: ${boundary}, capacity: ${capacity}, level: ${level}`)
-    /* ... */
+    this.boundary = boundary;
+    this.capacity = capacity;
+    this.level = level;
+  }
+
+  subdivide() {
+    this.divided = true;
+    const cubePos = new Vector(this.boundary.x, this.boundary.y, this.boundary.z);
+    this.points = allBinaryOptions(3, -this.boundary.s / 2, this.boundary.s / 2).map((o) => new Tree(new Cube(cubePos.copy().add(o), this.boundary.s / 2), this.capacity, this.level + 1) );
+  }
+
+  debugVisualize() {
+    this.boundary.debugVisualize();
   }
 }
 
