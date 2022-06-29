@@ -2116,9 +2116,9 @@ export class Cube {
   /**
    * @description for debugging purposes. Creates dynamic planes two opposing corner
    */
-  debugVisualize(): Promise<void> {
+  debugVisualize(hue?: number): Promise<void> {
     const origin = new Vector(this.x, this.y, this.z);
-    const hue = Math.random();
+    hue = hue || Math.random();
     return Object3D.createDebugMaterial(hue).then((mat) => {
       allBinaryOptions(3, -this.s, this.s).forEach((o) =>
         new Object3D(undefined).setPos(origin.copy().add(o)).setScl(0.1).setMaterial(mat),
@@ -2141,9 +2141,8 @@ export class Tree {
   level: number;
   divided: boolean;
   points: Tree[] | Object3D[];
-  map: Map<Object3D, Object3D[]>;
   constructor(boundary: Cube, capacity: number, level: number) {
-    if (!(boundary.contains && typeof capacity === 'number' && typeof level === 'number' && level < 5))
+    if (!(boundary.contains && typeof capacity === 'number' && typeof level === 'number' && level <= 5))
       throw new Error(
         `@ Volts.Tree.constructor: Values provided are not valid. boundary: ${boundary}, capacity: ${capacity}, level: ${level}`,
       );
@@ -2154,7 +2153,7 @@ export class Tree {
     this.divided = false;
   }
 
-  subdivide() {
+  subdivide(): void {
     /** @Note COPY OVER CHANGES TO TREE.TEST.TS JEST MOCK */
     this.divided = true;
     const cubePos = new Vector(this.boundary.x, this.boundary.y, this.boundary.z);
@@ -2162,6 +2161,9 @@ export class Tree {
     this.points = allBinaryOptions(3, -this.boundary.s / 2, this.boundary.s / 2).map(
       (o) => new Tree(new Cube(cubePos.copy().add(o), this.boundary.s / 2), this.capacity, this.level + 1),
     );
+    for (let index = 0; index < tmp.length; index++) {
+      this.insert(tmp[index]);
+    }
   }
 
   insert(Object3D: Object3D): boolean {
@@ -2189,8 +2191,19 @@ export class Tree {
   /**
    * @description Gets all Object3D instances contained within the same cell as `other`
    */
-  allSharingSubTree(other: Object3D) {
-    
+  allSharingSubTree(other: Object3D, includeSelf?: boolean): Object3D[] {
+    const stack: Tree[] = [this];
+    while(stack.length !== 0) {
+      const e = stack.pop() as Tree;
+      if (e.boundary && e.boundary.contains(other)){
+        if (e.divided) {
+          stack.push(...(e.points as Tree[]));
+        } else {
+          return (e.points as Object3D[]).filter(e => includeSelf ? true : e !== other );
+        }
+      }
+    };
+    return [];
   }
 
   getTotalObjectCount() {
