@@ -439,6 +439,7 @@ interface InternalSignals {
   __volts__internal__time: number;
   __volts__internal__focalDistance: number;
   __volts__internal__screen: Vector<3>;
+  __volts__internal__screenSizePixels: Vector<2>;
 }
 
 interface Events<S extends Snapshot> {
@@ -463,7 +464,7 @@ interface InternalWorldData {
 }
 
 interface WorldConfig {
-  mode: keyof typeof PRODUCTION_MODES;
+  mode: keyof typeof PRODUCTION_MODES | `${number}x${number}`;
   assets?: { [key: string]: Promise<any | any[]> };
   snapshot?: Snapshot;
   loadStates?: State<any> | State<any>[];
@@ -479,7 +480,8 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
       ? C
       : never;
   };
-  public mode: keyof typeof PRODUCTION_MODES;
+
+  public mode: keyof typeof PRODUCTION_MODES | `${number}x${number}`;
 
   private constructor() {
     this.mode = VoltsWorld.userConfig.mode;
@@ -535,7 +537,7 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
           `@ VoltsWorld.getInstance: 'config.mode' was not provided, but is required when creating the first instance`,
         );
       // @ts-expect-error
-      if (!Object.values(PRODUCTION_MODES).includes(config.mode))
+      if (!Object.values(PRODUCTION_MODES).includes(config.mode) && config.mode.indexOf('x') === -1)
         throw new Error(
           `@ VoltsWorld.getInstance: 'config.mode' was provided, but was not valid.\n\nAvailable modes are: ${Object.values(
             PRODUCTION_MODES,
@@ -657,9 +659,17 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
           if (this.frameCount === 0) {
             let loadReturn;
             if (VoltsWorld.userConfig.mode !== PRODUCTION_MODES.NO_AUTO) {
-              delete this.internalData.formattedValuesToSnapshot['__volts__internal__screen'];
-              delete this.internalData.formattedValuesToSnapshot['__volts__internal__screenSizePixels'];
+              // @ts-expect-error
+              delete this.internalData.formattedValuesToSnapshot['__volts__internal__screen']; // @ts-expect-error
+              delete this.internalData.formattedValuesToSnapshot['__volts__internal__screenSizePixels']; // @ts-expect-error
               delete this.internalData.formattedValuesToSnapshot['__volts__internal__focalDistance'];
+              if (this.mode.indexOf('x')) {
+                this.mode = this.internalData.userFriendlySnapshot.__volts__internal__screenSizePixels.equals(
+                  new Vector(this.mode.split('x').map((n) => Number(n))),
+                )
+                  ? 'DEV'
+                  : 'PRODUCTION';
+              }
               this.emitEvent('load', this.internalData.userFriendlySnapshot);
             }
             if (loadReturn && loadReturn.then) {
@@ -1910,7 +1920,7 @@ export class Object3D<T extends SceneObjectBase = any> {
       (this.rot = new Quaternion()),
       (this.acc = new Vector()),
       (this.vel = new Vector()),
-      (this.scl = new Vector(1,1,1)),
+      (this.scl = new Vector(1, 1, 1)),
       (this.box = new Vector(0.05)),
       (this.awake = true);
 
@@ -2157,7 +2167,7 @@ export class Tree {
     /** @Note COPY OVER CHANGES TO TREE.TEST.TS JEST MOCK */
     this.divided = true;
     const cubePos = new Vector(this.boundary.x, this.boundary.y, this.boundary.z);
-    let tmp = this.points as Object3D[];
+    const tmp = this.points as Object3D[];
     this.points = allBinaryOptions(3, -this.boundary.s / 2, this.boundary.s / 2).map(
       (o) => new Tree(new Cube(cubePos.copy().add(o), this.boundary.s / 2), this.capacity, this.level + 1),
     );
@@ -2193,44 +2203,44 @@ export class Tree {
    */
   allSharingSubTree(other: Object3D, includeSelf?: boolean): Object3D[] {
     const stack: Tree[] = [this];
-    while(stack.length !== 0) {
+    while (stack.length !== 0) {
       const e = stack.pop() as Tree;
-      if (e.boundary && e.boundary.contains(other)){
+      if (e.boundary && e.boundary.contains(other)) {
         if (e.divided) {
           stack.push(...(e.points as Tree[]));
         } else {
-          return (e.points as Object3D[]).filter(e => includeSelf ? true : e !== other );
+          return (e.points as Object3D[]).filter((e) => (includeSelf ? true : e !== other));
         }
       }
-    };
+    }
     return [];
   }
 
-  getTotalObjectCount() {
+  getTotalObjectCount(): number {
     let total = 0;
     const stack: Tree[] = [this];
-    while(stack.length !== 0) {
+    while (stack.length !== 0) {
       const e = stack.pop();
       if (e.points && e.divided) {
         stack.push(...(e.points as Tree[]));
       } else {
         total += e.points.length;
       }
-    };
-    return total
+    }
+    return total;
   }
 
   /**
    * @description Calling `subdivide` after this function may result in an `Error`
    */
-  forceSubdivideAndColorAround(object: Object3D, downToLevel = 5){
+  forceSubdivideAndColorAround(object: Object3D, downToLevel = 5): void {
     const stack: Tree[] = [this];
     const cubes = [];
     let hue = -0.1;
-    
-    while(stack.length !== 0) {
+
+    while (stack.length !== 0) {
       const e = stack.pop() as Tree;
-      if (e.boundary && e.boundary.contains(object)){
+      if (e.boundary && e.boundary.contains(object)) {
         if (e.divided) {
           cubes.push(e);
           stack.push(...(e.points as Tree[]));
@@ -2239,23 +2249,23 @@ export class Tree {
           cubes.push(e);
           stack.push(...(e.points as Tree[]));
         } else {
-          break
+          break;
         }
       }
-    };
+    }
 
-    cubes.forEach((c) => c.debugVisualize(hue += 0.1 ));
+    cubes.forEach((c) => c.debugVisualize((hue += 0.1)));
   }
 
   debugVisualize(hue?: number): void {
     const stack: Tree[] = [this];
-    while(stack.length !== 0) {
+    while (stack.length !== 0) {
       const e = stack.pop() as Tree;
-      if (e.boundary && e.divided){
+      if (e.boundary && e.divided) {
         stack.push(...(e.points as Tree[]));
         e.boundary.debugVisualize();
       }
-    };
+    }
   }
 }
 

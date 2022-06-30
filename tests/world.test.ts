@@ -33,6 +33,20 @@ describe('world construction', () => {
     // @ts-ignore
     expect(() => World.getInstance({ mode: { dev: true } })).toThrow();
   });
+  test('string target dev mode', async () => {
+    privates.clearVoltsWorld();
+    let W = null;
+    // @ts-ignore
+    expect(() => W = World.getInstance({ mode: '400x400' })).not.toThrow();
+
+    // @ts-expect-error
+    await W.rawInitPromise;
+
+    jest.advanceTimersByTime(100)
+
+    expect(W.mode).toEqual('DEV');
+
+  });
   test('run/stop functions', () => {
     privates.clearVoltsWorld();
     const world = World.getInstance({
