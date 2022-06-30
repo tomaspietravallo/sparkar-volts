@@ -6,7 +6,8 @@
   "scripts": {
     "lint": "npx prettier -w . ; npx eslint . --ext .ts;",
     "test": "jest",
-    "coverage-badge": "jest-coverage-badges && make-coverage-badge"
+    "coverage-badge": "jest-coverage-badges && make-coverage-badge",
+    "build": "npx tsc -p .; npx terser volts.js -c passes=5 -o volts.min.js; rm ./volts.js"
   },
   "repository": {
     "type": "git",

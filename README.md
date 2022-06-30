@@ -32,17 +32,12 @@ npm i
 
 # v4.0.0 plans
 
-- [ ] Use rollup.js to add a minified version of VOLTS
+- [x] Use <del>rollup.js</del> to add a minified version of VOLTS. TSC + Terser running on `npm run build`. Note: This will not be run for each commits
 - [ ] Improve support for Plugins
 - [x] Add support for Async onLoad/frameUpdate functions. Quite a large change, beware unintended side effects. *onLoad now supports Async*
 - [x] String matching based DEV mode. Eg. mode="400x400", use a simulator window of 400x400px in Spark AR Studio to use DEV mode. *This is now supported*
 - Open a PR/issue & add/request features!
 - New: `Tree` and `Cube` classes. These have been **extensively** tested both visually in Spark AR Studio (see debug utils), and using Jest tests
-
-```sh
-npx tsc -p .
-terser volts.min.js -c passes=5 -o volts.min.js
-```
 
 # v5.0.0
 
