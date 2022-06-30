@@ -2003,6 +2003,7 @@ export class Object3D<T extends SceneObjectBase = any> {
   }
 
   setMaterial<T extends MaterialBase>(material: T): Object3D {
+    if (!this.body) return
     // @ts-expect-error
     this.body.then ? this.body.then((b) => (b.material = material)) : (this.body.material = material);
     return this;
@@ -2029,7 +2030,7 @@ export class Pool {
   constructor(
     objectsOrPath: string | string[] | BlockAsset | BlockAsset[],
     root?: string | SceneObjectBase,
-    initialState: {
+    initialState?: {
       [Prop in keyof SceneObjectBase]+?: SceneObjectBase[Prop] | ReactiveToVanilla<SceneObjectBase[Prop]>;
     } = {},
   ) {
@@ -2241,12 +2242,11 @@ export class Tree {
     while (stack.length !== 0) {
       const e = stack.pop() as Tree;
       if (e.boundary && e.boundary.contains(object)) {
+        cubes.push(e);
         if (e.divided) {
-          cubes.push(e);
           stack.push(...(e.points as Tree[]));
         } else if (e.level < downToLevel) {
           e.subdivide();
-          cubes.push(e);
           stack.push(...(e.points as Tree[]));
         } else {
           break;
@@ -2254,16 +2254,16 @@ export class Tree {
       }
     }
 
-    cubes.forEach((c) => c.debugVisualize((hue += 0.1)));
+    cubes.filter((t: Tree) => t.boundary.contains(object)).forEach((c: Tree) => c.debugVisualize((hue += 0.1), false));
   }
 
-  debugVisualize(hue?: number): void {
+  debugVisualize(hue?: number, subTrees = true): void {
     const stack: Tree[] = [this];
     while (stack.length !== 0) {
       const e = stack.pop() as Tree;
       if (e.boundary && e.divided) {
-        stack.push(...(e.points as Tree[]));
-        e.boundary.debugVisualize();
+        subTrees && stack.push(...(e.points as Tree[]));
+        e.boundary.debugVisualize(hue);
       }
     }
   }
