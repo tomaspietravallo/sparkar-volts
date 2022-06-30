@@ -94,7 +94,6 @@ describe('functionality', () => {
     const o2 = new Object3D().setPos(0.004, 0, 0);
     tree.insert(o2);
     tree.subdivide();
-    console.log(tree);
     expect(tree.allSharingSubTree(o1).length).toEqual(1);
     expect(tree.allSharingSubTree(o1, true).length).toEqual(2);
   });
