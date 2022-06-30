@@ -7,7 +7,7 @@ description: In this section you'll find everything related to the VOLTS.Vector 
 `Vector` is a very useful class, as it provides a way to represent N-Dimentional data
 
 {% tabs %}
-{% tab title="v2" %}
+{% tab title="v2+" %}
 ```typescript
 import { Vector } from 'volts';
 
@@ -165,5 +165,4 @@ const badHardTyping = new Vector<3>(1,2); // ❌ highlighted as a type error
 `Vector<number>` is the same as the combination of the Vector 1,2,3 & 4 types + base. Meaning you won't get any useful information based on the dimension of your Vector
 {% endhint %}
 
- 
-
+&#x20;
