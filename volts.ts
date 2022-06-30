@@ -1939,8 +1939,8 @@ export class Object3D<T extends SceneObjectBase = any> {
     this.body = body;
     if (body !== null) {
       const p = new Promise<T>((resolve) => {
-        (body ? Promise.resolve(body) : Scene.create('Plane')).then(async (plane: T) => {
-          !body && (await Scene.root.addChild(plane));
+        (body ? typeof body === 'string' ? Blocks.instantiate('sphere', { hidden: false,  }) : Promise.resolve(body) : Scene.create('Plane')).then(async (plane: T) => {
+          typeof body === 'string' && (await Scene.root.addChild(plane));
           plane.transform.position = this.pos.signal;
           plane.transform.rotation = this.rot.signal;
           plane.transform.scale = this.scl.signal;
@@ -1951,7 +1951,7 @@ export class Object3D<T extends SceneObjectBase = any> {
           resolve(plane);
         });
       });
-      if (body === undefined || body === null) this.body = p;
+      if (!body || typeof body === 'string') this.body = p;
     }
   }
 
@@ -2002,11 +2002,33 @@ export class Object3D<T extends SceneObjectBase = any> {
     });
   }
 
+  /**
+   * @description *Not available for Block assets*
+   */
   setMaterial<T extends MaterialBase>(material: T): Object3D {
     if (!this.body) return
     // @ts-expect-error
     this.body.then ? this.body.then((b) => (b.material = material)) : (this.body.material = material);
     return this;
+  }
+
+  /**
+   * @version 0.0.0
+   * @description ***ONLY AVAILABLE FOR BLOCK ASSETS***
+   * 
+   * ****EARLY DEVELOPMENT****
+   * 
+   * Just to test out the concept
+   */
+  setInputs(inputs: {[key: string]: [ any, string ] }){
+    const keys = Object.keys(inputs);
+    const set = (b: BlockSceneRoot) => {
+      for (let index = 0; index < keys.length; index++) {
+        b.inputs[inputs[keys[index]][1]](keys[index], inputs[keys[index]][0])
+      }
+    }
+    // @ts-expect-error
+    this.body.then ? this.body.then(b => set(b)) : set(this.body);
   }
 }
 
@@ -2191,10 +2213,10 @@ export class Tree {
         return this.insert(Object3D);
       }
     } else {
-      if (this.level === 0)
-        Diagnostics.warn(
-          `Out of bounds contains on level 0. Tree.boundary: ${this.boundary.toString()}. Point: ${Object3D.pos.toString()}`,
-        );
+      // if (this.level === 0)
+      //   Diagnostics.warn(
+      //     `Out of bounds contains on level 0. Tree.boundary: ${this.boundary.toString()}. Point: ${Object3D.pos.toString()}`,
+      //   );
       return false;
     }
   }
