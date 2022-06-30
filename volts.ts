@@ -4,6 +4,8 @@ import Diagnostics from 'Diagnostics';
 import Reactive from 'Reactive';
 import Time from 'Time';
 import Blocks from 'Blocks';
+import CameraInfo from 'CameraInfo';
+import Materials from 'Materials';
 
 // 👇 may be dynamically imported using `require`
 let Persistence: {
@@ -19,7 +21,7 @@ let Persistence: {
  * Plugins are stored on `_plugins`
  * `plugins` is a creator-facing interface
  */
-const _plugins = {};
+const _plugins: { [key: string]: VoltsPlugin } = {};
 
 export const plugins: {
   oimo: typeof import('./oimo.plugin');
@@ -32,7 +34,7 @@ export const plugins: {
  * @description Allows the dynamic import of Volts' plugins
  * @see https://github.com/facebook/react-native/issues/6391#issuecomment-194581270
  */
-function safeImportPlugins(name: string, version?: number | string) {
+function safeImportPlugins(name: string, version?: number | string): VoltsPlugin {
   if (!_plugins[name]) {
     const fileName = `${name}.plugin.js`;
     try {
@@ -47,6 +49,8 @@ function safeImportPlugins(name: string, version?: number | string) {
         report(
           `Plugin versions for "${name}" do not match. Expected version: ${version}, but received "${_plugins[name].VERSION}". Please make sure you include a compatible version of "${name}" in your project.`,
         ).asIssue('error');
+      if (_plugins[name].onImport && !_plugins[name].onImport())
+        report(`Plugin "${name} onImport function failed. Please check with the Plugin's creator"`);
     } catch (error) {
       report(
         `Could not find module "${name}". Please make sure you include the "${fileName}" file in your project.\n${error}`,
@@ -67,18 +71,34 @@ interface FixedLengthArray<T, L extends number> extends Array<T> {
   length: L;
 }
 
+// https://stackoverflow.com/a/53808212
+type IfEquals<T, U, Y = unknown, N = never> = (<G>() => G extends T ? 1 : 2) extends <G>() => G extends U ? 1 : 2
+  ? Y
+  : N;
+
 interface VoltsPlugin {
   VERSION: number | string;
+  onImport?: () => boolean;
   [key: string]: any;
 }
 
 type Snapshot = {
-  [key: string]: ScalarSignal | Vec2Signal | VectorSignal | Vec4Signal | StringSignal | BoolSignal | QuaternionSignal;
+  [key: string]:
+    | ScalarSignal
+    | Vec2Signal
+    | VectorSignal
+    | PointSignal
+    | Vec4Signal
+    | StringSignal
+    | BoolSignal
+    | QuaternionSignal;
 };
 
 type getDimsOfSignal<S> = S extends Vec4Signal
   ? 'x4' | 'y4' | 'z4' | 'w4'
   : S extends VectorSignal
+  ? 'x3' | 'y3' | 'z3'
+  : S extends PointSignal
   ? 'x3' | 'y3' | 'z3'
   : S extends Vec2Signal
   ? 'x2' | 'y2'
@@ -89,7 +109,7 @@ type getDimsOfSignal<S> = S extends Vec4Signal
 type ObjectToSnapshotable<Obj> = {
   [Property in keyof Obj as `${Obj[Property] extends ISignal
     ? `CONVERTED::${Property extends string ? Property : never}::${getDimsOfSignal<Obj[Property]>}::UUID` & string
-    : never}`]: Obj[Property] extends Vec2Signal | VectorSignal | Vec4Signal | QuaternionSignal
+    : never}`]: Obj[Property] extends Vec2Signal | VectorSignal | PointSignal | Vec4Signal | QuaternionSignal
     ? ScalarSignal
     : Obj[Property];
 };
@@ -98,6 +118,8 @@ type SnapshotToVanilla<Obj> = {
   [Property in keyof Obj]: Obj[Property] extends Vec2Signal
     ? Vector<2>
     : Obj[Property] extends VectorSignal
+    ? Vector<3>
+    : Obj[Property] extends PointSignal
     ? Vector<3>
     : Obj[Property] extends Vec4Signal
     ? Vector<4>
@@ -349,10 +371,10 @@ report.getSceneInfo = async function (
  * ```
  */
 export function transformAcrossSpaces(
-  vec: VectorSignal,
+  vec: VectorSignal | PointSignal,
   vecParentSpace: TransformSignal,
   targetParentSpace: TransformSignal,
-): VectorSignal {
+): PointSignal {
   if (!(vec && vec.z && vec.pinLastValue))
     throw new Error(`@ transformAcrossSpaces: Argument vec is not defined, or is not a VectorSignal`);
   if (!(vecParentSpace && vecParentSpace.inverse && vecParentSpace.pinLastValue))
@@ -370,6 +392,39 @@ export const randomBetween = (min: number, max: number): number => {
 };
 //#endregion
 
+//#region HSVtoRGB
+/**
+ * @see https://stackoverflow.com/a/54024653
+ */
+export function hsv2rgb(h: number, s: number, v: number): [number, number, number] {
+  h *= 360;
+  /* istanbul ignore next */
+  const f = (n: number, k = (n + h / 60) % 6) => v - v * s * Math.max(Math.min(k, 4 - k, 1), 0);
+  return [f(5), f(3), f(1)];
+}
+//#endregion
+
+//#region allBinaryOptions
+
+export function allBinaryOptions(len: number, a: number, b: number): (typeof a | typeof b)[][] {
+  const binary: (typeof a | typeof b)[][] = [];
+  for (let index = 0; index < 2 ** len; index++) {
+    const binaryString = index.toString(2);
+    binary.push(
+      (
+        Array(len - binaryString.length)
+          .fill('0')
+          .join('') + binaryString
+      )
+        .split('')
+        .map((n) => (Number(n) ? a : b)),
+    );
+  }
+  return binary;
+}
+
+//#endregion
+
 //#endregion
 
 //#region World
@@ -384,6 +439,7 @@ interface InternalSignals {
   __volts__internal__time: number;
   __volts__internal__focalDistance: number;
   __volts__internal__screen: Vector<3>;
+  __volts__internal__screenSizePixels: Vector<2>;
 }
 
 interface Events<S extends Snapshot> {
@@ -408,7 +464,7 @@ interface InternalWorldData {
 }
 
 interface WorldConfig {
-  mode: keyof typeof PRODUCTION_MODES;
+  mode: keyof typeof PRODUCTION_MODES | `${number}x${number}`;
   assets?: { [key: string]: Promise<any | any[]> };
   snapshot?: Snapshot;
   loadStates?: State<any> | State<any>[];
@@ -424,7 +480,8 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
       ? C
       : never;
   };
-  public mode: keyof typeof PRODUCTION_MODES;
+
+  public mode: keyof typeof PRODUCTION_MODES | `${number}x${number}`;
 
   private constructor() {
     this.mode = VoltsWorld.userConfig.mode;
@@ -440,7 +497,7 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
       timedEvents: [],
       // @ts-ignore missing props are assigned at runtime
       userFriendlySnapshot: {},
-      formattedValuesToSnapshot: this.signalsToSnapshot_able(VoltsWorld.userConfig.snapshot),
+      formattedValuesToSnapshot: {},
       FLAGS: {
         stopTimeout: false,
         lockInternalSnapshotOverride: false,
@@ -448,6 +505,10 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
       quaternions: new Map<string, boolean>(),
       Camera: null,
     };
+
+    // Quaternion support needs the internalData.quaternion map
+    this.internalData.formattedValuesToSnapshot = this.signalsToSnapshot_able(VoltsWorld.userConfig.snapshot);
+
     // Making the promise public makes it easier to test with Jest
     // Using Object.define so it doesn't show on the type def & doesn't raise ts errors
     Object.defineProperty(this, 'rawInitPromise', {
@@ -476,7 +537,7 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
           `@ VoltsWorld.getInstance: 'config.mode' was not provided, but is required when creating the first instance`,
         );
       // @ts-expect-error
-      if (!Object.values(PRODUCTION_MODES).includes(config.mode))
+      if (!Object.values(PRODUCTION_MODES).includes(config.mode) && config.mode.indexOf('x') === -1)
         throw new Error(
           `@ VoltsWorld.getInstance: 'config.mode' was provided, but was not valid.\n\nAvailable modes are: ${Object.values(
             PRODUCTION_MODES,
@@ -509,13 +570,15 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
   }
   private async init(assets: WorldConfig['assets'], states: State<any>[]): Promise<void> {
     this.internalData.Camera = (await Scene.root.findFirst('Camera')) as Camera;
-    this.addToSnapshot({
-      __volts__internal__focalDistance: this.internalData.Camera.focalPlane.distance,
-      __volts__internal__time: Time.ms,
-      __volts__internal__screen: Scene.unprojectToFocalPlane(Reactive.point2d(0, 0)),
-    });
+    if (!this.internalData.FLAGS.lockInternalSnapshotOverride)
+      this.addToSnapshot({
+        __volts__internal__focalDistance: this.internalData.Camera.focalPlane.distance,
+        __volts__internal__time: Time.ms,
+        __volts__internal__screen: Scene.unprojectToFocalPlane(Reactive.point2d(0, 0)),
+        __volts__internal__screenSizePixels: CameraInfo.previewSize,
+      });
+    // (three internal keys are manually deleted on load)
     this.internalData.FLAGS.lockInternalSnapshotOverride = true;
-
     // load states
     // States are automatically loaded when created
     // @ts-ignore loadState is purposely not part of the type
@@ -541,11 +604,12 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
   public run(): boolean {
     if (this.internalData.running) return false;
 
+    this.internalData.FLAGS.stopTimeout = false;
     this.internalData.running = true;
     // Fun fact: Time.setTimeoutWithSnapshot will run even if the Studio is paused
     // Meaning this would keep executing, along with any onFrame function
     // For DEV purposes, the function will not execute if it detects the studio is on pause
-    // This won't be the case when the mode is set to PROD, in case some device has undocumented behaviour within the margin of error (3 frames)
+    // This won't be the case when the mode is set to PROD, in case some device has undocumented behavior within the margin of error (3 frames)
     const lastThreeFrames: number[] = [];
     let offset = 0;
 
@@ -555,7 +619,7 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
         (_: number, snapshot: any) => {
           //#region Snapshot
           snapshot = this.formattedSnapshotToUserFriendly(snapshot);
-          this.internalData.userFriendlySnapshot = snapshot;
+          this.internalData.userFriendlySnapshot = { ...this.internalData.userFriendlySnapshot, ...snapshot };
           //#endregion
 
           //#region Capture data & analytics
@@ -576,7 +640,6 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
           }
           //#endregion
 
-          //#region Duct tape
           // For DEV purposes, the function will not execute if it detects the studio is on pause
           if (
             lastThreeFrames[0] === lastThreeFrames[1] &&
@@ -584,27 +647,39 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
             VoltsWorld.userConfig.mode !== PRODUCTION_MODES.PRODUCTION
           )
             return loop();
-          //#endregion
 
-          //#region onLoad function
-          VoltsWorld.userConfig.mode !== PRODUCTION_MODES.NO_AUTO &&
-            this.internalData.frameCount === 0 &&
-            this.emitEvent('load', this.internalData.userFriendlySnapshot);
-          //#endregion
+          const run = () => {
+            const onFramePerformanceData = { fps, delta, frameCount: this.internalData.frameCount };
+            this.runTimedEvents(onFramePerformanceData);
+            this.emitEvent('frameUpdate', this.internalData.userFriendlySnapshot, onFramePerformanceData);
+            this.internalData.frameCount += 1;
+            if (!this.internalData.FLAGS.stopTimeout) return loop();
+          };
 
-          //#region onRun/onFrame
-          const onFramePerformanceData = { fps, delta, frameCount: this.internalData.frameCount };
-          this.runTimedEvents(onFramePerformanceData);
-          this.emitEvent('frameUpdate', this.internalData.userFriendlySnapshot, onFramePerformanceData);
-          this.internalData.frameCount += 1;
-          //#endregion
-
-          if (this.w) {
-            this.w.timeElapsed = this.internalData.elapsedTime;
-            this.w.step();
+          if (this.frameCount === 0) {
+            let loadReturn;
+            if (VoltsWorld.userConfig.mode !== PRODUCTION_MODES.NO_AUTO) {
+              // @ts-expect-error
+              delete this.internalData.formattedValuesToSnapshot['__volts__internal__screen']; // @ts-expect-error
+              delete this.internalData.formattedValuesToSnapshot['__volts__internal__screenSizePixels']; // @ts-expect-error
+              delete this.internalData.formattedValuesToSnapshot['__volts__internal__focalDistance'];
+              if (this.mode.indexOf('x') !== -1) {
+                this.mode = this.internalData.userFriendlySnapshot.__volts__internal__screenSizePixels.equals(
+                  new Vector(this.mode.split('x').map((n) => Number(n))),
+                )
+                  ? 'DEV'
+                  : 'PRODUCTION';
+              }
+              this.emitEvent('load', this.internalData.userFriendlySnapshot);
+            }
+            if (loadReturn && loadReturn.then) {
+              loadReturn.then(run);
+            } else {
+              run();
+            }
+          } else {
+            run();
           }
-
-          if (!this.internalData.FLAGS.stopTimeout) return loop();
         },
         0,
       );
@@ -626,9 +701,16 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
   get snapshot(): SnapshotToVanilla<WorldConfigParams['snapshot']> & { [key: string]: any } {
     return this.internalData.userFriendlySnapshot;
   }
+  /**
+   * @description Runs World.init. **This is NOT RECOMMENDED**. This function will not load new assets or states.
+   */
   public forceAssetReload(): Promise<void> {
     return this.internalData.initPromise();
   }
+  /**
+   * @description Freezes the World instance in time.
+   * @returns
+   */
   public stop({ clearTimedEvents } = { clearTimedEvents: false }): boolean {
     if (!this.internalData.running) return false;
 
@@ -670,7 +752,7 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
     (this.internalData.events[event] = this.internalData.events[event] || []).push(cb);
     return () => (this.internalData.events[event] = (this.internalData.events[event] || []).filter((i) => i !== cb));
   }
-  public onNextTick(cb): { clear: () => void } {
+  public onNextTick(cb: () => void): { clear: () => void } {
     return this.setTimedEvent(cb, { ms: 0, recurring: false, onNext: this.frameCount });
   }
   /**
@@ -861,7 +943,12 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
     return result;
   }
 
-  public addToSnapshot(obj: Snapshot): void {
+  public addToSnapshot(obj: Snapshot = {}): void {
+    if (
+      this.internalData.FLAGS.lockInternalSnapshotOverride &&
+      !Object.keys(obj).every((k) => k.indexOf('__volts__internal') === -1)
+    )
+      throw new Error('Cannot override internal key after the internal snapshot override has been locked');
     this.internalData.formattedValuesToSnapshot = Object.assign(
       this.internalData.formattedValuesToSnapshot,
       this.signalsToSnapshot_able(obj),
@@ -870,6 +957,11 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
 
   public removeFromSnapshot(keys: string | string[]): void {
     const keysToRemove = Array.isArray(keys) ? keys : [keys];
+    if (
+      this.internalData.FLAGS.lockInternalSnapshotOverride &&
+      !keysToRemove.every((k) => k.indexOf('__volts__internal') === -1)
+    )
+      throw new Error('Cannot remove internal key after the internal snapshot override has been locked');
     const snapKeys = Object.keys(this.internalData.formattedValuesToSnapshot);
     const matches = snapKeys.filter((k) => keysToRemove.indexOf(k.split('::')[1]) !== -1);
 
@@ -921,7 +1013,7 @@ interface NDVectorInstance<D extends number> {
   toArray(): number[];
   get x(): number;
   set x(x: number);
-  get signal(): D extends 2 ? Vec2Signal : D extends 3 ? VectorSignal : D extends 4 ? Vec4Signal : ScalarSignal;
+  get signal(): D extends 2 ? Vec2Signal : D extends 3 ? PointSignal : D extends 4 ? Vec4Signal : ScalarSignal;
   setSignalComponents(): void;
   disposeSignalResources(): void;
 }
@@ -942,7 +1034,9 @@ interface Vector3DInstance {
   set y(y: number);
   get z(): number;
   set z(z: number);
+  get pointSignal(): PointSignal;
   cross(...args: VectorArgRest<3>): Vector<3>;
+  applyQuaternion(q: Quaternion): Vector<3>;
 }
 
 interface Vector4DInstance {
@@ -975,7 +1069,7 @@ interface NDVector {
     : never;
   convertToSameDimVector<D extends number>(dim: D, ...args: VectorArgRest): Vector<D>;
   screenToWorld(x: number, y: number, focalPlane: boolean): Vector<3>;
-  fromSignal<sT extends ScalarSignal | Vec2Signal | VectorSignal | Vec4Signal>(
+  fromSignal<sT extends ScalarSignal | Vec2Signal | VectorSignal | PointSignal | Vec4Signal>(
     s: sT,
   ): Vector<
     sT extends ScalarSignal
@@ -983,6 +1077,8 @@ interface NDVector {
       : sT extends Vec2Signal
       ? 2
       : sT extends VectorSignal
+      ? 3
+      : sT extends PointSignal
       ? 3
       : sT extends Vec4Signal
       ? 4
@@ -1011,10 +1107,7 @@ export type Vector<D extends number> = NDVectorInstance<D> & getVecTypeForD<D>;
  * Note: this is not optimized for incredible performance, but it provides a lot of flexibility to users of the framework/lib
  */
 
-export const Vector = function <D extends number, args extends VectorArgRest = []>(
-  this: Vector<number>,
-  ...args: args
-): Vector<D> {
+export const Vector = function <D extends number>(this: Vector<number>, ...args: VectorArgRest): Vector<D> {
   if (args[0] instanceof Vector) {
     // @ts-ignore
     return args[0].copy();
@@ -1027,53 +1120,107 @@ export const Vector = function <D extends number, args extends VectorArgRest = [
   } else {
     this.values = args as number[];
   }
-  if (!this.values.every((v) => typeof v === 'number') || this.values.length === 0)
+  let e = this.values.length === 0;
+  for (let i = 0; i < this.values.length; i++) {
+    e = e || typeof this.values[i] !== 'number';
+  }
+  if (e)
     throw new Error(`@ Vector.constructor: Values provided are not valid. args: ${args}. this.values: ${this.values}`);
   // @ts-expect-error
   this.dimension = this.values.length;
-
-  // prettier-ignore
-  Object.defineProperties(this, {
-    x: {
-      get:    () =>{                                                                                    return this.values[0]},
-      set:    (x)=>{                                                                                    this.values[0] = x}},
-    y: {
-      get:    () =>{if (this.dimension < 2) throw new Error(`Cannot get Vector.y, vector is a scalar`); return this.values[1]},
-      set:    (y)=>{if (this.dimension < 2) throw new Error(`Cannot get Vector.y, vector is a scalar`); this.values[1] = y}},
-    z: {
-      get:    () =>{if (this.dimension < 3) throw new Error(`Cannot get Vector.z, vector is not 3D`);   return this.values[2]},
-      set:    (z)=>{if (this.dimension < 3) throw new Error(`Cannot get Vector.z, vector is not 3D`);   this.values[2] = z}},
-    w: {
-      get:    () =>{if (this.dimension < 4) throw new Error(`Cannot get Vector.w, vector is not 4D`);   return this.values[3]},
-      set:    (w)=>{if (this.dimension < 4) throw new Error(`Cannot get Vector.w, vector is not 4D`);   this.values[3] = w}
-    },
-    signal: {
-      get: () => {
-          // @ts-expect-error
-          if (this.rs) return this.rs;
-
-          for (let index = 0; index < this.dimension; index++) {
-            const c = Vector.components[index];
-            this[`r${c}`] = Reactive.scalarSignalSource(`v${this.dimension}-${c}-${getUUIDv4()}`);
-            this[`r${c}`].set(this[c]);
-          };
-
-          if (this.dimension === 1) {this.rs = this.rx.signal}
-          else if (this.dimension === 2) {this.rs = Reactive.point2d(this.rx.signal, this.ry.signal)}
-          else if (this.dimension === 3) {this.rs = Reactive.vector(this.rx.signal, this.ry.signal, this.rz.signal)}
-          else if (this.dimension === 4)  {this.rs = Reactive.pack4(this.rx.signal, this.ry.signal, this.rz.signal, this.rw.signal)}
-          else {
-            throw new Error(`Tried to get the Signal of a N>4 Vector instance. Signals are only available for Vectors with up to 4 dimensions`);
-          };
-
-          return this.rs;
-        
-      }
-    }
-  });
-
+  // @ts-expect-error
   return this;
 } as unknown as NDVector;
+
+Object.defineProperties(Vector.prototype, {
+  x: {
+    get: function () {
+      return this.values[0];
+    },
+    set: function (x) {
+      this.values[0] = x;
+    },
+  },
+  y: {
+    get: function () {
+      if (this.dimension < 2) throw new Error(`Cannot get Vector.y, vector is a scalar`);
+      return this.values[1];
+    },
+    set: function (y) {
+      if (this.dimension < 2) throw new Error(`Cannot get Vector.y, vector is a scalar`);
+      this.values[1] = y;
+    },
+  },
+  z: {
+    get: function () {
+      if (this.dimension < 3) throw new Error(`Cannot get Vector.z, vector is not 3D`);
+      return this.values[2];
+    },
+    set: function (z) {
+      if (this.dimension < 3) throw new Error(`Cannot get Vector.z, vector is not 3D`);
+      this.values[2] = z;
+    },
+  },
+  w: {
+    get: function () {
+      if (this.dimension < 4) throw new Error(`Cannot get Vector.w, vector is not 4D`);
+      return this.values[3];
+    },
+    set: function (w) {
+      if (this.dimension < 4) throw new Error(`Cannot get Vector.w, vector is not 4D`);
+      this.values[3] = w;
+    },
+  },
+  signal: {
+    get: function () {
+      if (this.rs) return this.rs;
+
+      const uuid = getUUIDv4(),
+        vals = this.values;
+      for (let index = 0; index < this.dimension; index++) {
+        const c = Vector.components[index];
+        this[`r${c}`] = Reactive.scalarSignalSource(`v${this.dimension}-${c}-${uuid}`);
+        this[`r${c}`].set(vals[index]);
+      }
+
+      if (this.dimension === 1) {
+        this.rs = this.rx.signal;
+      } else if (this.dimension === 2) {
+        this.rs = Reactive.point2d(this.rx.signal, this.ry.signal);
+      } else if (this.dimension === 3) {
+        this.rs = Reactive.vector(this.rx.signal, this.ry.signal, this.rz.signal);
+      } else if (this.dimension === 4) {
+        this.rs = Reactive.pack4(this.rx.signal, this.ry.signal, this.rz.signal, this.rw.signal);
+      } else {
+        throw new Error(
+          `Tried to get the Signal of a N>4 Vector instance. Signals are only available for Vectors with up to 4 dimensions`,
+        );
+      }
+
+      return this.rs;
+    },
+  },
+  pointSignal: {
+    get: function () {
+      // reactive point signal
+      if (this.rps) return this.rps;
+      if (this.dimension !== 3)
+        throw new Error(`@Vector.pointSignal accessor only available on 3D Vectors. Please use Vector.signal instead`);
+
+      const uuid = getUUIDv4(),
+        vals = this.values;
+      for (let index = 0; index < 3; index++) {
+        const c = Vector.components[index];
+        this[`r${c}`] = Reactive.scalarSignalSource(`v${this.dimension}-${c}-${uuid}`);
+        this[`r${c}`].set(vals[index]);
+      }
+
+      this.rps = Reactive.point(this.rx.signal, this.ry.signal, this.rz.signal);
+
+      return this.rps;
+    },
+  },
+});
 
 //#region static
 Vector.convertToSameDimVector = function <D extends number>(dim: D, ...args: VectorArgRest): Vector<D> {
@@ -1120,7 +1267,7 @@ Vector.screenToWorld = function (x: number, y: number, focalPlane = true): Vecto
     focalPlane ? (Instance.snapshot.__volts__internal__focalDistance as unknown as number) : 0,
   );
 };
-Vector.fromSignal = function <sT extends ScalarSignal | Vec2Signal | VectorSignal | Vec4Signal>(
+Vector.fromSignal = function <sT extends ScalarSignal | Vec2Signal | VectorSignal | PointSignal | Vec4Signal>(
   s: any,
 ): Vector<
   sT extends ScalarSignal
@@ -1128,6 +1275,8 @@ Vector.fromSignal = function <sT extends ScalarSignal | Vec2Signal | VectorSigna
     : sT extends Vec2Signal
     ? 2
     : sT extends VectorSignal
+    ? 3
+    : sT extends PointSignal
     ? 3
     : sT extends Vec4Signal
     ? 4
@@ -1144,17 +1293,18 @@ Vector.fromSignal = function <sT extends ScalarSignal | Vec2Signal | VectorSigna
   }
   return new Vector(tmp);
 };
-Vector.random2D = function random2D(): Vector<2> {
+
+Vector.random2D = function random2D(magnitude = 1): Vector<2> {
   const angle = Math.random();
-  return new Vector(Math.cos(angle), Math.sin(angle));
+  return new Vector(Math.cos(angle) * magnitude, Math.sin(angle) * magnitude);
 };
-Vector.random3D = function random3D(): Vector<3> {
+Vector.random3D = function random3D(magnitude = 1): Vector<3> {
   const angle = Math.random() * TWO_PI;
   const vz = Math.random() * 2 - 1;
   const vzBase = Math.sqrt(1 - vz * vz);
   const vx = vzBase * Math.cos(angle);
   const vy = vzBase * Math.sin(angle);
-  return new Vector(vx, vy, vz);
+  return new Vector(vx * magnitude, vy * magnitude, vz * magnitude);
 };
 Vector.components = ['x', 'y', 'z', 'w'];
 //#endregion
@@ -1176,7 +1326,7 @@ Vector.prototype.mul = function <D extends number>(this: Vector<D>, ...args: Vec
 };
 Vector.prototype.div = function <D extends number>(this: Vector<D>, ...args: VectorArgRest): Vector<D> {
   const b = Vector.convertToSameDimVector(this.dimension, ...args).values;
-  if (![...this.values, ...b].every((v) => typeof v === 'number' && Number.isFinite(v) && v !== 0)) {
+  if (!([...this.values, ...b].every((v) => typeof v === 'number' && Number.isFinite(v)) && b.every((v) => v !== 0))) {
     throw new Error(`@ Vector.div: values provided are not valid. this value(s): ${this.values}\n\nb value(s): ${b}`);
   }
   this.values = this.values.map((v, i) => v / b[i]);
@@ -1248,6 +1398,30 @@ Vector.prototype.cross = function (this: Vector<3>, ...args: VectorArgRest): Vec
     this.values[2] * b.values[0] - this.values[0] * b.values[2],
     this.values[0] * b.values[1] - this.values[1] * b.values[0],
   );
+};
+/** @see https://math.stackexchange.com/questions/40164/how-do-you-rotate-a-vector-by-a-unit-quaternion */
+Vector.prototype.applyQuaternion = function (this: Vector<3>, q: Quaternion): Vector<3> {
+  q = q.normalized;
+  const x = this.x,
+    y = this.y,
+    z = this.z;
+  const qx = q.x,
+    qy = q.y,
+    qz = q.z,
+    qw = q.w;
+
+  const ix = qw * x + qy * z - qz * y;
+  const iy = qw * y + qz * x - qx * z;
+  const iz = qw * z + qx * y - qy * x;
+  const iw = -qx * x - qy * y - qz * z;
+
+  this.values = [
+    ix * qw + iw * -qx + iy * -qz - iz * -qy,
+    iy * qw + iw * -qy + iz * -qx - ix * -qz,
+    iz * qw + iw * -qz + ix * -qy - iy * -qx,
+  ];
+
+  return this;
 };
 //#endregion
 //#region Vector<2>
@@ -1352,6 +1526,7 @@ export class Quaternion {
   static lookAt(sourcePoint: Vector<3>, destPoint: Vector<3>): Quaternion {
     const forwardVector = destPoint.copy().sub(sourcePoint).normalize();
     const dot = new Vector(0, 0, 1).dot(forwardVector);
+    // @todo replace with a single if statement that gets skipped if none are met
     if (Math.abs(dot + 1.0) < 0.000001) {
       return new Quaternion(0, 1, 0, PI);
     }
@@ -1373,17 +1548,17 @@ export class Quaternion {
     // The assumptions above allow for skipping some calculations, since multiplying/adding 0 is irrelevant
     const forwardVector: number[] = [...headingVector3DArray];
     let mag = Math.sqrt(forwardVector[0] ** 2 + forwardVector[1] ** 2 + forwardVector[2] ** 2);
-    forwardVector[0] /= mag;
-    forwardVector[1] /= mag;
-    forwardVector[2] /= mag;
+    mag !== 0 && (forwardVector[0] /= mag);
+    mag !== 0 && (forwardVector[1] /= mag);
+    mag !== 0 && (forwardVector[2] /= mag);
     const dot = forwardVector[2];
     if (Math.abs(dot + 1) < 0.00001) return new Quaternion(0, 1, 0, PI);
     if (Math.abs(dot - 1) < 0.00001) return new Quaternion(1, 0, 0, 0);
     let rotAngle = Math.acos(dot);
     const rotAxis = [-forwardVector[1], forwardVector[0], 0];
-    mag = Math.sqrt(rotAxis[0] ** 2 + rotAxis[1] ** 2);
-    rotAxis[0] /= mag;
-    rotAxis[1] /= mag;
+    mag = (rotAxis[0] ** 2 + rotAxis[1] ** 2) ** 0.5;
+    mag !== 0 && (rotAxis[0] /= mag);
+    mag !== 0 && (rotAxis[1] /= mag);
     rotAngle *= 0.5;
     const s = Math.sin(rotAngle);
     return new Quaternion(Math.cos(rotAngle), rotAxis[0] * s, rotAxis[1] * s, rotAxis[2] * s);
@@ -1402,6 +1577,38 @@ export class Quaternion {
     // let cosy_cosp = 1 - 2 * (q[2] * q[2] + q[3] * q[3]);
     // angles[2] = Math.atan2(siny_cosp, cosy_cosp);
     // return new EulerAngles(angles);
+  }
+  static slerp(q1: Quaternion, q2: Quaternion, t: number): Quaternion {
+    const q = new Quaternion();
+    const cosHalfTheta = q1.w * q2.w + q1.x * q2.x + q1.y * q2.y + q1.z * q2.z;
+
+    if (Math.abs(cosHalfTheta) >= 1.0) {
+      q.w = q1.w;
+      q.x = q1.x;
+      q.y = q1.y;
+      q.z = q1.z;
+      return q;
+    }
+
+    const halfTheta = Math.acos(cosHalfTheta);
+    const sinHalfTheta = (1.0 - cosHalfTheta * cosHalfTheta) ** 0.5;
+
+    if (Math.abs(sinHalfTheta) < 0.001) {
+      q.w = q1.w * 0.5 + q2.w * 0.5;
+      q.x = q1.x * 0.5 + q2.x * 0.5;
+      q.y = q1.y * 0.5 + q2.y * 0.5;
+      q.z = q1.z * 0.5 + q2.z * 0.5;
+      return q;
+    }
+    const ra = Math.sin((1 - t) * halfTheta) / sinHalfTheta;
+    const rb = Math.sin(t * halfTheta) / sinHalfTheta;
+
+    q.w = q1.w * ra + q2.w * rb;
+    q.x = q1.x * ra + q2.x * rb;
+    q.y = q1.y * ra + q2.y * rb;
+    q.z = q1.z * ra + q2.z * rb;
+
+    return q;
   }
   public toQuaternionSignal(): QuaternionSignal {
     return Reactive.quaternion(this.values[0], this.values[1], this.values[2], this.values[3]);
@@ -1532,10 +1739,12 @@ export class Quaternion {
     // @ts-expect-error
     if (this.rs) return this.rs;
 
-    for (let index = 0; index < Quaternion.components.length; index++) {
+    const uuid = getUUIDv4(),
+      vals = this.values;
+    for (let index = 0; index < 4; index++) {
       const c = Quaternion.components[index];
-      this[`r${c}`] = Reactive.scalarSignalSource(`quat-${c}-${getUUIDv4()}`);
-      this[`r${c}`].set(this[c]);
+      this[`r${c}`] = Reactive.scalarSignalSource(`quat-${c}-${uuid}`);
+      this[`r${c}`].set(vals[index]);
     }
 
     // @ts-expect-error
@@ -1561,7 +1770,7 @@ Quaternion.components = ['w', 'x', 'y', 'z'];
  * This feature is still on an early state
  * @see https://github.com/tomaspietravallo/sparkar-volts/issues/4
  */
-export class State<Data extends { [key: string]: Vector<any> | number | string | boolean }> {
+export class State<Data extends { [key: string]: Vector<any> | Quaternion | number | string | boolean }> {
   protected _data: { [Property in keyof Data]+?: Data[Property] };
   protected key: string;
   protected loaded: boolean;
@@ -1649,9 +1858,9 @@ export class State<Data extends { [key: string]: Vector<any> | number | string |
    * @todo Add support for Reactive values
    * @body Improve the use experience by allowing Reactive values to be used as values
    */
-  setValue(key: keyof Data, value: Vector<any> | number | string | boolean): void {
+  setValue(key: keyof Data, value: Data[typeof key]): void {
     // @ts-ignore
-    this.data[key] = value instanceof Vector ? value.copy() : value;
+    this.data[key] = value instanceof Vector ? value.copy() : value instanceof Quaternion ? value.copy() : value;
     // rate limit (?)
     this.setPersistenceAPI();
   }
@@ -1661,171 +1870,13 @@ export class State<Data extends { [key: string]: Vector<any> | number | string |
   }
 }
 
+// new State<{a: Vector<3>}>('any').setValue('a', true);
+
 //#endregion
 
 //#region Object3D
 
-/**
- * @description A base type to be implemented by other classes that want to implement Object3D-like behaviour.
- *
- * Named `Skeleton` instead of `Base` to avoid confusion with Spark's class names
- */
-export interface Object3DSkeleton {
-  pos: Vector<3>;
-  rot: Quaternion;
-  update(): void;
-}
-
-export class Object3D<T extends SceneObjectBase> implements Object3DSkeleton {
-  protected _pos: Vector<3>;
-  protected _rot: Quaternion;
-  public vel: Vector<3>;
-  public acc: Vector<3>;
-  public size: Vector<3>;
-  public body: T;
-  public readonly UUID: string;
-  constructor(body: T) {
-    this._pos = new Vector();
-    this._rot = new Quaternion();
-    this.vel = new Vector();
-    this.acc = new Vector();
-    this.size = new Vector();
-    this.body = body;
-    this.UUID = getUUIDv4();
-    if (!(this.body && this.body.transform)) {
-      throw new Error(
-        `Object3D.constructor: Object body "${
-          this.body && this.body.name ? this.body.name : this.body
-        }" is not a valid Object3D body (needs to extend SceneObjectBase)`,
-      );
-    }
-    this.body.transform.position = this._pos.signal;
-    this.body.transform.rotation = this._rot.signal;
-  }
-  async stayInPlace(): Promise<void> {
-    return await Promise.all([this.fetchLastPosition(), this.fetchLastRotation(), this.fetchSize()]).then(
-      ([pos, rot, size]) => {
-        this._pos.values = pos.values;
-        this._rot.values = rot.values;
-        this.size.values = size.values;
-      },
-    );
-  }
-  async fetchLastPosition(): Promise<Vector<3>> {
-    const Instance = World.getInstance(false);
-    if (!Instance) throw new Error(`No VOLTS.World Instance found`);
-    const props: { [key: string]: any } = {};
-    props[this.UUID + 'pos'] = this.body.transform.position;
-    Instance.addToSnapshot(props);
-    return await new Promise((resolve) => {
-      Instance.onNextTick(() => {
-        Instance.removeFromSnapshot(this.UUID + 'pos');
-        resolve(Instance.snapshot[this.UUID + 'pos']);
-      });
-    });
-  }
-  async fetchLastRotation(): Promise<Quaternion> {
-    const Instance = World.getInstance(false);
-    if (!Instance) throw new Error(`No VOLTS.World Instance found`);
-    const props: { [key: string]: any } = {};
-    props[this.UUID + 'rot'] = this.body.transform.rotation;
-    Instance.addToSnapshot(props);
-    return await new Promise((resolve) => {
-      Instance.onNextTick(() => {
-        Instance.removeFromSnapshot(this.UUID + 'rot');
-        resolve(Instance.snapshot[this.UUID + 'rot']);
-      });
-    });
-  }
-  async fetchSize(): Promise<Vector<3>> {
-    const Instance = World.getInstance(false);
-    if (!Instance) throw new Error(`No VOLTS.World Instance found`);
-    const props: { [key: string]: any } = {};
-    props[this.UUID + 'size'] = this.body.boundingBox.max.sub(this.body.boundingBox.min);
-    Instance.addToSnapshot(props);
-    return await new Promise((resolve) => {
-      Instance.onNextTick(() => {
-        const snap = Instance.snapshot[this.UUID + 'size'];
-        if (JSON.stringify(snap).indexOf('null,null,null') !== -1)
-          report('Cannot run Object3D.fetchSize on non-mesh object').asBackwardsCompatibleDiagnosticsError();
-        Instance.removeFromSnapshot(this.UUID + 'size');
-        resolve(Instance.snapshot[this.UUID + 'size']);
-      });
-    });
-  }
-  update(update: { position?: boolean; rotation?: boolean } = { position: true, rotation: true }): void {
-    if (update.position) this._pos.setSignalComponents();
-    if (update.rotation) this._rot.setSignalComponents();
-  }
-  lookAtOther(otherObject: Object3DSkeleton): void {
-    this._rot.values = Quaternion.lookAt(this.pos, otherObject.pos).values;
-  }
-  lookAtHeading(): void {
-    this._rot.values = Quaternion.lookAtOptimized(this.vel.values).values;
-  }
-  /**
-   * @description Uses the Oimo plugin to implement RigidBody physics
-   *
-   * **This is BETA functionality**, it will likely change in future versions.
-   *
-   * There may be no warning about breaking changes, please aware of this.
-   *
-   * @requires module:oimo.plugin
-   * @see https://github.com/tomaspietravallo/sparkar-volts/issues/6
-   *
-   * @version 1.0
-   */
-  makeRigidBody(): void {
-    safeImportPlugins('oimo', 1.0);
-    // returns an existing world if found
-    const w = _plugins.oimo.createOimoWorld(
-      { World },
-      {
-        timestep: 1 / 30,
-        iterations: 8,
-        broadphase: 2, // 1 brute force, 2 sweep and prune, 3 volume tree
-        worldscale: 1,
-        random: true,
-        info: false,
-        gravity: [0, -0.9807, 0],
-      },
-    );
-    const o = w.add({
-      type: 'box', // type of shape : sphere, box, cylinder
-      size: this.size.toArray(),
-      pos: this._pos.toArray(),
-      rot: this._rot.toEulerArray().map((v) => v * 57.2958),
-      move: true, // dynamic or static
-      density: 1,
-      friction: 1.0,
-      restitution: 1.0,
-      belongsTo: 1, // The bits of the collision groups to which the shape belongs.
-      collidesWith: 0xffffffff, // The bits of the collision groups with which the shape collides.
-    });
-    o.connectMesh(this);
-    // (new _plugins.oimo.RigidBody())
-  }
-  set pos(xyz: Vector<3>): void {
-    this._pos.values = xyz.values;
-  }
-  get pos(): Vector<3> {
-    return this._pos;
-  }
-  set rot(quat: Quaternion): void {
-    this._rot.values = quat.values;
-  }
-  get rot(): Quaternion {
-    return this._rot;
-  }
-}
-
-//#endregion
-
-//#region Pool
-
-type PooledObject<obj> = obj & { returnToPool: () => void };
-
-enum SceneObjectClassNames {
+export enum SceneObjectClassNames {
   'Plane' = 'Plane',
   'Canvas' = 'Canvas',
   'PlanarImage' = 'PlanarImage',
@@ -1836,6 +1887,133 @@ enum SceneObjectClassNames {
   'ParticleSystem' = 'ParticleSystem',
   'SceneObject' = 'SceneObject',
 }
+
+export enum MaterialClassNames {
+  'DefaultMaterial' = 'DefaultMaterial',
+  'BlendedMaterial' = 'BlendedMaterial',
+  'PhysicallyBasedMaterial' = 'PhysicallyBasedMaterial',
+  'FacePaintMaterial' = 'FacePaintMaterial',
+}
+/**
+ * @description A base type to be implemented by other classes that want to implement Object3D-like behavior.
+ *
+ * Named `Skeleton` instead of `Base` to avoid confusion with Spark's class names
+ */
+export interface Object3DSkeleton {
+  pos: Vector<3>;
+  rot: Quaternion;
+  update(): void;
+}
+
+export class Object3D<T extends SceneObjectBase = any> {
+  pos: Vector<3>;
+  rot: Quaternion;
+  acc: Vector<3>;
+  vel: Vector<3>;
+  scl: Vector<3>;
+  box: Vector<3>;
+  awake: boolean;
+  body: IfEquals<any, T, Promise<SceneObjectBase>, T>;
+
+  constructor(body?: T) {
+    (this.pos = new Vector()),
+      (this.rot = new Quaternion()),
+      (this.acc = new Vector()),
+      (this.vel = new Vector()),
+      (this.scl = new Vector(1, 1, 1)),
+      (this.box = new Vector(0.05)),
+      (this.awake = true);
+
+    /**
+     * The key idea behind this, is decoupling processing from rendering.
+     *
+     * Use `null` to have no body.
+     *
+     * `undefined` will instance an object for you. This choice boils down to two things:
+     *
+     * 1. Non-body objects are useful and should be easy to create
+     *
+     * 2. out of bounds array creating dynamic objects may help identify an issue,
+     * and instancing without hassle can be useful while iterating
+     */
+    this.body = body;
+    if (body !== null) {
+      const p = new Promise<T>((resolve) => {
+        (body ? Promise.resolve(body) : Scene.create('Plane')).then(async (plane: T) => {
+          !body && (await Scene.root.addChild(plane));
+          plane.transform.position = this.pos.signal;
+          plane.transform.rotation = this.rot.signal;
+          plane.transform.scale = this.scl.signal;
+          // Improve with volts snapshot fetch
+          // const boxSignal = plane.getBoundingBox();
+          // box.values = Vector.fromSignal(boxSignal.max.sub(boxSignal.min)).values;
+          // if (box.values.every((v) => v < 1e-6)) throw new Error('1e-6 limit not exceeded ')
+          resolve(plane);
+        });
+      });
+      if (body === undefined || body === null) this.body = p;
+    }
+  }
+
+  lookAtOther(other: Object3D): Object3D {
+    this.rot.values = Quaternion.lookAt(this.pos, other.pos).values;
+    return this;
+  }
+
+  lookAtHeading(): Object3D {
+    this.rot.values = Quaternion.lookAtOptimized(this.vel.values).values;
+    return this;
+  }
+
+  update({ pos, rot }: { pos?: boolean; rot?: boolean } = {}): void {
+    if (pos) this.pos.setSignalComponents();
+    if (rot) this.rot.setSignalComponents();
+  }
+
+  setPos(...newPos: VectorArgRest): Object3D {
+    this.pos.values = Vector.convertToSameDimVector(3, ...newPos).values;
+    return this;
+  }
+
+  setRot(...newRot: QuaternionArgRest): Object3D {
+    this.rot.values = Quaternion.convertToQuaternion(...newRot).values;
+    return this;
+  }
+
+  setScl(...newScl: VectorArgRest): Object3D {
+    this.scl.values = Vector.convertToSameDimVector(3, ...newScl).values;
+    return this;
+  }
+
+  bindMesh(sceneObjectBase: SceneObjectBase): Object3D {
+    sceneObjectBase.transform.position = this.pos.signal;
+    sceneObjectBase.transform.rotation = this.rot.signal;
+    return this;
+  }
+
+  static async createDebugMaterial(hue?: number): Promise<MaterialBase> {
+    if (hue === undefined) hue = 0;
+    return Materials.create(MaterialClassNames.DefaultMaterial, {
+      opacity: 1.0,
+      blendMode: 'ALPHA',
+      doubleSided: true,
+    }).then((m) => {
+      return m.setTextureSlot('DIFFUSE', Reactive.pack4(...hsv2rgb(hue, 1, 1), 1) as any), m;
+    });
+  }
+
+  setMaterial<T extends MaterialBase>(material: T): Object3D {
+    // @ts-expect-error
+    this.body.then ? this.body.then((b) => (b.material = material)) : (this.body.material = material);
+    return this;
+  }
+}
+
+//#endregion
+
+//#region Pool
+
+type PooledObject<obj> = obj & { returnToPool: () => void };
 
 /**
  * @description Still in EARLY development
@@ -1917,43 +2095,189 @@ Pool.SceneObjects = SceneObjectClassNames;
 
 //#endregion
 
-//#region exports
+//#region Cube
 
-interface Privates {
-  clearVoltsWorld: () => void;
-  report: reportFn;
-  promiseAllConcurrent: (n: number, areFn: boolean) => (list: Promise<any>[]) => Promise<any[]>;
-}
-
-/* istanbul ignore next */
-const makeDevEnvOnly = (d: any) => {
-  try {
-    jest;
-    return d;
-  } catch {
-    throw `Cannot read 'private.clearVoltsWorld' in the current environment. To be read by jest/testing env only`;
+export class Cube {
+  public readonly x: number;
+  public readonly y: number;
+  public readonly z: number;
+  public readonly s: number;
+  constructor(origin: Vector<3>, size: number) {
+    if (!(origin && origin.values && Number.isFinite(origin.values[0]) && typeof size === 'number'))
+      throw new Error(`@ Volts.Cube.constructor: Values provided are not valid. origin: ${origin}, size: ${origin}`);
+    this.x = origin.x;
+    this.y = origin.y;
+    this.z = origin.z;
+    this.s = size;
   }
-};
 
-/* istanbul ignore next */
-function privateRead<T extends { [key: string]: any }>(obj: T): T {
-  const tmp = {};
-  const keys = Object.keys(obj);
-  for (let index = 0; index < keys.length; index++) {
-    const k = keys[index];
-    Object.defineProperty(tmp, k, {
-      /* istanbul ignore next */
-      get: () => makeDevEnvOnly(obj[k]),
+  contains(Object3D: Object3D): boolean {
+    return (
+      // The front-bottom-left vertex is contained. This ensures stacked cubes don't overlap
+      Object3D.pos.x >= this.x - this.s &&
+      Object3D.pos.x < this.x + this.s &&
+      Object3D.pos.y >= this.y - this.s &&
+      Object3D.pos.y < this.y + this.s &&
+      Object3D.pos.z >= this.z - this.s &&
+      Object3D.pos.z < this.z + this.s
+    );
+  }
+
+  /**
+   * @description for debugging purposes. Creates dynamic planes two opposing corner
+   */
+  debugVisualize(hue?: number): Promise<void> {
+    const origin = new Vector(this.x, this.y, this.z);
+    hue = hue || Math.random();
+    return Object3D.createDebugMaterial(hue).then((mat) => {
+      allBinaryOptions(3, -this.s, this.s).forEach((o) =>
+        new Object3D(undefined).setPos(origin.copy().add(o)).setScl(0.1).setMaterial(mat),
+      );
     });
   }
-  return obj;
+
+  toString(): string {
+    return `x: ${this.x.toFixed(5)} y: ${this.y.toFixed(5)} z: ${this.z.toFixed(5)} s: ${this.s.toFixed(5)}`;
+  }
 }
 
-export const privates: Privates = privateRead({
+//#endregion
+
+//#region Tree
+
+export class Tree {
+  boundary: Cube;
+  capacity: number;
+  level: number;
+  divided: boolean;
+  points: Tree[] | Object3D[];
+  constructor(boundary: Cube, capacity: number, level: number) {
+    if (!(boundary.contains && typeof capacity === 'number' && typeof level === 'number' && level <= 5))
+      throw new Error(
+        `@ Volts.Tree.constructor: Values provided are not valid. boundary: ${boundary}, capacity: ${capacity}, level: ${level}`,
+      );
+    this.boundary = boundary;
+    this.capacity = capacity;
+    this.level = level;
+    this.points = [];
+    this.divided = false;
+  }
+
+  subdivide(): void {
+    /** @Note COPY OVER CHANGES TO TREE.TEST.TS JEST MOCK */
+    this.divided = true;
+    const cubePos = new Vector(this.boundary.x, this.boundary.y, this.boundary.z);
+    const tmp = this.points as Object3D[];
+    this.points = allBinaryOptions(3, -this.boundary.s / 2, this.boundary.s / 2).map(
+      (o) => new Tree(new Cube(cubePos.copy().add(o), this.boundary.s / 2), this.capacity, this.level + 1),
+    );
+    for (let index = 0; index < tmp.length; index++) {
+      this.insert(tmp[index]);
+    }
+  }
+
+  insert(Object3D: Object3D): boolean {
+    if (this.boundary.contains(Object3D)) {
+      if (this.divided) {
+        for (let index = 0; index < 8; index++) {
+          if ((this.points[index] as Tree).insert(Object3D)) return true;
+        }
+      } else if (!this.divided && this.points.length < this.capacity) {
+        (this.points as Object3D[]).push(Object3D);
+        return true;
+      } else if (!this.divided) {
+        this.subdivide();
+        return this.insert(Object3D);
+      }
+    } else {
+      if (this.level === 0)
+        Diagnostics.warn(
+          `Out of bounds contains on level 0. Tree.boundary: ${this.boundary.toString()}. Point: ${Object3D.pos.toString()}`,
+        );
+      return false;
+    }
+  }
+
+  /**
+   * @description Gets all Object3D instances contained within the same cell as `other`
+   */
+  allSharingSubTree(other: Object3D, includeSelf?: boolean): Object3D[] {
+    const stack: Tree[] = [this];
+    while (stack.length !== 0) {
+      const e = stack.pop() as Tree;
+      if (e.boundary && e.boundary.contains(other)) {
+        if (e.divided) {
+          stack.push(...(e.points as Tree[]));
+        } else {
+          return (e.points as Object3D[]).filter((e) => (includeSelf ? true : e !== other));
+        }
+      }
+    }
+    return [];
+  }
+
+  getTotalObjectCount(): number {
+    let total = 0;
+    const stack: Tree[] = [this];
+    while (stack.length !== 0) {
+      const e = stack.pop();
+      if (e.points && e.divided) {
+        stack.push(...(e.points as Tree[]));
+      } else {
+        total += e.points.length;
+      }
+    }
+    return total;
+  }
+
+  /**
+   * @description Calling `subdivide` after this function may result in an `Error`
+   */
+  forceSubdivideAndColorAround(object: Object3D, downToLevel = 5): void {
+    const stack: Tree[] = [this];
+    const cubes = [];
+    let hue = -0.1;
+
+    while (stack.length !== 0) {
+      const e = stack.pop() as Tree;
+      if (e.boundary && e.boundary.contains(object)) {
+        if (e.divided) {
+          cubes.push(e);
+          stack.push(...(e.points as Tree[]));
+        } else if (e.level < downToLevel) {
+          e.subdivide();
+          cubes.push(e);
+          stack.push(...(e.points as Tree[]));
+        } else {
+          break;
+        }
+      }
+    }
+
+    cubes.forEach((c) => c.debugVisualize((hue += 0.1)));
+  }
+
+  debugVisualize(hue?: number): void {
+    const stack: Tree[] = [this];
+    while (stack.length !== 0) {
+      const e = stack.pop() as Tree;
+      if (e.boundary && e.divided) {
+        stack.push(...(e.points as Tree[]));
+        e.boundary.debugVisualize();
+      }
+    }
+  }
+}
+
+//#endregion
+
+//#region exports
+
+export const privates = {
   clearVoltsWorld: VoltsWorld.devClear,
   report: report,
   promiseAllConcurrent: promiseAllConcurrent,
-});
+};
 
 export const World = {
   /**
@@ -1972,6 +2296,8 @@ export default {
   State: State,
   Object3D: Object3D,
   Pool: Pool,
+  Cube: Cube,
+  Tree: Tree,
   PRODUCTION_MODES: PRODUCTION_MODES,
   plugins,
 };

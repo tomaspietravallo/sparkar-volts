@@ -33,13 +33,26 @@ describe('world construction', () => {
     // @ts-ignore
     expect(() => World.getInstance({ mode: { dev: true } })).toThrow();
   });
+  test('string target dev mode', async () => {
+    privates.clearVoltsWorld();
+    let W = null;
+    // @ts-ignore
+    expect(() => (W = World.getInstance({ mode: '400x400' }))).not.toThrow();
+
+    // @ts-expect-error
+    await W.rawInitPromise;
+
+    jest.advanceTimersByTime(100);
+
+    expect(W.mode).toEqual('DEV');
+  });
   test('run/stop functions', () => {
     privates.clearVoltsWorld();
     const world = World.getInstance({
       mode: 'NO_AUTO',
     });
     expect(World.getInstance().run()).toBeTruthy();
-    expect(World.getInstance().stop()).toBeTruthy();
+    expect(World.getInstance().stop({ clearTimedEvents: true })).toBeTruthy();
     expect(World.getInstance().stop()).toBeFalsy();
   });
   test('instance already created', () => {
@@ -94,13 +107,14 @@ describe('load assets', () => {
         }).rawInitPromise,
     ).rejects.toThrow();
 
-    await expect(() => World.getInstance().forceAssetReload()).rejects.toThrow();
+    await expect(World.getInstance().forceAssetReload()).rejects.toThrow();
   });
 });
 
 describe('snapshot', () => {
   test('snapshot', async () => {
     privates.clearVoltsWorld();
+
     const W = World.getInstance({
       mode: 'DEV',
       snapshot: {
@@ -109,13 +123,17 @@ describe('snapshot', () => {
         point3D: Reactive.vector(1, 5, 10),
         point4D: Reactive.pack4(1, 5, 10, 15),
         string: Reactive.stringSignal('a-string'),
-        // quat: Reactive.quaternion(1, 2, 3, 4),
+        quat: Reactive.quaternion(1, 2, 3, 4),
       },
     });
+
+    // @ts-expect-error
+    await W.rawInitPromise;
 
     W.addToSnapshot({ added: Reactive.point2d(1, 2) });
 
     expect(() => W.addToSnapshot({ notSupported: { definitelyNotASignal: null } })).toThrow();
+    expect(() => W.addToSnapshot({ __volts__internal__scalar: Reactive.val(1) })).toThrow();
 
     // @ts-ignore
     await W.rawInitPromise.then(() => {
@@ -125,24 +143,20 @@ describe('snapshot', () => {
       expect(W.snapshot.point3D.values).toEqual([1, 5, 10]);
       expect(W.snapshot.point4D.values).toEqual([1, 5, 10, 15]);
       expect(W.snapshot.string).toEqual('a-string');
-      /** @todo */
-      // expect(W.snapshot.quat.values).toEqual([1,2,3,4]);
-      // expect(W.snapshot.quat.w).toEqual(1);
+      expect(W.snapshot.quat.values).toEqual([1, 2, 3, 4]);
+      expect(W.snapshot.quat.w).toEqual(1);
 
       // @ts-ignore
       expect(W.snapshot.added.values).toEqual([1, 2]);
       expect(() => W.removeFromSnapshot('added')).not.toThrow();
       jest.advanceTimersByTime(100);
       // @ts-ignore
-      expect(W.snapshot.added).not.toBeDefined();
+      expect(W.snapshot.added).toBeDefined();
     });
   }, 500);
   test('signalToSnapshotable', async () => {
     privates.clearVoltsWorld();
-    const W = World.getInstance({
-      mode: 'DEV',
-      snapshot: {},
-    });
+    let W = World.getInstance({ mode: 'DEV', snapshot: {} });
     expect(() => {
       W.onEvent('internal', function (this: typeof W) {
         this.internalData.events['internal'] = null;
@@ -150,6 +164,9 @@ describe('snapshot', () => {
       });
       W.emitEvent('internal');
     }).toThrow();
+
+    privates.clearVoltsWorld();
+    W = World.getInstance({ mode: 'DEV', snapshot: {} });
 
     expect(() => {
       W.onEvent('internal', function (this: typeof W) {
@@ -236,6 +253,7 @@ describe('test real world use cases', () => {
   test('run - mode.dev', async () => {
     // expect.assertions(6);
     privates.clearVoltsWorld();
+
     const world = World.getInstance({
       mode: PRODUCTION_MODES.DEV,
       assets: {
@@ -244,7 +262,9 @@ describe('test real world use cases', () => {
       snapshot: {},
       loadStates: undefined,
     });
+
     expect(world.running).toEqual(false);
+
     // @ts-ignore
     await world.rawInitPromise.then(() => {
       expect(world.loaded).toEqual(true);
@@ -252,10 +272,6 @@ describe('test real world use cases', () => {
       expect(world.assets.obj).toBeInstanceOf(SceneObjectBase);
       expect(world.frameCount).toBeDefined();
     });
-
-    // await new Promise((resolve) => {
-    //   setTimeout(resolve, 300);
-    // });
 
     jest.advanceTimersByTime(100);
 

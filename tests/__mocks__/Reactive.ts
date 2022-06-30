@@ -8,18 +8,28 @@ type VectorArgRest = [number] | [number[]] | number[] | [Vector];
 export class Vector {
   values: number[];
   readonly dimension: number;
-  constructor(...args: [number[]] | [Vector] | number[]) {
+  constructor(...args: [number[]] | [Vector] | number[] | ScalarSignal[]) {
     if (args[0] instanceof Vector) {
       return args[0].copy();
     } else if (Array.isArray(args[0])) {
       this.values = args[0];
     } else if (!args[0]) {
       this.values = [0, 0, 0];
+    } else if (args.some((v) => v.isScalarSignal)) {
+      if (args.length === 1) {
+        this.values = [(args[0] as ScalarSignal)._vector.values[0]];
+      } else {
+        this.values = args.map((v) => v._vector.values[0]);
+      }
     } else {
       this.values = args as number[];
     }
     if (!this.values.every((v) => typeof v == 'number') || this.values.length === 0)
-      throw new Error(`@ Vector.constructor: Values provided are not valid`);
+      throw new Error(
+        `@ JEST.Vector.constructor: Values provided are not valid. JEST TEST VALUES KEYS: ${this.values.map((v) =>
+          Object.keys(v),
+        )}`,
+      );
     this.dimension = this.values.length;
   }
 
@@ -131,7 +141,7 @@ export class Vector {
     return b && this.dimension === b.dimension && this.values.every((v, i) => v === b.values[i]);
   }
   toString(): string {
-    return `vec${this.dimension}: [${this.values.toString()}]`;
+    return `JEST.vec${this.dimension}: [${this.values.toString()}]`;
   }
   get x(): number {
     return this.values[0];
@@ -150,7 +160,7 @@ export class Vector {
 class NDVectorSignal {
   protected readonly isReactive: boolean;
   protected readonly f: () => number[];
-  protected _vector: Vector;
+  public _vector: Vector;
   protected _ops: [string, number[]][];
   constructor(...args: number[] | [() => number[]]) {
     if (typeof args[0] == 'function') {
@@ -158,8 +168,12 @@ class NDVectorSignal {
       this.f = args[0];
       this._vector = new Vector(this.f());
     } else {
-      // @ts-ignore
-      this._vector = new Vector(args);
+      if (args.length === 1 && typeof args[0] == 'number') {
+        this._vector = new Vector([args[0]]);
+        // @ts-ignore
+      } else {
+        this._vector = new Vector(...args);
+      }
     }
     this._ops = [];
   }
@@ -189,6 +203,7 @@ class NDVectorSignal {
       res[op[0]](...op[1]);
     }
     if (res.values.length === 1) return res.values[0];
+    if (res.length != undefined) return res[0];
     return res;
   }
 }
@@ -197,21 +212,26 @@ export class ScalarSignal extends NDVectorSignal {
   constructor(...args: number[] | [() => number[]]) {
     super(...args);
   }
+  get isScalarSignal() {
+    return true;
+  }
 }
 
 export class scalarSignalSource {
+  protected val: number;
   constructor(id: string) {
     // super()
     if (typeof id !== 'string') throw new Error(`ID is not string`);
+    this.val = 0;
   }
   set(x: number) {
-    // this._vector.values[0] = x;
+    this.val = x;
   }
   dispose() {
     //
   }
   get signal() {
-    return 0;
+    return new ScalarSignal(this.val);
   }
 }
 
@@ -228,6 +248,21 @@ export class Vec2Signal extends NDVectorSignal {
 }
 
 export class VectorSignal extends NDVectorSignal {
+  constructor(...args: number[] | [() => number[]]) {
+    super(...args);
+  }
+  get x(): ScalarSignal {
+    return new ScalarSignal(this._vector.x);
+  }
+  get y(): ScalarSignal {
+    return new ScalarSignal(this._vector.y);
+  }
+  get z(): ScalarSignal {
+    return new ScalarSignal(this._vector.z);
+  }
+}
+
+export class PointSignal extends NDVectorSignal {
   constructor(...args: number[] | [() => number[]]) {
     super(...args);
   }
@@ -260,7 +295,7 @@ export class Vec4Signal extends NDVectorSignal {
   }
 }
 
-export class Quaternion extends NDVectorSignal {
+export class QuaternionSignal extends NDVectorSignal {
   constructor(...args: number[] | [() => number[]]) {
     super(...args);
   }
@@ -307,8 +342,9 @@ declare global {
     export type ScalarSignal = typeof ScalarSignal.prototype;
     export type Vec2Signal = typeof Vec2Signal.prototype;
     export type VectorSignal = typeof VectorSignal.prototype;
+    export type PointSignal = typeof PointSignal.prototype;
     export type Vec4Signal = typeof Vec4Signal.prototype;
-    export type Quaternion = typeof Quaternion.prototype;
+    export type QuaternionSignal = typeof QuaternionSignal.prototype;
     export type BoolSignal = typeof BoolSignal.prototype;
   }
 }
@@ -318,8 +354,9 @@ export default {
   val: (x: any): ScalarSignal => new ScalarSignal(x),
   scalarSignalSource: (id: string) => new scalarSignalSource(id),
   point2d: (...args: [number, number]): Vec2Signal => new Vec2Signal(...args),
+  point: (...args: [number, number, number]): PointSignal => new PointSignal(...args),
   vector: (...args: [number, number, number]): VectorSignal => new VectorSignal(...args),
   pack4: (...args: [number, number, number, number]): Vec4Signal => new Vec4Signal(...args),
-  quaternion: (...args: [number, number, number, number]): Quaternion => new Quaternion(...args),
+  quaternion: (...args: [number, number, number, number]): QuaternionSignal => new QuaternionSignal(...args),
   boolSignal: (x: boolean): BoolSignal => new BoolSignal(x),
 };
