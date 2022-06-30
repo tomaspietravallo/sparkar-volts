@@ -2,13 +2,13 @@
 
 [![](https://img.shields.io/npm/v/sparkar-volts?color=informational&label=npm%20sparkar-volts)](https://www.npmjs.com/package/sparkar-volts) [![CI Test](https://github.com/tomaspietravallo/sparkar-volts/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/tomaspietravallo/sparkar-volts/actions/workflows/test.yml) ![](coverage/badge.svg)
 
-> Work in progress 🚧 🚧 🚧
+An extensive Typescript framework that eases the development experience in Spark AR
 
-An extensive non-reactive Typescript framework that eases the development experience in Spark AR
+## Showcase ✨
+[See an example of what can be built with Volts 4.0.0](https://www.facebook.com/groups/SparkARcommunity/posts/1411088659303172/)
 
 ## Highlights
-
-- Non-reactive: This framework takes an imperative approach, and tries to abstract away the SparkAR Reactive API as much as possible
+- This framework takes an imperative approach, and tries to abstract away the SparkAR Reactive API as much as possible
 - Typescript: You'll have a smoother and richer experience while developing. [Use VSC to take full advantage, with autocompletion and intellisense](https://sparkar.facebook.com/ar-studio/learn/scripting/scripting-basics/#scripting-fundamentals)
 
 > Please make sure to read this list of reasons why you should prefer the ReactiveAPI over vanilla js: [Reactive programming, SparkAR](https://sparkar.facebook.com/ar-studio/learn/scripting/reactive/) before using `volts`, as it might not be the right thing for every project
@@ -27,17 +27,17 @@ An extensive non-reactive Typescript framework that eases the development experi
 
 ## Template
 
-You can use this template as a quick start if you're already familiar with the library
+You can use this template as a quick start if you're already familiar with the library. Download using the command:
 
 ```bash
 npm i sparkar-volts
 ```
 
-Or use [this download link](https://github.com/tomaspietravallo/sparkar-volts/releases/latest/download/volts.ts)
+Or using [this download link](https://github.com/tomaspietravallo/sparkar-volts/releases/latest/download/volts.ts)
 
 ```typescript
 // main.ts
-// using sparkar-volts@2.0.0
+// using sparkar-volts@4.0.0
 import Diagnostics from 'Diagnostics';
 import Volts, { PublicOnly } from './volts';
 
