@@ -30,24 +30,14 @@ git checkout beta
 npm i
 ```
 
-# v3.0.0 plans
-
-- [x] Add Quaternions
-- [x] Add an Object3D class, basic implementation found on the cloth project
-- [x] Add a `Pool` class, which will create a pool of dynamically instanced objects
-- [x] Integrate the changes & fixes made during the \*\*\*\*\*\*\*\*\*\* project (currently under development)
-- [ ] Multipeer support (?) -- may be pushed back to v4 or 5. **[See](https://github.com/tomaspietravallo/sparkar-volts/commit/47bc2f6384be41ee5c6f1d8d65d3f31fb1db4a61)**
-- [x] Improve experience
-
-> Multipeer features might get developed locally, or using some sort of obfuscation (?) that only allows people with access to the API to develop...
-
 # v4.0.0 plans
 
 - [ ] Use rollup.js to add a minified version of VOLTS
 - [ ] Improve support for Plugins
-- [ ] Add support for Async onLoad/frameUpdate functions. Quite a large change, beware unintended side effects
-- [ ] String matching based DEV mode. Eg. mode="400x400", use a simulator window of 400x400px in Spark AR Studio to use DEV mode
+- [x] Add support for Async onLoad/frameUpdate functions. Quite a large change, beware unintended side effects. *onLoad now supports Async*
+- [x] String matching based DEV mode. Eg. mode="400x400", use a simulator window of 400x400px in Spark AR Studio to use DEV mode. *This is now supported*
 - Open a PR/issue & add/request features!
+- New: `Tree` and `Cube` classes. These have been **extensively** tested both visually in Spark AR Studio (see debug utils), and using Jest tests
 
 ```sh
 npx tsc -p .
