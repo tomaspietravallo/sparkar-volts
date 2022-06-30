@@ -100,22 +100,6 @@ new Vector(2).mul([1,2,3]); // Vector<3> [2,4,6]
 This static method returns a random _unit-length_ 2D Vector
 
 {% tabs %}
-{% tab title="v4+" %}
-```typescript
-import { Vector } from 'volts';
-
-// Create with a predefined magnitude
-const rand2d = Vector.random2D(0.25);
-// Or a default of 1.0
-const randDefault = Vector.random2D();
-
-rand3d.mag(); // 0.25
-rand3d.dimension; // 2
-
-randDefault.mag() // 1
-```
-{% endtab %}
-
 {% tab title="v2" %}
 ```typescript
 import { Vector } from 'volts';
@@ -133,22 +117,6 @@ rand2d.dimension; // 2
 This static method returns a random unit-length 3D Vector
 
 {% tabs %}
-{% tab title="v4+" %}
-```typescript
-import { Vector } from 'volts';
-
-// Create with a predefined magnitude
-const rand3d = Vector.random3D(0.25);
-// Or a default of 1.0
-const randDefault = Vector.random3D();
-
-rand3d.mag(); // 0.25
-rand3d.dimension; // 3
-
-randDefault.mag() // 1
-```
-{% endtab %}
-
 {% tab title="v2" %}
 ```typescript
 import { Vector } from 'volts';
@@ -160,3 +128,4 @@ rand3d.dimension; // 3
 ```
 {% endtab %}
 {% endtabs %}
+
