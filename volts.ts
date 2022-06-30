@@ -663,7 +663,7 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
               delete this.internalData.formattedValuesToSnapshot['__volts__internal__screen']; // @ts-expect-error
               delete this.internalData.formattedValuesToSnapshot['__volts__internal__screenSizePixels']; // @ts-expect-error
               delete this.internalData.formattedValuesToSnapshot['__volts__internal__focalDistance'];
-              if (this.mode.indexOf('x')) {
+              if (this.mode.indexOf('x') !== -1) {
                 this.mode = this.internalData.userFriendlySnapshot.__volts__internal__screenSizePixels.equals(
                   new Vector(this.mode.split('x').map((n) => Number(n))),
                 )
