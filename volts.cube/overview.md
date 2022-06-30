@@ -6,8 +6,10 @@ description: In this section you'll find everything related to the VOLTS.Cube cl
 
 {% tabs %}
 {% tab title="v4" %}
-```
-import { Vector } from 'volts';
+```typescript
+import { Cube, Vector } from 'volts';
+
+const c = new Cube( new Vector(), 1 );
 ```
 {% endtab %}
 {% endtabs %}
