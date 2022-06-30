@@ -21,3 +21,7 @@ rotation.signal;
 ```
 {% endtab %}
 {% endtabs %}
+
+{% content-ref url="quaternion-methods.md" %}
+[quaternion-methods.md](quaternion-methods.md)
+{% endcontent-ref %}

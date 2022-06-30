@@ -11,6 +11,12 @@
 * [Vector methods](volts.vector/vector-methods.md)
 * [Vector properties](volts.vector/vector-properties.md)
 
+## Volts.Quaternion
+
+* [Overview](volts.quaternion/overview.md)
+* [Quaternion methods](volts.quaternion/quaternion-methods.md)
+* [Quaternion properties](volts.quaternion/quaternion-properties.md)
+
 ## VOLTS.World
 
 * [Overview](volts.world/overview.md)
@@ -22,10 +28,6 @@
 ## Volts.Cube
 
 * [Overview](volts.cube/overview.md)
-
-## Volts.Quaternion
-
-* [Overview](volts.quaternion/overview.md)
 
 ## Extra utils
 

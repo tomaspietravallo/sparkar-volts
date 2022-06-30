@@ -1,0 +1,6 @@
+# Quaternion properties
+
+### signal
+
+```typescript
+```
