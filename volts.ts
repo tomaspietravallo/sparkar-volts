@@ -2029,7 +2029,7 @@ export class Pool {
   constructor(
     objectsOrPath: string | string[] | BlockAsset | BlockAsset[],
     root?: string | SceneObjectBase,
-    initialState: {
+    initialState?: {
       [Prop in keyof SceneObjectBase]+?: SceneObjectBase[Prop] | ReactiveToVanilla<SceneObjectBase[Prop]>;
     } = {},
   ) {
