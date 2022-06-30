@@ -1,5 +1,5 @@
 ---
-description: In this section you'll find everything related to the VOLTS.Cube class
+description: In this section you'll find everything related to the VOLTS.Quaternion class
 ---
 
 # Overview

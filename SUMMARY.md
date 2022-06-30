@@ -21,6 +21,10 @@
 
 * [Overview](volts.world/overview.md)
 
+## Volts.Object3D
+
+* [Overview](volts.object3d/overview.md)
+
 ## VOLTS.State
 
 * [Overview](volts.state/overview.md)
