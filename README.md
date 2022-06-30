@@ -1,7 +1,7 @@
 ---
 description: >-
-  An overview of sparkar-volts, an extensive non-reactive Typescript framework
-  that eases the development experience in Spark AR
+  An overview of sparkar-volts, an extensive Typescript framework that eases the
+  development experience in Spark AR
 ---
 
 # Overview
@@ -10,11 +10,27 @@ sparkar-volts is an open source project which started as a continuation of [Spar
 
 Here's a list of the articles in the current documentation:
 
-{% page-ref page="install.md" %}
+{% content-ref url="install.md" %}
+[install.md](install.md)
+{% endcontent-ref %}
 
-{% page-ref page="how-to-use-volts.md" %}
+{% content-ref url="how-to-use-volts.md" %}
+[how-to-use-volts.md](how-to-use-volts.md)
+{% endcontent-ref %}
 
-{% page-ref page="extra-utils/transformacrossspaces.md" %}
+{% content-ref url="broken-reference" %}
+[Broken link](broken-reference)
+{% endcontent-ref %}
 
+{% content-ref url="broken-reference" %}
+[Broken link](broken-reference)
+{% endcontent-ref %}
 
+{% content-ref url="broken-reference" %}
+[Broken link](broken-reference)
+{% endcontent-ref %}
+
+{% content-ref url="extra-utils/transformacrossspaces.md" %}
+[transformacrossspaces.md](extra-utils/transformacrossspaces.md)
+{% endcontent-ref %}
 
