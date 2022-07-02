@@ -4,6 +4,16 @@
 
 An extensive Typescript framework that eases the development experience in Spark AR
 
+### Table of Contents
+- [Showcase ✨](#showcase-)
+- [Highlights](#highlights)
+- [Documentation](#documentation)
+  - [How to add VOLTS to your project](#how-to-add-volts-to-your-project)
+  - [How to use](#how-to-use)
+- [License](#license)
+- [Contributing ❤️](#contributing-%EF%B8%8F)
+  - [Donations](#donations)
+
 ## Showcase ✨
 [See an example of what can be built with Volts 4.0.0](https://www.facebook.com/groups/SparkARcommunity/posts/1411088659303172/)
 
@@ -25,36 +35,11 @@ An extensive Typescript framework that eases the development experience in Spark
 
 [Read this guide on getting started with VOLTS](https://tomaspietravallo.gitbook.io/sparkar-volts/how-to-use-volts)
 
-## Template
+## License
+Please read our license [here](https://github.com/tomaspietravallo/sparkar-volts/blob/main/LICENSE). The snippet below is considered a sufficient license notice.
 
-You can use this template as a quick start if you're already familiar with the library. Download using the command:
-
-```bash
-npm i sparkar-volts
 ```
-
-Or using [this download link](https://github.com/tomaspietravallo/sparkar-volts/releases/latest/download/volts.ts)
-
-```typescript
-// main.ts
-// using sparkar-volts@4.0.0
-import Diagnostics from 'Diagnostics';
-import Volts, { PublicOnly } from './volts';
-
-const World = Volts.World.getInstance({
-  mode: 'DEV',
-  snapshot: {},
-  assets: {},
-  loadStates: undefined,
-});
-
-World.onEvent('load', function (this: PublicOnly<typeof World>, snapshot) {
-  Diagnostics.log(`Loaded 🧪.\nAssets: ${Object.keys(World.assets) || 'no assets were loaded'}`);
-});
-
-World.onEvent('frameUpdate', function (this: PublicOnly<typeof World>, snapshot, data) {
-  if (data.frameCount == 0) Diagnostics.log(`Running... 🚀\n`);
-});
+Made with Volts. github.com/tomaspietravallo/sparkar-volts
 ```
 
 ## Contributing ❤️
