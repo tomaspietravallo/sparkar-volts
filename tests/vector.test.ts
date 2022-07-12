@@ -121,6 +121,14 @@ describe('vector utils', () => {
     expect(new Vector(-1, 2).equals(new Vector(-1, 2))).toEqual(true);
     expect(new Vector(0, 0).equals(undefined)).toEqual(false);
   });
+  test('toArray', () => {
+    expect(new Vector(1,2,3).toArray()).toEqual([1,2,3]);
+  })
+  test('swizzle', () => {
+    const vec = new Vector(1,2,3);
+    expect(vec.swizzle('x').toArray()).toEqual([1]);
+    expect(vec.swizzle('zyx').toArray()).toEqual([3,2,1]);
+  })
 });
 
 describe('math operations', () => {

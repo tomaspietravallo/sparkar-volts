@@ -993,6 +993,11 @@ VoltsWorld.subscriptions = [];
 
 type VectorArgRest<D extends number = any> = [number] | [number[]] | number[] | [Vector<D>];
 
+type VectorComponents = 'x' | 'y' | 'z' | 'w';
+
+type swizzle<T extends string, V = T> = T extends VectorComponents ? V :
+  T extends `${VectorComponents}${infer R}` ? swizzle<R, V> : "xyzw";
+
 interface NDVectorInstance<D extends number> {
   values: number[];
   readonly dimension: number;
@@ -1011,6 +1016,7 @@ interface NDVectorInstance<D extends number> {
   equals(b: Vector<any>): boolean;
   toString(toFixed?: number): string;
   toArray(): number[];
+  swizzle<s extends string>(string: swizzle<s>): Vector<D>;
   get x(): number;
   set x(x: number);
   get signal(): D extends 2 ? Vec2Signal : D extends 3 ? PointSignal : D extends 4 ? Vec4Signal : ScalarSignal;
@@ -1375,6 +1381,9 @@ Vector.prototype.toString = function <D extends number>(this: Vector<D>, toFixed
 };
 Vector.prototype.toArray = function () {
   return [...this.values];
+};
+Vector.prototype.swizzle = function<D extends number, s extends string>(string: swizzle<s>): Vector<D> {
+  return new Vector(string.split('').map((char: VectorComponents ) => this[char] ));
 };
 Vector.prototype.setSignalComponents = function (): void {
   this.rx && this.rx.set(this.values[0]);
@@ -2213,10 +2222,10 @@ export class Tree {
         return this.insert(Object3D);
       }
     } else {
-      // if (this.level === 0)
-      //   Diagnostics.warn(
-      //     `Out of bounds contains on level 0. Tree.boundary: ${this.boundary.toString()}. Point: ${Object3D.pos.toString()}`,
-      //   );
+      if (this.level === 0)
+        Diagnostics.warn(
+          `Out of bounds contains on level 0. Tree.boundary: ${this.boundary.toString()}. Point: ${Object3D.pos.toString()}`,
+        );
       return false;
     }
   }
