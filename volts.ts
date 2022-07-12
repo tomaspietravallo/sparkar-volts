@@ -1948,7 +1948,7 @@ export class Object3D<T extends SceneObjectBase = any> {
     this.body = body;
     if (body !== null) {
       const p = new Promise<T>((resolve) => {
-        (body ? typeof body === 'string' ? Blocks.instantiate('sphere', { hidden: false,  }) : Promise.resolve(body) : Scene.create('Plane')).then(async (plane: T) => {
+        (body ? typeof body === 'string' ? Blocks.instantiate(body, { hidden: false,  }) : Promise.resolve(body) : Scene.create('Plane')).then(async (plane: T) => {
           typeof body === 'string' && (await Scene.root.addChild(plane));
           plane.transform.position = this.pos.signal;
           plane.transform.rotation = this.rot.signal;

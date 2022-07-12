@@ -1,6 +1,7 @@
 import { Object3D, privates, Quaternion, Vector, World } from '../volts';
 import Reactive, { ScalarSignal, VectorSignal } from './__mocks__/Reactive';
 import Scene, { SceneObjectBase } from './__mocks__/Scene';
+import Blocks, { BlockInstance } from './__mocks__/Blocks';
 
 jest.useFakeTimers();
 
@@ -8,6 +9,20 @@ describe('constructor', () => {
   test('from scene obj', async () => {
     const obj = await Scene.root.findFirst('a-scene-obj');
     expect(() => new Object3D(obj)).not.toThrow();
+  });
+  test('dynamic plane instance body', async () => {
+    const spy = jest.spyOn(Scene, 'create').mockImplementation( async () => new SceneObjectBase('an-object') );
+    expect(() => new Object3D()).not.toThrow();
+    expect(spy).toHaveBeenCalledTimes(1);
+    spy.mockReset();
+    spy.mockRestore();
+  });
+  test('dynamic Block instance body', async () => {
+    const spy = jest.spyOn(Blocks, 'instantiate');
+    expect(() => new Object3D('JEST_DYNAMIC_INSTANCE')).not.toThrow();
+    expect(spy).toHaveBeenCalledTimes(1);
+    spy.mockReset();
+    spy.mockRestore();
   });
 });
 
