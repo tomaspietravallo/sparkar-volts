@@ -609,9 +609,8 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
     // Fun fact: Time.setTimeoutWithSnapshot will run even if the Studio is paused
     // Meaning this would keep executing, along with any onFrame function
     // For DEV purposes, the function will not execute if it detects the studio is on pause
-    // This won't be the case when the mode is set to PROD, in case some device has undocumented behavior within the margin of error (3 frames)
-    const lastThreeFrames: number[] = [];
-    let offset = 0;
+    // This won't be the case when the mode is set to PRODUCTION, in case some device has undocumented behavior
+    let last: number = null;
 
     const loop = () => {
       Time.setTimeoutWithSnapshot(
@@ -623,30 +622,23 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
           //#endregion
 
           //#region Capture data & analytics
-          if (!lastThreeFrames[0]) offset = this.internalData.userFriendlySnapshot.__volts__internal__time || 0;
           const delta =
-            (this.internalData.userFriendlySnapshot.__volts__internal__time || 0) -
-            offset -
-            this.internalData.elapsedTime;
+            ((this.internalData.userFriendlySnapshot.__volts__internal__time || 0) - last
+            // prevent Infinity x/0 math issues
+            ) || 33.33;
           const fps = Math.round((1000 / delta) * 10) / 10;
           this.internalData.elapsedTime += delta;
-
-          if (lastThreeFrames.length > 2) {
-            lastThreeFrames[0] = lastThreeFrames[1];
-            lastThreeFrames[1] = lastThreeFrames[2];
-            lastThreeFrames[2] = this.internalData.userFriendlySnapshot.__volts__internal__time;
-          } else {
-            lastThreeFrames.push(this.internalData.userFriendlySnapshot.__volts__internal__time);
-          }
           //#endregion
 
           // For DEV purposes, the function will not execute if it detects the studio is on pause
           if (
-            lastThreeFrames[0] === lastThreeFrames[1] &&
-            lastThreeFrames[1] === lastThreeFrames[2] &&
-            VoltsWorld.userConfig.mode !== PRODUCTION_MODES.PRODUCTION
-          )
+            last === this.internalData.userFriendlySnapshot.__volts__internal__time &&
+            (VoltsWorld.userConfig.mode !== PRODUCTION_MODES.PRODUCTION)
+          ){
             return loop();
+          } else {
+            last = this.internalData.userFriendlySnapshot.__volts__internal__time
+          }
 
           const run = () => {
             const onFramePerformanceData = { fps, delta, frameCount: this.internalData.frameCount };
@@ -659,9 +651,8 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
           if (this.frameCount === 0) {
             let loadReturn;
             if (VoltsWorld.userConfig.mode !== PRODUCTION_MODES.NO_AUTO) {
-              // @ts-expect-error
-              delete this.internalData.formattedValuesToSnapshot['__volts__internal__screen']; // @ts-expect-error
-              delete this.internalData.formattedValuesToSnapshot['__volts__internal__screenSizePixels']; // @ts-expect-error
+              delete this.internalData.formattedValuesToSnapshot['__volts__internal__screen'];
+              delete this.internalData.formattedValuesToSnapshot['__volts__internal__screenSizePixels'];
               delete this.internalData.formattedValuesToSnapshot['__volts__internal__focalDistance'];
               if (this.mode.indexOf('x') !== -1) {
                 this.mode = this.internalData.userFriendlySnapshot.__volts__internal__screenSizePixels.equals(
