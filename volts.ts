@@ -623,9 +623,9 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
 
           //#region Capture data & analytics
           const delta =
-            ((this.internalData.userFriendlySnapshot.__volts__internal__time || 0) - last
+            (this.internalData.userFriendlySnapshot.__volts__internal__time || 0) - last ||
             // prevent Infinity x/0 math issues
-            ) || 33.33;
+            33.33;
           const fps = Math.round((1000 / delta) * 10) / 10;
           this.internalData.elapsedTime += delta;
           //#endregion
@@ -633,11 +633,11 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
           // For DEV purposes, the function will not execute if it detects the studio is on pause
           if (
             last === this.internalData.userFriendlySnapshot.__volts__internal__time &&
-            (VoltsWorld.userConfig.mode !== PRODUCTION_MODES.PRODUCTION)
-          ){
+            VoltsWorld.userConfig.mode !== PRODUCTION_MODES.PRODUCTION
+          ) {
             return loop();
           } else {
-            last = this.internalData.userFriendlySnapshot.__volts__internal__time
+            last = this.internalData.userFriendlySnapshot.__volts__internal__time;
           }
 
           const run = () => {
@@ -986,8 +986,11 @@ type VectorArgRest<D extends number = any> = [number] | [number[]] | number[] | 
 
 type VectorComponents = 'x' | 'y' | 'z' | 'w';
 
-type swizzle<T extends string, V = T> = T extends VectorComponents ? V :
-  T extends `${VectorComponents}${infer R}` ? swizzle<R, V> : "xyzw";
+type swizzle<T extends string, V = T> = T extends VectorComponents
+  ? V
+  : T extends `${VectorComponents}${infer R}`
+  ? swizzle<R, V>
+  : 'xyzw';
 
 interface NDVectorInstance<D extends number> {
   values: number[];
@@ -1373,8 +1376,8 @@ Vector.prototype.toString = function <D extends number>(this: Vector<D>, toFixed
 Vector.prototype.toArray = function () {
   return [...this.values];
 };
-Vector.prototype.swizzle = function<D extends number, s extends string>(string: swizzle<s>): Vector<D> {
-  return new Vector(string.split('').map((char: VectorComponents ) => this[char] ));
+Vector.prototype.swizzle = function <D extends number, s extends string>(string: swizzle<s>): Vector<D> {
+  return new Vector(string.split('').map((char: VectorComponents) => this[char]));
 };
 Vector.prototype.setSignalComponents = function (): void {
   this.rx && this.rx.set(this.values[0]);
@@ -1664,17 +1667,21 @@ export class Quaternion {
   }
   public setSignalComponents(): void {
     // @ts-expect-error
-    this.rw && this.rw.set(this.values[0]); // @ts-expect-error
-    this.rx && this.rx.set(this.values[1]); // @ts-expect-error
-    this.ry && this.ry.set(this.values[2]); // @ts-expect-error
-    this.rz && this.rz.set(this.values[3]);
+    if (this.rw) {                 // @ts-expect-error
+      this.rw.set(this.values[0]); // @ts-expect-error
+      this.rx.set(this.values[1]); // @ts-expect-error
+      this.ry.set(this.values[2]); // @ts-expect-error
+      this.rz.set(this.values[3]);
+    }
   }
   public disposeSignalResources(): void {
     // @ts-expect-error
-    this.rw && this.rw.dispose(); // @ts-expect-error
-    this.rx && this.rx.dispose(); // @ts-expect-error
-    this.ry && this.ry.dispose(); // @ts-expect-error
-    this.rz && this.rz.dispose();
+    if (this.rw) {       // @ts-expect-error
+      this.rw.dispose(); // @ts-expect-error
+      this.rx.dispose(); // @ts-expect-error
+      this.ry.dispose(); // @ts-expect-error
+      this.rz.dispose();
+    }
   }
   /**
    * @description Returns an array containing the Euler angles (in radian) for the corresponding Quaternion.
@@ -1940,7 +1947,12 @@ export class Object3D<T extends SceneObjectBase = any> {
     this.body = body;
     if (body !== null) {
       const p = new Promise<T>((resolve) => {
-        (body ? typeof body === 'string' ? Blocks.instantiate(body, { hidden: false,  }) : Promise.resolve(body) : Scene.create('Plane')).then(async (plane: T) => {
+        (body
+          ? typeof body === 'string'
+            ? Blocks.instantiate(body, { hidden: false })
+            : Promise.resolve(body)
+          : Scene.create('Plane')
+        ).then(async (plane: T) => {
           (!body || !body.addChild) && (await Scene.root.addChild(plane));
           plane.transform.position = this.pos.signal;
           plane.transform.rotation = this.rot.signal;
@@ -1999,14 +2011,24 @@ export class Object3D<T extends SceneObjectBase = any> {
     // @ts-ignore
     if (this.body && this.body.then) {
       // @ts-ignore
-      return this.body.then((b: SceneObjectBase) => {
-        Scene.root.removeChild(b);
-        Scene.destroy(b);
-      }).catch((): void => {});
+      return this.body
+        .then((b: SceneObjectBase) => {
+          Scene.root.removeChild(b);
+          Scene.destroy(b);
+        })
+        .catch((): void => undefined);
     } else if (this.body) {
-      return Scene.root.removeChild(this.body as SceneObjectBase).catch(() => { throw new Error(`@ Volts.destroyDynamicBody: Could not remove object from Scene`) }), Scene.destroy(this.body as SceneObjectBase).catch(() => { throw new Error(`@ Volts.destroyDynamicBody: Could not destroy object`) }), null;
+      return (
+        Scene.root.removeChild(this.body as SceneObjectBase).catch(() => {
+          throw new Error(`@ Volts.destroyDynamicBody: Could not remove object from Scene`);
+        }),
+        Scene.destroy(this.body as SceneObjectBase).catch(() => {
+          throw new Error(`@ Volts.destroyDynamicBody: Could not destroy object`);
+        }),
+        null
+      );
     }
-    throw new Error(`Volts.Object3D.destroyDynamicBody: Function called on a non-dynamic bodied object`)
+    throw new Error(`Volts.Object3D.destroyDynamicBody: Function called on a non-dynamic bodied object`);
   }
 
   static async createDebugMaterial(hue?: number): Promise<MaterialBase> {
@@ -2024,33 +2046,38 @@ export class Object3D<T extends SceneObjectBase = any> {
    * @description *Not available for Block assets*
    */
   setMaterial<T extends MaterialBase>(material: T): Object3D {
-    if (!this.body) return
+    if (!this.body) return;
     // @ts-expect-error
-    this.body.then ? this.body
-      .then((b) => (b.material = material))
-      .catch(() => { throw new Error(`Failed to set material for Object3D this is most likely because it has no body, or is a BlockInstance`) })
-    : (this.body.material = material);
-    this.material = material
+    this.body.then
+      ? this.body
+          .then((b) => (b.material = material))
+          .catch(() => {
+            throw new Error(
+              `Failed to set material for Object3D this is most likely because it has no body, or is a BlockInstance`,
+            );
+          })
+      : (this.body.material = material);
+    this.material = material;
     return this;
   }
 
   /**
    * @version 0.0.0
    * @description ***ONLY AVAILABLE FOR BLOCK ASSETS***
-   * 
+   *
    * ****EARLY DEVELOPMENT****
-   * 
+   *
    * Just to test out the concept
    */
-  setInputs(inputs: {[key: string]: [ any, string ] }){
+  setInputs(inputs: { [key: string]: [any, string] }): void {
     const keys = Object.keys(inputs);
     const set = (b: BlockSceneRoot) => {
       for (let index = 0; index < keys.length; index++) {
-        b.inputs[inputs[keys[index]][1]](keys[index], inputs[keys[index]][0])
+        b.inputs[inputs[keys[index]][1]](keys[index], inputs[keys[index]][0]);
       }
-    }
+    };
     // @ts-expect-error
-    this.body.then ? this.body.then(b => set(b)) : set(this.body);
+    this.body.then ? this.body.then((b) => set(b)) : set(this.body);
   }
 }
 
@@ -2175,14 +2202,18 @@ export class Cube {
     const origin = new Vector(this.x, this.y, this.z);
     hueOrMat = hueOrMat === undefined ? Math.random() : hueOrMat;
     let mat =
-    typeof hueOrMat === 'number' ?
-      Object3D.createDebugMaterial(hueOrMat as number) :
-      hueOrMat as MaterialBase;
-    
+      typeof hueOrMat === 'number' ? Object3D.createDebugMaterial(hueOrMat as number) : (hueOrMat as MaterialBase);
+
     return allBinaryOptions(3, -this.s, this.s).map((o) => {
       const obj = new Object3D(undefined).setPos(origin.copy().add(o)).setScl(0.1);
       // @ts-ignore
-      if (mat.then) { (mat as Promise<MaterialBase>).then(m => { obj.setMaterial(m), mat = m }) } else { obj.setMaterial(mat as MaterialBase) }
+      if (mat.then) {
+        (mat as Promise<MaterialBase>).then((m) => {
+          obj.setMaterial(m), (mat = m);
+        });
+      } else {
+        obj.setMaterial(mat as MaterialBase);
+      }
       return obj;
     });
   }
@@ -2285,7 +2316,7 @@ export class Tree {
   /**
    * @description Calling `subdivide` after this function may result in an `Error`
    */
-  forceSubdivideAndColorAround(object: Object3D, downToLevel = 5) {
+  forceSubdivideAndColorAround(object: Object3D, downToLevel = 5): void {
     const stack: Tree[] = [this];
     const cubes = [];
 
@@ -2305,13 +2336,13 @@ export class Tree {
     }
 
     const materials =
-    (this.debugPoints && this.debugPoints.length > 8) ? 
-    new Array(this.debugPoints.length / 8).fill(null).map((_, i) => this.debugPoints[i * 8].material ) :
-    new Array(downToLevel + 1).fill(0).map((_, i) => i * 0.1);
+      this.debugPoints && this.debugPoints.length > 8
+        ? new Array(this.debugPoints.length / 8).fill(null).map((_, i) => this.debugPoints[i * 8].material)
+        : new Array(downToLevel + 1).fill(0).map((_, i) => i * 0.1);
 
     this.debugPoints = cubes
-    .filter((t: Tree) => t.boundary.contains(object))
-    .flatMap((c: Tree, i) => c.debugVisualize(materials[i], false) );
+      .filter((t: Tree) => t.boundary.contains(object))
+      .flatMap((c: Tree, i) => c.debugVisualize(materials[i], false));
   }
 
   debugVisualize(hue?: number | MaterialBase, subTrees = true): Object3D[] {
@@ -2325,13 +2356,13 @@ export class Tree {
       if (e.boundary) {
         points.push(...e.boundary.debugVisualize(hue));
       }
-    };
+    }
     this.debugPoints = points;
     return points;
   }
 
-  destroyVisualization(){
-    this.debugPoints.forEach((p) => p.destroyDynamicBody() );
+  destroyVisualization(): void {
+    this.debugPoints.forEach((p) => p.destroyDynamicBody());
   }
 }
 

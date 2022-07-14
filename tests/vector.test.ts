@@ -68,12 +68,16 @@ describe('vector utils', () => {
     expect(Vector.fromSignal(Vec4Signal).values).toEqual([1, 2, 3, 4]);
   });
   test('setSignalComponents', () => {
-    const Q = new Vector(0, 0, 0);
-    expect(() => Q.setSignalComponents()).not.toThrow();
+    const V = new Vector(0, 1, 2, 3);
+    expect(() => V.setSignalComponents()).not.toThrow();
+    V.signal;
+    expect(() => V.setSignalComponents()).not.toThrow();
   });
   test('disposeSignalResources', () => {
-    const Q = new Vector(0, 0, 0);
-    expect(() => Q.disposeSignalResources()).not.toThrow();
+    const V = new Vector(0, 1, 2, 3);
+    expect(() => V.disposeSignalResources()).not.toThrow();
+    V.signal;
+    expect(() => V.setSignalComponents()).not.toThrow();
   });
   test('screenToWorld', async () => {
     privates.clearVoltsWorld();
@@ -122,13 +126,14 @@ describe('vector utils', () => {
     expect(new Vector(0, 0).equals(undefined)).toEqual(false);
   });
   test('toArray', () => {
-    expect(new Vector(1,2,3).toArray()).toEqual([1,2,3]);
-  })
+    expect(new Vector(1, 2, 3).toArray()).toEqual([1, 2, 3]);
+  });
   test('swizzle', () => {
-    const vec = new Vector(1,2,3);
+    const vec = new Vector(1, 2, 3);
     expect(vec.swizzle('x').toArray()).toEqual([1]);
-    expect(vec.swizzle('zyx').toArray()).toEqual([3,2,1]);
-  })
+    expect(vec.swizzle('zyx').toArray()).toEqual([3, 2, 1]);
+    expect(() => vec.swizzle('wwww')).toThrow()
+  });
 });
 
 describe('math operations', () => {

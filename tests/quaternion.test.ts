@@ -1,4 +1,5 @@
 import { Quaternion, Vector } from '../volts';
+import Reactive, { scalarSignalSource } from './__mocks__/Reactive';
 
 describe('quaternion construction', () => {
   test('identity', () => {
@@ -42,9 +43,15 @@ describe('quaternion construction', () => {
     expect(rot.x).toBeCloseTo(-0.707);
     expect(rot.y).toBeCloseTo(0.0);
     expect(rot.z).toBeCloseTo(0.0);
+
+    Quaternion.lookAt(new Vector(), new Vector([ 0.0, 0.0, -1.0 ])).values.forEach((v,i) => expect(v).toBeCloseTo([0, 1, 0, Math.PI][i]))
+    Quaternion.lookAt(new Vector(), new Vector([ 0.0, 0.0, +1.0 ])).values.forEach((v,i) => expect(v).toBeCloseTo([1, 0, 0, 0][i]))
   });
   test('lookAtOptimized', () => {
     expect(() => Quaternion.lookAtOptimized([0, 1, 0])).not.toThrow();
+    expect(() => Quaternion.lookAtOptimized([0, 0, 0])).not.toThrow();
+    Quaternion.lookAtOptimized([0, 0, -1 ]).values.forEach((v,i) => expect(v).toBeCloseTo([0, 1, 0, Math.PI][i]))
+    Quaternion.lookAtOptimized([0, 0, +1 ]).values.forEach((v,i) => expect(v).toBeCloseTo([1, 0, 0, 0][i]))
   });
 });
 
@@ -82,10 +89,14 @@ describe('quaternion utils', () => {
   test('setSignalComponents', () => {
     const Q = new Quaternion(1, 0, 0, 0);
     expect(() => Q.setSignalComponents()).not.toThrow();
+    Q.signal;
+    expect(() => Q.setSignalComponents()).not.toThrow();
   });
   test('disposeSignalResources', () => {
     const Q = new Quaternion(1, 0, 0, 0);
     expect(() => Q.disposeSignalResources()).not.toThrow();
+    Q.signal;
+    expect(() => Q.setSignalComponents()).not.toThrow();
   });
 });
 
@@ -147,8 +158,12 @@ describe('accessors', () => {
     expect(Q1234.z).toEqual(8);
   });
   test('signal', () => {
+    const spy = jest.spyOn(scalarSignalSource.prototype, 'set').mockImplementation();
     expect(Q1234.signal).toBeTruthy();
     expect(Q1234.signal.w).toBeTruthy();
+    expect(spy).toBeCalledTimes(4);
+    jest.resetAllMocks();
+    jest.restoreAllMocks();
   });
 });
 

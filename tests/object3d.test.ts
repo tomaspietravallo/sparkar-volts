@@ -11,7 +11,9 @@ describe('constructor', () => {
     expect(() => new Object3D(obj)).not.toThrow();
   });
   test('dynamic plane instance body', async () => {
-    const spy = jest.spyOn(Scene, 'create').mockImplementation( async () => new SceneObjectBase('JEST_DYNAMIC_INSTANCE') );
+    const spy = jest
+      .spyOn(Scene, 'create')
+      .mockImplementation(async () => new SceneObjectBase('JEST_DYNAMIC_INSTANCE'));
     expect(() => new Object3D()).not.toThrow();
     expect(spy).toHaveBeenCalledTimes(1);
     spy.mockReset();
@@ -19,7 +21,7 @@ describe('constructor', () => {
   });
   test('dynamic Block instance body', async () => {
     const spy = jest.spyOn(Blocks, 'instantiate');
-    expect( () => new Object3D('JEST_DYNAMIC_INSTANCE') ).not.toThrow();
+    expect(() => new Object3D('JEST_DYNAMIC_INSTANCE')).not.toThrow();
     expect(spy).toHaveBeenCalledTimes(1);
     spy.mockReset();
     spy.mockRestore();

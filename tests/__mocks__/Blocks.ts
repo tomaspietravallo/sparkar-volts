@@ -25,7 +25,9 @@ const Blocks = {
   instantiate: async (blockOrName) => {
     const shouldFail = blockOrName.toLowerCase().indexOf('fail') !== -1;
     if (shouldFail) throw new Error('The block was not found @ Mocks.Blocks.instantiate');
-    return new BlockInstance(typeof blockOrName === 'string' ? blockOrName : blockOrName.name + 'JEST_DYNAMIC_INSTANCE');
+    return new BlockInstance(
+      typeof blockOrName === 'string' ? blockOrName : blockOrName.name + 'JEST_DYNAMIC_INSTANCE',
+    );
   },
   assets: {
     findFirst: (s: string): Promise<BlockAsset> => {
