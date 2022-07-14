@@ -28,6 +28,9 @@ export class SceneObjectBase {
     if (!child) throw new Error(`No child was provided @ mock.Scene.SceneObjectBase.addChild`);
     return;
   }
+  async destroy() {
+    /** ... */
+  }
 }
 
 export class Camera extends SceneObjectBase {
@@ -57,6 +60,9 @@ export default {
           `The object passed to addChild is not a dynamic instance. This can result in unpredictable behaviour inside of Spark. Object is not marked with JEST_DYNAMIC_INSTANCE`,
         );
       }
+    },
+    removeChild: async (obj: SceneObjectBase) => {
+      /** ... */
     },
     findFirst: (s: string): Promise<SceneObjectBase> => {
       return new Promise((resolve) => {

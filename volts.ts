@@ -1923,6 +1923,7 @@ export class Object3D<T extends SceneObjectBase = any> {
   box: Vector<3>;
   awake: boolean;
   body: IfEquals<any, T, Promise<SceneObjectBase>, T>;
+  material: MaterialBase | undefined;
 
   constructor(body?: T) {
     (this.pos = new Vector()),
@@ -1949,7 +1950,7 @@ export class Object3D<T extends SceneObjectBase = any> {
     if (body !== null) {
       const p = new Promise<T>((resolve) => {
         (body ? typeof body === 'string' ? Blocks.instantiate(body, { hidden: false,  }) : Promise.resolve(body) : Scene.create('Plane')).then(async (plane: T) => {
-          typeof body === 'string' && (await Scene.root.addChild(plane));
+          (!body || !body.addChild) && (await Scene.root.addChild(plane));
           plane.transform.position = this.pos.signal;
           plane.transform.rotation = this.rot.signal;
           plane.transform.scale = this.scl.signal;
@@ -2000,6 +2001,23 @@ export class Object3D<T extends SceneObjectBase = any> {
     return this;
   }
 
+  /**
+   * @description Destroys the body of the associated dynamic instance.
+   */
+  destroyDynamicBody(): void {
+    // @ts-ignore
+    if (this.body && this.body.then) {
+      // @ts-ignore
+      return this.body.then((b: SceneObjectBase) => {
+        Scene.root.removeChild(b);
+        Scene.destroy(b);
+      }).catch((): void => {});
+    } else if (this.body) {
+      return Scene.root.removeChild(this.body as SceneObjectBase).catch(() => { throw new Error(`@ Volts.destroyDynamicBody: Could not remove object from Scene`) }), Scene.destroy(this.body as SceneObjectBase).catch(() => { throw new Error(`@ Volts.destroyDynamicBody: Could not destroy object`) }), null;
+    }
+    throw new Error(`Volts.Object3D.destroyDynamicBody: Function called on a non-dynamic bodied object`)
+  }
+
   static async createDebugMaterial(hue?: number): Promise<MaterialBase> {
     if (hue === undefined) hue = 0;
     return Materials.create(MaterialClassNames.DefaultMaterial, {
@@ -2017,7 +2035,11 @@ export class Object3D<T extends SceneObjectBase = any> {
   setMaterial<T extends MaterialBase>(material: T): Object3D {
     if (!this.body) return
     // @ts-expect-error
-    this.body.then ? this.body.then((b) => (b.material = material)) : (this.body.material = material);
+    this.body.then ? this.body
+      .then((b) => (b.material = material))
+      .catch(() => { throw new Error(`Failed to set material for Object3D this is most likely because it has no body, or is a BlockInstance`) })
+    : (this.body.material = material);
+    this.material = material
     return this;
   }
 
@@ -2156,15 +2178,21 @@ export class Cube {
   }
 
   /**
-   * @description for debugging purposes. Creates dynamic planes two opposing corner
+   * @description for debugging purposes. Creates dynamic planes on all vertices
    */
-  debugVisualize(hue?: number): Promise<void> {
+  debugVisualize(hueOrMat?: number | MaterialBase): Object3D[] {
     const origin = new Vector(this.x, this.y, this.z);
-    hue = hue || Math.random();
-    return Object3D.createDebugMaterial(hue).then((mat) => {
-      allBinaryOptions(3, -this.s, this.s).forEach((o) =>
-        new Object3D(undefined).setPos(origin.copy().add(o)).setScl(0.1).setMaterial(mat),
-      );
+    hueOrMat = hueOrMat === undefined ? Math.random() : hueOrMat;
+    let mat =
+    typeof hueOrMat === 'number' ?
+      Object3D.createDebugMaterial(hueOrMat as number) :
+      hueOrMat as MaterialBase;
+    
+    return allBinaryOptions(3, -this.s, this.s).map((o) => {
+      const obj = new Object3D(undefined).setPos(origin.copy().add(o)).setScl(0.1);
+      // @ts-ignore
+      if (mat.then) { (mat as Promise<MaterialBase>).then(m => { obj.setMaterial(m), mat = m }) } else { obj.setMaterial(mat as MaterialBase) }
+      return obj;
     });
   }
 
@@ -2183,7 +2211,8 @@ export class Tree {
   level: number;
   divided: boolean;
   points: Tree[] | Object3D[];
-  constructor(boundary: Cube, capacity: number, level: number) {
+  debugPoints: Object3D[];
+  constructor(boundary: Cube, capacity: number, level = 0) {
     if (!(boundary.contains && typeof capacity === 'number' && typeof level === 'number' && level <= 5))
       throw new Error(
         `@ Volts.Tree.constructor: Values provided are not valid. boundary: ${boundary}, capacity: ${capacity}, level: ${level}`,
@@ -2265,10 +2294,9 @@ export class Tree {
   /**
    * @description Calling `subdivide` after this function may result in an `Error`
    */
-  forceSubdivideAndColorAround(object: Object3D, downToLevel = 5): void {
+  forceSubdivideAndColorAround(object: Object3D, downToLevel = 5) {
     const stack: Tree[] = [this];
     const cubes = [];
-    let hue = -0.1;
 
     while (stack.length !== 0) {
       const e = stack.pop() as Tree;
@@ -2285,18 +2313,34 @@ export class Tree {
       }
     }
 
-    cubes.filter((t: Tree) => t.boundary.contains(object)).forEach((c: Tree) => c.debugVisualize((hue += 0.1), false));
+    const materials =
+    (this.debugPoints && this.debugPoints.length > 8) ? 
+    new Array(this.debugPoints.length / 8).fill(null).map((_, i) => this.debugPoints[i * 8].material ) :
+    new Array(downToLevel + 1).fill(0).map((_, i) => i * 0.1);
+
+    this.debugPoints = cubes
+    .filter((t: Tree) => t.boundary.contains(object))
+    .flatMap((c: Tree, i) => c.debugVisualize(materials[i], false) );
   }
 
-  debugVisualize(hue?: number, subTrees = true): void {
+  debugVisualize(hue?: number | MaterialBase, subTrees = true): Object3D[] {
     const stack: Tree[] = [this];
+    const points = [];
     while (stack.length !== 0) {
       const e = stack.pop() as Tree;
-      if (e.boundary && e.divided) {
+      if (e.divided) {
         subTrees && stack.push(...(e.points as Tree[]));
-        e.boundary.debugVisualize(hue);
       }
-    }
+      if (e.boundary) {
+        points.push(...e.boundary.debugVisualize(hue));
+      }
+    };
+    this.debugPoints = points;
+    return points;
+  }
+
+  destroyVisualization(){
+    this.debugPoints.forEach((p) => p.destroyDynamicBody() );
   }
 }
 

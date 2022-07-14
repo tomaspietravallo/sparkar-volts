@@ -102,7 +102,7 @@ describe('Cube debug utils', () => {
 
     const cube = new Cube(new Vector(0, 0, 0), 1);
 
-    await expect(cube.debugVisualize()).resolves.not.toThrow();
+    await expect(cube.debugVisualize()).toBeInstanceOf(Array);
     expect(createMaterialMock).toHaveBeenCalledTimes(1);
     expect(setMaterial).toHaveBeenCalledTimes(8);
 
