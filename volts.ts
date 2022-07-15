@@ -177,6 +177,7 @@ interface TimedEvent {
 //#region constants
 const PI = 3.14159265359;
 const TWO_PI = 6.28318530718;
+const FRAME_MS = 1000/30;
 //#endregion
 
 //#region utils
@@ -625,7 +626,7 @@ class VoltsWorld<WorldConfigParams extends WorldConfig> {
           const delta =
             (this.internalData.userFriendlySnapshot.__volts__internal__time || 0) - last ||
             // prevent Infinity x/0 math issues
-            33.33;
+            FRAME_MS;
           const fps = Math.round((1000 / delta) * 10) / 10;
           this.internalData.elapsedTime += delta;
           //#endregion
@@ -1884,7 +1885,9 @@ export class State<Data extends { [key: string]: Vector<any> | Quaternion | numb
 //#endregion
 
 //#region Object3D
-const DefaultPhysicsSettings = { solver: 'verlet', steps: 1, drag: 1.0, gravity: -9.7, floor: -0.5, group: 0xffff } as Parameters<typeof Object3D["prototype"]["usePhysics"]>[0];
+type Solver = (obj: Object3D, deltaMs: number) => void;
+/** @description Does NOT contain all possible settings, just default ones  */
+export const DefaultPhysicsSettings = { solver: 'verlet', steps: 1, drag: 1.0, gravity: -9.8, group: 0xffff } as Parameters<typeof Object3D["prototype"]["usePhysics"]>[0];
 
 export enum SceneObjectClassNames {
   'Plane' = 'Plane',
@@ -1918,7 +1921,7 @@ export class Object3D<T extends SceneObjectBase = any> {
   awake: boolean;
   body: IfEquals<any, T, Promise<SceneObjectBase>, T>;
   material: MaterialBase | undefined;
-  Solver: (obj: Object3D ) => void;
+  Solver: Solver;
   static colliders: { [key: string]: Object3D[] } = {};
 
   constructor(body?: T) {
@@ -1976,8 +1979,8 @@ export class Object3D<T extends SceneObjectBase = any> {
     return this;
   }
 
-  update({ pos, rot, solver }: { pos?: boolean; rot?: boolean, solver?: boolean } = {}): void {
-    if (solver && this.Solver) this.Solver(this);
+  update({ pos, rot, solver, delta }: { pos?: boolean; rot?: boolean, solver?: boolean, delta?: number } = {}): void {
+    if (solver && this.Solver) this.Solver(this, delta || FRAME_MS);
     if (pos) this.pos.setSignalComponents();
     if (rot) this.rot.setSignalComponents();
   }
@@ -1998,15 +2001,16 @@ export class Object3D<T extends SceneObjectBase = any> {
   }
 
   usePhysics(args: {
-    solver?: 'verlet' | 'none',
+    solver?: 'verlet',
     steps?: number,
     drag?: number,
     gravity?: number,
     floor?: number,
     group?: number,
-  } = DefaultPhysicsSettings) {
+  } = DefaultPhysicsSettings): Object3D {
     this.Solver = Object3D.createPhysicsSolver(args);
     (Object3D.colliders[args.group] = Object3D.colliders[args.group] || []).push(this);
+    return this
   }
 
   bindMesh(sceneObjectBase: SceneObjectBase): Object3D {
@@ -2098,8 +2102,45 @@ export class Object3D<T extends SceneObjectBase = any> {
     });
   }
 
-  static createPhysicsSolver( args: Parameters<typeof Object3D["prototype"]["usePhysics"]>[0] ) {
-    return () => { /** ... */}
+  static createPhysicsSolver( args: Parameters<typeof Object3D["prototype"]["usePhysics"]>[0] = {} ): Solver {
+    const keys = Object.keys(DefaultPhysicsSettings);
+    for (let index = 0; index < keys.length; index++) {
+      const e = keys[index] as keyof typeof DefaultPhysicsSettings;
+      // @ts-expect-error
+      if (args[e] === undefined) args[e] = DefaultPhysicsSettings[e];
+    }
+    
+    return function(obj, deltaMs) {
+      // Position, velocity, acceleration
+      switch (args.solver) {
+        case 'verlet':
+          let i = 0; deltaMs /= args.steps; deltaMs *= 0.001;
+          while (i < args.steps) {
+            // x + vx * dt + 0.5*dt**2*ax
+            const nPos =
+            obj.pos.copy()
+            .add(obj.vel.copy().mul(deltaMs))
+            .add(obj.acc.copy().mul((deltaMs ** 2) * 0.5));
+
+            const nAcc = new Vector(0, args.gravity, 0);
+
+            // Average new and old acceleration, add to Velocity
+            const nVel = obj.vel.copy().add(obj.acc.copy().add(nAcc).mul(0.5 * deltaMs));
+
+            obj.pos.values = nPos.values;
+            obj.vel.values = nVel.values;
+            obj.acc.values = nAcc.values;
+            i++
+          }
+          break
+        default:
+          throw new Error(`@ Volts.createPhysicsSolver: Solver "${args.solver}" is not implemented `);
+      };
+
+      // if (obj.pos.y < args.floor) {
+      //   obj.pos.y = args.floor;
+      // }
+    }
   }
 }
 

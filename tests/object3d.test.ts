@@ -102,9 +102,15 @@ describe('utils', () => {
   });
 });
 
+/**
+ * Tests marked with CASIO have been double checked with UARM/MRUV formulas and a calculator
+ */
 describe('physics', () => {
   test('createPhysicsSolver', () => {
-    expect(Object3D.createPhysicsSolver).not.toThrow();
+    expect(() => Object3D.createPhysicsSolver()(new Object3D(), 30)).not.toThrow();
+    expect(() => Object3D.createPhysicsSolver({ solver: 'verlet' })(new Object3D(), 0)).not.toThrow();
+    // @ts-expect-error
+    expect(() => Object3D.createPhysicsSolver({ solver: 'xxxxxx' })(new Object3D(), 0)).toThrow();
   });
 
   test('usePhysics', () => {
@@ -113,12 +119,46 @@ describe('physics', () => {
     new Object3D().usePhysics();
     expect(() => obj.usePhysics()).not.toThrow();
     expect( obj.Solver ).toBeDefined();
-    expect( obj.Solver ).not.toThrow();
+    expect( () => obj.Solver(obj, 33.33) ).not.toThrow();
     const spy = jest.spyOn(obj, 'Solver').mockImplementation();
     expect(() => obj.update({ solver: true }) ).not.toThrow();
-    expect(spy).toHaveBeenCalledTimes(1);
+    expect(() => obj.update({ solver: true, delta: 30 }) ).not.toThrow();
+    expect(spy).toHaveBeenCalledTimes(2);
     spy.mockReset();
     spy.mockRestore();
   });
+
+  test('static object', () => {
+    expect.assertions(9);
+    const obj = new Object3D().usePhysics({ solver: 'verlet', steps: 1, drag: 1.0, gravity: 0.0 });
+    // 1000ms == 1s
+    obj.update({ pos: true, rot: true, solver: true, delta: 1000 });
+    obj.pos.values.forEach((v) => expect(v).toBeCloseTo(0));
+    obj.vel.values.forEach((v) => expect(v).toBeCloseTo(0));
+    obj.acc.values.forEach((v) => expect(v).toBeCloseTo(0))
+  })
+
+  test('constant speed - CASIO', () => {
+    expect.assertions(9);
+    const obj = new Object3D().usePhysics({ solver: 'verlet', steps: 1, drag: 1.0, gravity: 0.0 });
+    obj.vel = new Vector(0,0,1);
+    // 1000ms == 1s
+    obj.update({ pos: true, rot: true, solver: true, delta: 1000 });
+    obj.pos.values.forEach((v, i) => expect(v).toBeCloseTo([0,0,1][i]));
+    obj.vel.values.forEach((v, i) => expect(v).toBeCloseTo([0,0,1][i]));
+    obj.acc.values.forEach((v) => expect(v).toBeCloseTo(0))
+  })
+
+  // test('parabolic trajectory - CASIO', () => {
+  //   expect.assertions(9);
+  //   const obj = new Object3D().usePhysics({ solver: 'verlet', steps: 10, drag: 1.0, gravity: -10.0 });
+  //   obj.vel = new Vector(0,0,1);
+  //   // 1000ms == 1s
+  //   // @todo remove using more steps
+  //   obj.update({ pos: true, rot: true, solver: true, delta: 1000 });
+  //   obj.pos.values.forEach((v, i) => expect(v).toBeCloseTo([0,-5, 1][i]));
+  //   obj.vel.values.forEach((v, i) => expect(v).toBeCloseTo([0,-10,1][i]));
+  //   obj.acc.values.forEach((v, i) => expect(v).toBeCloseTo([0,-10,0][i]));
+  // });
 
 })
