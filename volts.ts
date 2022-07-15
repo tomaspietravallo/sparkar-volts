@@ -2058,10 +2058,17 @@ export class Object3D<T extends SceneObjectBase = any> {
    * @version 0.0.0
    * @description ***ONLY AVAILABLE FOR BLOCK ASSETS***
    *
-   * ****EARLY DEVELOPMENT****
+   * **\*\*EARLY DEVELOPMENT\*\***
+   * 
+   * **NOT TESTED**
    *
    * Just to test out the concept
+   * 
+   * @example ```ts
+   * obj.setInput({ varName: [ true, 'setBoolean' ] })
+   * ```
    */
+  /* istanbul ignore next */
   setInputs(inputs: { [key: string]: [any, string] }): void {
     const keys = Object.keys(inputs);
     const set = (b: BlockSceneRoot) => {
