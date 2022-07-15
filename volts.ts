@@ -1884,6 +1884,7 @@ export class State<Data extends { [key: string]: Vector<any> | Quaternion | numb
 //#endregion
 
 //#region Object3D
+const DefaultPhysicsSettings = { solver: 'verlet', steps: 1, drag: 1.0, gravity: -9.7, floor: -0.5, group: 0xffff } as Parameters<typeof Object3D["prototype"]["usePhysics"]>[0];
 
 export enum SceneObjectClassNames {
   'Plane' = 'Plane',
@@ -1917,6 +1918,8 @@ export class Object3D<T extends SceneObjectBase = any> {
   awake: boolean;
   body: IfEquals<any, T, Promise<SceneObjectBase>, T>;
   material: MaterialBase | undefined;
+  Solver: (obj: Object3D ) => void;
+  static colliders: { [key: string]: Object3D[] } = {};
 
   constructor(body?: T) {
     (this.pos = new Vector()),
@@ -1973,7 +1976,8 @@ export class Object3D<T extends SceneObjectBase = any> {
     return this;
   }
 
-  update({ pos, rot }: { pos?: boolean; rot?: boolean } = {}): void {
+  update({ pos, rot, solver }: { pos?: boolean; rot?: boolean, solver?: boolean } = {}): void {
+    if (solver && this.Solver) this.Solver(this);
     if (pos) this.pos.setSignalComponents();
     if (rot) this.rot.setSignalComponents();
   }
@@ -1993,8 +1997,16 @@ export class Object3D<T extends SceneObjectBase = any> {
     return this;
   }
 
-  usePhysics(args = { solver: 'verlet', steps: 1, drag: 1.0, gravity: -9.7, floor: -0.5 }) {
-    /** ..  */
+  usePhysics(args: {
+    solver?: 'verlet' | 'none',
+    steps?: number,
+    drag?: number,
+    gravity?: number,
+    floor?: number,
+    group?: number,
+  } = DefaultPhysicsSettings) {
+    this.Solver = Object3D.createPhysicsSolver(args);
+    (Object3D.colliders[args.group] = Object3D.colliders[args.group] || []).push(this);
   }
 
   bindMesh(sceneObjectBase: SceneObjectBase): Object3D {
@@ -2028,17 +2040,6 @@ export class Object3D<T extends SceneObjectBase = any> {
       );
     }
     throw new Error(`Volts.Object3D.destroyDynamicBody: Function called on a non-dynamic bodied object`);
-  }
-
-  static async createDebugMaterial(hue?: number): Promise<MaterialBase> {
-    if (hue === undefined) hue = 0;
-    return Materials.create(MaterialClassNames.DefaultMaterial, {
-      opacity: 1.0,
-      blendMode: 'ALPHA',
-      doubleSided: true,
-    }).then((m) => {
-      return m.setTextureSlot('DIFFUSE', Reactive.pack4(...hsv2rgb(hue, 1, 1), 1) as any), m;
-    });
   }
 
   /**
@@ -2084,6 +2085,21 @@ export class Object3D<T extends SceneObjectBase = any> {
     };
     // @ts-expect-error
     this.body.then ? this.body.then((b) => set(b)) : set(this.body);
+  }
+  
+  static async createDebugMaterial(hue?: number): Promise<MaterialBase> {
+    if (hue === undefined) hue = 0;
+    return Materials.create(MaterialClassNames.DefaultMaterial, {
+      opacity: 1.0,
+      blendMode: 'ALPHA',
+      doubleSided: true,
+    }).then((m) => {
+      return m.setTextureSlot('DIFFUSE', Reactive.pack4(...hsv2rgb(hue, 1, 1), 1) as any), m;
+    });
+  }
+
+  static createPhysicsSolver( args: Parameters<typeof Object3D["prototype"]["usePhysics"]>[0] ) {
+    return () => { /** ... */}
   }
 }
 

@@ -28,7 +28,7 @@ describe('constructor', () => {
   });
 });
 
-describe('fetch reactive values', () => {
+describe('reactive values', () => {
   test('from scene obj', async () => {
     const Instance = World.getInstance({ mode: 'DEV' });
     jest.advanceTimersByTime(100);
@@ -52,6 +52,7 @@ describe('fetch reactive values', () => {
     obj.pos = new Vector(1, 2, 3);
     obj.rot = new Quaternion(1, 0, 0, 0);
     obj.update({ pos: true, rot: true });
+    obj.update({ pos: false, rot: false });
     expect(obj.pos.values).toEqual([1, 2, 3]);
     expect(obj.rot.values).toEqual([1, 0, 0, 0]);
   });
@@ -93,9 +94,31 @@ describe('utils', () => {
     const obj3d = new Object3D(sceneObj);
     expect(Object3D.createDebugMaterial()).resolves.not.toThrow();
   });
+
   test('destroyDynamicBody', () => {
     expect(() => new Object3D('JEST_DYNAMIC_INSTANCE').destroyDynamicBody()).not.toThrow();
     expect(() => new Object3D().destroyDynamicBody()).not.toThrow();
     expect(() => new Object3D(null).destroyDynamicBody()).toThrow();
   });
 });
+
+describe('physics', () => {
+  test('createPhysicsSolver', () => {
+    expect(Object3D.createPhysicsSolver).not.toThrow();
+  });
+
+  test('usePhysics', () => {
+    const obj = new Object3D();
+    // test || [].push
+    new Object3D().usePhysics();
+    expect(() => obj.usePhysics()).not.toThrow();
+    expect( obj.Solver ).toBeDefined();
+    expect( obj.Solver ).not.toThrow();
+    const spy = jest.spyOn(obj, 'Solver').mockImplementation();
+    expect(() => obj.update({ solver: true }) ).not.toThrow();
+    expect(spy).toHaveBeenCalledTimes(1);
+    spy.mockReset();
+    spy.mockRestore();
+  });
+
+})
