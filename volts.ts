@@ -1905,17 +1905,6 @@ export enum MaterialClassNames {
   'RetouchingMaterial' = 'RetouchingMaterial'
 }
 
-/**
- * @description A base type to be implemented by other classes that want to implement Object3D-like behavior.
- *
- * Named `Skeleton` instead of `Base` to avoid confusion with Spark's class names
- */
-export interface Object3DSkeleton {
-  pos: Vector<3>;
-  rot: Quaternion;
-  update(): void;
-}
-
 export class Object3D<T extends SceneObjectBase = any> {
   pos: Vector<3>;
   rot: Quaternion;
