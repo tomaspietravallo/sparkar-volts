@@ -1898,9 +1898,13 @@ export enum SceneObjectClassNames {
 export enum MaterialClassNames {
   'DefaultMaterial' = 'DefaultMaterial',
   'BlendedMaterial' = 'BlendedMaterial',
-  'PhysicallyBasedMaterial' = 'PhysicallyBasedMaterial',
-  'FacePaintMaterial' = 'FacePaintMaterial',
+  'ColorPaintMaterial' = 'ColorPaintMaterial',
+  'ComposedMaterial' = 'ComposedMaterial',
+  'CustomMaterial' = 'CustomMaterial',
+  'MetallicRoughnessPbrMaterial' = 'MetallicRoughnessPbrMaterial',
+  'RetouchingMaterial' = 'RetouchingMaterial'
 }
+
 /**
  * @description A base type to be implemented by other classes that want to implement Object3D-like behavior.
  *
