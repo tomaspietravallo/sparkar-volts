@@ -41,7 +41,17 @@ npm i
 
 # v5.0.0
 
-- [ ]
+- [ ] Add a verlet/physics solver
+```ts
+new Object3D()
+  .setPos(Vector.random())
+  .usePhysics({
+    verlet: true,
+    gravity: -9.7,
+    drag: 1.0, // between 0.0 and 1.0
+    floor: -1.0,
+  });
+```
 - Open a PR/issue & add/request features!
 
 # two-dot-diff shortcut
@@ -81,8 +91,7 @@ However, there are actions set up to test code on PRs/push
   - Due to the use of the `Camera` object, VOLTS may not run as expected inside blocks. Some of the things that may break are listed below, note this isn't a comprehensive list, and that some of these might be used internally
     - `Vector.screenToWorld2D`
 
-- `Time.ms.monitor` vs `Time.subscribeWithSnapshot`. Even tho `Time.ms.monitor` is the standard, `subscribeWithSnapshot` provides quite a nice opportunity. In some small tests, `subscribeWithSnapshot` appeared to perform the same. **But** as of writing, both suffer from a bug [\(may be related\)](https://docs.google.com/document/d/1Dj22O5SLGfMbTU5-oqBzlU78J9V1nMUVGo9gEGxziMA/edit?usp=sharing), which slowly grinds Spark AR Studio to a crawl. `subscribeWithSnapshot` seems to perform slightly worse in this bug. But on device, both perform as expected. The only solution atm seems to downgraded to Spark AR Studio <=118, 114 appears to work the best
-
+- `Time.ms.monitor` vs `Time.subscribeWithSnapshot`. Even tho `Time.ms.monitor` is the standard, `subscribeWithSnapshot` provides quite a nice opportunity.
 - Internal signals:
   Documented as part of the `InternalSignals` interface (after v2.0.0-beta.3)
 
@@ -90,7 +99,8 @@ However, there are actions set up to test code on PRs/push
 interface InternalSignals {
   __volts__internal__time: number;
   __volts__internal__focalDistance: number;
-  __volts__internal__screen: Vector;
+  __volts__internal__screen: Vector<3>;
+  __volts__internal__screenSizePixels: Vector<2>;
 }
 ```
 
