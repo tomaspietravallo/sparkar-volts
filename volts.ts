@@ -1667,7 +1667,8 @@ export class Quaternion {
   }
   public setSignalComponents(): void {
     // @ts-expect-error
-    if (this.rw) {                 // @ts-expect-error
+    if (this.rw) {
+      // @ts-expect-error
       this.rw.set(this.values[0]); // @ts-expect-error
       this.rx.set(this.values[1]); // @ts-expect-error
       this.ry.set(this.values[2]); // @ts-expect-error
@@ -1676,7 +1677,8 @@ export class Quaternion {
   }
   public disposeSignalResources(): void {
     // @ts-expect-error
-    if (this.rw) {       // @ts-expect-error
+    if (this.rw) {
+      // @ts-expect-error
       this.rw.dispose(); // @ts-expect-error
       this.rx.dispose(); // @ts-expect-error
       this.ry.dispose(); // @ts-expect-error
@@ -1902,7 +1904,7 @@ export enum MaterialClassNames {
   'ComposedMaterial' = 'ComposedMaterial',
   'CustomMaterial' = 'CustomMaterial',
   'MetallicRoughnessPbrMaterial' = 'MetallicRoughnessPbrMaterial',
-  'RetouchingMaterial' = 'RetouchingMaterial'
+  'RetouchingMaterial' = 'RetouchingMaterial',
 }
 
 export class Object3D<T extends SceneObjectBase = any> {
@@ -1991,6 +1993,10 @@ export class Object3D<T extends SceneObjectBase = any> {
     return this;
   }
 
+  usePhysics(args = { solver: 'verlet', steps: 1, drag: 1.0, gravity: -9.7, floor: -0.5 }) {
+    /** ..  */
+  }
+
   bindMesh(sceneObjectBase: SceneObjectBase): Object3D {
     sceneObjectBase.transform.position = this.pos.signal;
     sceneObjectBase.transform.rotation = this.rot.signal;
@@ -2059,11 +2065,11 @@ export class Object3D<T extends SceneObjectBase = any> {
    * @description ***ONLY AVAILABLE FOR BLOCK ASSETS***
    *
    * **\*\*EARLY DEVELOPMENT\*\***
-   * 
+   *
    * **NOT TESTED**
    *
    * Just to test out the concept
-   * 
+   *
    * @example ```ts
    * obj.setInput({ varName: [ true, 'setBoolean' ] })
    * ```
