@@ -44,14 +44,18 @@ describe('quaternion construction', () => {
     expect(rot.y).toBeCloseTo(0.0);
     expect(rot.z).toBeCloseTo(0.0);
 
-    Quaternion.lookAt(new Vector(), new Vector([ 0.0, 0.0, -1.0 ])).values.forEach((v,i) => expect(v).toBeCloseTo([0, 1, 0, Math.PI][i]))
-    Quaternion.lookAt(new Vector(), new Vector([ 0.0, 0.0, +1.0 ])).values.forEach((v,i) => expect(v).toBeCloseTo([1, 0, 0, 0][i]))
+    Quaternion.lookAt(new Vector(), new Vector([0.0, 0.0, -1.0])).values.forEach((v, i) =>
+      expect(v).toBeCloseTo([0, 1, 0, Math.PI][i]),
+    );
+    Quaternion.lookAt(new Vector(), new Vector([0.0, 0.0, +1.0])).values.forEach((v, i) =>
+      expect(v).toBeCloseTo([1, 0, 0, 0][i]),
+    );
   });
   test('lookAtOptimized', () => {
     expect(() => Quaternion.lookAtOptimized([0, 1, 0])).not.toThrow();
     expect(() => Quaternion.lookAtOptimized([0, 0, 0])).not.toThrow();
-    Quaternion.lookAtOptimized([0, 0, -1 ]).values.forEach((v,i) => expect(v).toBeCloseTo([0, 1, 0, Math.PI][i]))
-    Quaternion.lookAtOptimized([0, 0, +1 ]).values.forEach((v,i) => expect(v).toBeCloseTo([1, 0, 0, 0][i]))
+    Quaternion.lookAtOptimized([0, 0, -1]).values.forEach((v, i) => expect(v).toBeCloseTo([0, 1, 0, Math.PI][i]));
+    Quaternion.lookAtOptimized([0, 0, +1]).values.forEach((v, i) => expect(v).toBeCloseTo([1, 0, 0, 0][i]));
   });
 });
 

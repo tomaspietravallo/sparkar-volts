@@ -42,16 +42,16 @@ npm i
 # v5.0.0
 
 - [ ] Add a verlet/physics solver
+
 ```ts
-new Object3D()
-  .setPos(Vector.random())
-  .usePhysics({
-    verlet: true,
-    gravity: -9.7,
-    drag: 1.0, // between 0.0 and 1.0
-    floor: -1.0,
-  });
+new Object3D().setPos(Vector.random()).usePhysics({
+  verlet: true,
+  gravity: -9.7,
+  drag: 1.0, // between 0.0 and 1.0
+  floor: -1.0,
+});
 ```
+
 - Open a PR/issue & add/request features!
 
 # two-dot-diff shortcut

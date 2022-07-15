@@ -132,7 +132,7 @@ describe('vector utils', () => {
     const vec = new Vector(1, 2, 3);
     expect(vec.swizzle('x').toArray()).toEqual([1]);
     expect(vec.swizzle('zyx').toArray()).toEqual([3, 2, 1]);
-    expect(() => vec.swizzle('wwww')).toThrow()
+    expect(() => vec.swizzle('wwww')).toThrow();
   });
 });
 
