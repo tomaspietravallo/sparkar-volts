@@ -149,16 +149,17 @@ describe('physics', () => {
     obj.acc.values.forEach((v) => expect(v).toBeCloseTo(0))
   })
 
-  // test('parabolic trajectory - CASIO', () => {
-  //   expect.assertions(9);
-  //   const obj = new Object3D().usePhysics({ solver: 'verlet', steps: 10, drag: 1.0, gravity: -10.0 });
-  //   obj.vel = new Vector(0,0,1);
-  //   // 1000ms == 1s
-  //   // @todo remove using more steps
-  //   obj.update({ pos: true, rot: true, solver: true, delta: 1000 });
-  //   obj.pos.values.forEach((v, i) => expect(v).toBeCloseTo([0,-5, 1][i]));
-  //   obj.vel.values.forEach((v, i) => expect(v).toBeCloseTo([0,-10,1][i]));
-  //   obj.acc.values.forEach((v, i) => expect(v).toBeCloseTo([0,-10,0][i]));
-  // });
+  test('parabolic trajectory - CASIO', () => {
+    expect.assertions(9);
+    const obj = new Object3D().usePhysics({ solver: 'verlet', steps: 10, drag: 1.0, gravity: -10.0 });
+    obj.vel = new Vector(0,0,1);
+    obj.acc = new Vector(0,-10,0);
+    // 1000ms == 1s
+    // @todo remove using more steps
+    obj.update({ pos: true, rot: true, solver: true, delta: 1000 });
+    obj.pos.values.forEach((v, i) => expect(v).toBeCloseTo([0,-5, 1][i]));
+    obj.vel.values.forEach((v, i) => expect(v).toBeCloseTo([0,-10,1][i]));
+    obj.acc.values.forEach((v, i) => expect(v).toBeCloseTo([0,-10,0][i]));
+  });
 
 })

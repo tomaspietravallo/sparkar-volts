@@ -2115,6 +2115,8 @@ export class Object3D<T extends SceneObjectBase = any> {
       switch (args.solver) {
         case 'verlet':
           let i = 0; deltaMs /= args.steps; deltaMs *= 0.001;
+          // Set acceleration for frame 0, fixes the UA- part of UARM
+          obj.acc = new Vector(0, args.gravity, 0);
           while (i < args.steps) {
             // x + vx * dt + 0.5*dt**2*ax
             const nPos =
