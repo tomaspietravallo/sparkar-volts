@@ -1978,7 +1978,7 @@ export class State<Data extends { [key: string]: Vector<any> | Quaternion | numb
 //#endregion
 
 //#region Object3D
-type Solver = (obj: Object3D, deltaMs: number) => void;
+type Solver = (deltaMs: number) => void;
 /** @description Does NOT contain all possible settings, just default ones  */
 export const DefaultPhysicsSettings = { solver: 'verlet', steps: 1, drag: 1.0, gravity: -9.8, group: 0xffff } as Parameters<typeof Object3D["prototype"]["usePhysics"]>[0];
 
@@ -2073,7 +2073,7 @@ export class Object3D<T extends SceneObjectBase = any> {
   }
 
   update({ pos, rot, solver, delta }: { pos?: boolean; rot?: boolean, solver?: boolean, delta?: number } = {}): void {
-    if (solver && this.Solver) this.Solver(this, delta || FRAME_MS);
+    if (solver && this.Solver) this.Solver(delta || FRAME_MS);
     if (pos) this.pos.setSignalComponents();
     if (rot) this.rot.setSignalComponents();
   }
@@ -2094,14 +2094,14 @@ export class Object3D<T extends SceneObjectBase = any> {
   }
 
   usePhysics(args: {
-    solver?: 'verlet',
+    solver?: 'verlet' | 'impulse',
     steps?: number,
     drag?: number,
     gravity?: number,
     floor?: number,
     group?: number,
   } = DefaultPhysicsSettings): Object3D {
-    this.Solver = Object3D.createPhysicsSolver(args);
+    this.Solver = Object3D.createPhysicsSolver(this, args);
     (Object3D.colliders[args.group] = Object3D.colliders[args.group] || []).push(this);
     return this
   }
@@ -2195,7 +2195,7 @@ export class Object3D<T extends SceneObjectBase = any> {
     });
   }
 
-  static createPhysicsSolver( args: Parameters<typeof Object3D["prototype"]["usePhysics"]>[0] = {} ): Solver {
+  static createPhysicsSolver( obj: Object3D, args: Parameters<typeof Object3D["prototype"]["usePhysics"]>[0] = {} ): Solver {
     const keys = Object.keys(DefaultPhysicsSettings);
     for (let index = 0; index < keys.length; index++) {
       const e = keys[index] as keyof typeof DefaultPhysicsSettings;
@@ -2203,10 +2203,9 @@ export class Object3D<T extends SceneObjectBase = any> {
       if (args[e] === undefined) args[e] = DefaultPhysicsSettings[e];
     }
     
-    return function(obj, deltaMs) {
-      // Position, velocity, acceleration
-      switch (args.solver) {
-        case 'verlet':
+    switch (args.solver) {
+      case 'verlet':
+        return function(deltaMs) {
           let i = 0; deltaMs /= args.steps; deltaMs *= 0.001;
           // Set acceleration for frame 0, fixes the UA- part of UARM
           obj.acc = new Vector(0, args.gravity, 0);
@@ -2227,16 +2226,13 @@ export class Object3D<T extends SceneObjectBase = any> {
             obj.acc.values = nAcc.values;
             i++
           }
-          break
-        default:
-          throw new Error(`@ Volts.createPhysicsSolver: Solver "${args.solver}" is not implemented `);
-      };
-
-      // Resolve collisions
-
-      // if (obj.pos.y < args.floor) {
-      //   obj.pos.y = args.floor;
-      // }
+      }
+      case 'impulse':
+        return function(deltaMs) {
+          
+        }
+      default:
+        throw new Error(`@ Volts.createPhysicsSolver: Solver "${args.solver}" is not implemented `);
     }
   }
 }
@@ -2549,6 +2545,7 @@ export const World = {
 export default {
   World: World,
   Vector: Vector,
+  Matrix: Matrix,
   Quaternion: Quaternion,
   State: State,
   Object3D: Object3D,

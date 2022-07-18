@@ -107,10 +107,10 @@ describe('utils', () => {
  */
 describe('physics', () => {
   test('createPhysicsSolver', () => {
-    expect(() => Object3D.createPhysicsSolver()(new Object3D(), 30)).not.toThrow();
-    expect(() => Object3D.createPhysicsSolver({ solver: 'verlet' })(new Object3D(), 0)).not.toThrow();
+    expect(() => Object3D.createPhysicsSolver(new Object3D())(30)).not.toThrow();
+    expect(() => Object3D.createPhysicsSolver(new Object3D(), { solver: 'verlet' })(new Object3D(), 0)).not.toThrow();
     // @ts-expect-error
-    expect(() => Object3D.createPhysicsSolver({ solver: 'xxxxxx' })(new Object3D(), 0)).toThrow();
+    expect(() => Object3D.createPhysicsSolver(new Object3D(), { solver: 'xxxxxx' })(new Object3D(), 0)).toThrow();
   });
 
   test('usePhysics', () => {
@@ -119,7 +119,7 @@ describe('physics', () => {
     new Object3D().usePhysics();
     expect(() => obj.usePhysics()).not.toThrow();
     expect( obj.Solver ).toBeDefined();
-    expect( () => obj.Solver(obj, 33.33) ).not.toThrow();
+    expect( () => obj.Solver( 33.33) ).not.toThrow();
     const spy = jest.spyOn(obj, 'Solver').mockImplementation();
     expect(() => obj.update({ solver: true }) ).not.toThrow();
     expect(() => obj.update({ solver: true, delta: 30 }) ).not.toThrow();
