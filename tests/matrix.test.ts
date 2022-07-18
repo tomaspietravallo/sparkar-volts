@@ -53,6 +53,9 @@ describe('utils', () => {
             [0,1,2],
             [0,1,3]
         ).inverse()).toThrow();
+    });
+    test('transpose', () => {
+        expect(new Matrix([1,1,1], [2,2,2], [3,3,3]).transpose().toString()).toEqual('[[1,2,3],[1,2,3],[1,2,3]]')
     })
     test('toString', () => {
         expect(new Matrix([0,0,0], [0,0,0], [0,0,0]).toString()).toEqual('[[0,0,0],[0,0,0],[0,0,0]]');

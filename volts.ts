@@ -6,6 +6,7 @@ import Time from 'Time';
 import Blocks from 'Blocks';
 import CameraInfo from 'CameraInfo';
 import Materials from 'Materials';
+import { timeStamp } from 'console';
 
 // 👇 may be dynamically imported using `require`
 let Persistence: {
@@ -1515,6 +1516,12 @@ export class Matrix {
     }
 
     this.values = mat.values;
+    return this;
+  }
+
+  transpose(): Matrix {
+    // Square matrices only
+    this.values = this.values.map((r, ri) => r.map((_, ci) => this.values[ci][ri] ) );
     return this;
   }
 
