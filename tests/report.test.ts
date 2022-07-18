@@ -61,7 +61,7 @@ describe('getSceneInfo', () => {
     });
   });
   test('single asset', async () => {
-    expect.assertions(1);
+    expect.assertions(3);
     const W = World.getInstance({
       mode: 'NO_AUTO',
       assets: {
@@ -69,8 +69,10 @@ describe('getSceneInfo', () => {
       },
     });
     // @ts-expect-error
-    await W.rawInitPromise.then(() => {
-      expect(report.getSceneInfo()).resolves.not.toThrow();
+    await W.rawInitPromise.then(async () => {
+      await expect(report.getSceneInfo()).resolves.not.toThrow();
+      await expect(report.getSceneInfo({ getIdentifiers: true, getMaterials: false, getPositions: true, getTextures: true })).resolves.not.toThrow();
+      await expect(report.getSceneInfo({ getIdentifiers: true, getMaterials: true, getPositions: true, getTextures: true })).resolves.not.toThrow();
     });
   });
   test('corrupt', async () => {

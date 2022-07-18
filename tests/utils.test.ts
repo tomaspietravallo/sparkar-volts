@@ -1,4 +1,4 @@
-import { privates, randomBetween, hsv2rgb, allBinaryOptions, PRODUCTION_MODES, Vector } from '../volts';
+import { privates, randomBetween, hsv2rgb, allBinaryOptions, PRODUCTION_MODES, MaterialClassNames, SceneObjectClassNames, Vector } from '../volts';
 
 describe('promiseAllConcurrent', () => {
   test('simple test', async () => {
@@ -37,3 +37,16 @@ describe('allBinaryOptions', () => {
     expect(two2d).toContainEqual([1, 1]);
   });
 });
+
+describe('enums', () => {
+  expect.hasAssertions()
+  test('PRODUCTION_MODES', () => {
+    Object.values(PRODUCTION_MODES).forEach(v => expect(typeof v).toEqual('string') );
+  });
+  test('MaterialClassNames', () => {
+    Object.values(MaterialClassNames).forEach(v => expect(typeof v).toEqual('string') );
+  });
+  test('SceneObjectClassNames', () => {
+    Object.values(SceneObjectClassNames).forEach(v => expect(typeof v).toEqual('string') );
+  });
+})

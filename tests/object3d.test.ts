@@ -124,6 +124,8 @@ describe('physics', () => {
     expect(() => obj.update({ solver: true }) ).not.toThrow();
     expect(() => obj.update({ solver: true, delta: 30 }) ).not.toThrow();
     expect(spy).toHaveBeenCalledTimes(2);
+    // @ts-expect-error
+    expect(() => new Object3D().usePhysics({solver: 'this-is-not-a-solver'})()).toThrow();
     spy.mockReset();
     spy.mockRestore();
   });

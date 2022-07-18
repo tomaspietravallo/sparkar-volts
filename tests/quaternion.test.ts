@@ -143,23 +143,23 @@ describe('accessors', () => {
   const Q1234 = new Quaternion(1, 2, 3, 4);
   test('w', () => {
     expect(Q1234.w).toEqual(1);
-    Q1234.w *= 2;
-    expect(Q1234.w).toEqual(2);
+    Q1234.w = 4;
+    expect(Q1234.w).toEqual(4);
   });
   test('x', () => {
     expect(Q1234.x).toEqual(2);
-    Q1234.x *= 2;
-    expect(Q1234.x).toEqual(4);
+    Q1234.x = 3;
+    expect(Q1234.x).toEqual(3);
   });
   test('y', () => {
     expect(Q1234.y).toEqual(3);
-    Q1234.y *= 2;
-    expect(Q1234.y).toEqual(6);
+    Q1234.y = 2;
+    expect(Q1234.y).toEqual(2);
   });
   test('z', () => {
     expect(Q1234.z).toEqual(4);
-    Q1234.z *= 2;
-    expect(Q1234.z).toEqual(8);
+    Q1234.z = 1;
+    expect(Q1234.z).toEqual(1);
   });
   test('signal', () => {
     const spy = jest.spyOn(scalarSignalSource.prototype, 'set').mockImplementation();

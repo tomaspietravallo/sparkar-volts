@@ -1891,6 +1891,7 @@ export class State<Data extends { [key: string]: Vector<any> | Quaternion | numb
     this._data = {};
 
     // don't show as part of the loadState type, while remaining public
+    /** istanbul-ignore-next */
     Object.defineProperty(this, 'loadState', {
       value: async (): Promise<void> => {
         // Brief explanation for the use of Promise.race
@@ -1931,7 +1932,7 @@ export class State<Data extends { [key: string]: Vector<any> | Quaternion | numb
       writable: false,
       configurable: false,
     });
-
+    /** istanbul-ignore-next */
     Object.defineProperty(this, 'rawConstructorPromise', {
       // @ts-ignore
       value: this.loadState(),
@@ -1940,14 +1941,6 @@ export class State<Data extends { [key: string]: Vector<any> | Quaternion | numb
       configurable: false,
     });
 
-    Object.defineProperty(this, 'wipe', {
-      value: () => {
-        this._data = {};
-      },
-      enumerable: false,
-      writable: false,
-      configurable: false,
-    });
   }
 
   protected setPersistenceAPI(): void {
@@ -1963,6 +1956,16 @@ export class State<Data extends { [key: string]: Vector<any> | Quaternion | numb
     this.data[key] = value instanceof Vector ? value.copy() : value instanceof Quaternion ? value.copy() : value;
     // rate limit (?)
     this.setPersistenceAPI();
+  }
+
+  wipeLocal(): State<Data> {
+    this._data = {};
+    return this;
+  }
+
+  wipeStored(): State<Data> {
+    Persistence.userScope.remove(this.key);
+    return this;
   }
 
   get data(): { [Property in keyof Data]+?: Data[Property] } {
