@@ -1463,7 +1463,61 @@ export class Matrix {
     return JSON.stringify(this.values);
   }
 
+  inverse(): Matrix {
+    const
+    N = this.values.length,
+    mat = Matrix.identity(N);
+    // sets the all in the diagonal != 0, if not possible, matrix has det=0
+    for (let c = 0; c < N; c++) {
+      // Along the diagonal
+      if (this.values[c][c] === 0) {
+        // Largest abs value column
+        let labsc = c;
+        for (let r = 0; r < N; r++) {
+          if (Math.abs(this.values[r][c]) > Math.abs(this.values[labsc][c])) labsc = r;
+          if (labsc == c) {
+            throw new Error(`@ Volts.Matrix.inverse: Determinant is 0. Cannot be inverted`);
+          } else {
+            let tmp = 0;
+            for (let k = 0; k < N; k++) {
+              tmp = this.values[c][k];
+              this.values[c][k] = this.values[labsc][k];
+              this.values[labsc][k] = tmp;
+              tmp = mat.values[c][k];
+              mat.values[c][k] = mat.values[labsc][k];
+              mat.values[labsc][k] = tmp;
+            }
+          };
+        }
+      }
+
+      // this loop zeroes out all but the diagonal
+      for (let r = 0; r < N; r++) { // r=0, c=2,
+        if (r !== c) {
+          // avoids over-zero NaNs because [c][c] was determined not to be zero (?)
+          const d = this.values[r][c] / this.values[c][c];
+          if (d !== 0) {
+            for (let j = 0; j < N; j++) {
+              this.values[r][j] -= d * this.values[c][j];
+              mat.values[r][j] -= d * mat.values[c][j];
+            }
+            // Safety
+            this.values[r][c] = 0;
+          }
+        }
+      }
+    }
+
+    for (let r = 0; r < N; r++) {
+      for (let c = 0; c < N; c++) {
+        mat.values[r][c] /= this.values[r][r];
+      }
+    }
+
+    this.values = mat.values;
+    return this;
   }
+
 }
 
 //#endregion
