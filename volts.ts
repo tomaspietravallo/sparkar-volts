@@ -1520,9 +1520,13 @@ export class Matrix {
   }
 
   transpose(): Matrix {
-    // Square matrices only
+    // Square matrices only (?)
     this.values = this.values.map((r, ri) => r.map((_, ci) => this.values[ci][ri] ) );
     return this;
+  }
+
+  mulVector<D extends number>(vec: Vector<D>): Vector<D> {
+    return new Vector(vec.values.map((v, r) => this.values[r].map((e, i) => e * vec.values[i]).reduce((acc, val) => acc + val, 0) ))
   }
 
 }

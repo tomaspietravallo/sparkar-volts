@@ -1,4 +1,4 @@
-import { Matrix } from '../volts';
+import { Matrix, Vector } from '../volts';
 
 describe('matrix construction', () => {
     test('construct', () => {
@@ -56,6 +56,15 @@ describe('utils', () => {
     });
     test('transpose', () => {
         expect(new Matrix([1,1,1], [2,2,2], [3,3,3]).transpose().toString()).toEqual('[[1,2,3],[1,2,3],[1,2,3]]')
+    });
+    test('mulVector', () => {
+        const mat = new Matrix(
+            [1,2,3],
+            [4,5,6],
+            [7,8,9]
+        );
+        const vec = new Vector(1,2,3);
+        expect(mat.mulVector(vec).values).toEqual([14, 32, 50]);
     })
     test('toString', () => {
         expect(new Matrix([0,0,0], [0,0,0], [0,0,0]).toString()).toEqual('[[0,0,0],[0,0,0],[0,0,0]]');
