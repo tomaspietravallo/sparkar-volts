@@ -42,7 +42,7 @@ describe('utils', () => {
 
         for (let r = 0; r < 4; r++) {
             for (let c = 0; c < 4; c++) {
-                expect(Mat.values[r][c]).toBeCloseTo(pre_computed.values[r][c], 1);
+                expect(Mat.values[r][c]).toBeCloseTo(pre_computed.values[r][c], 8);
             }
         }
 
