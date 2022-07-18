@@ -1443,6 +1443,24 @@ Vector.prototype.rotate = function <D extends number>(a: number): Vector<D> {
 
 //#endregion
 
+//#region Matrix
+
+export class Matrix {
+  values: number[][];
+  constructor(...args: number[][] ) {
+    this.values = args;
+    if (!args.every((arr) => arr.length === args.length)) {
+      throw new Error(`@ Volts.Matrix arguments do not correspond to Square matrix. args: ${args}`);
+    };
+  }
+  toString() {
+    return this.values.toString();
+  }
+}
+
+//#endregion
+
+
 //#region Quaternion
 
 type QuaternionArgRest = [number, number, number, number] | [number[]] | [Quaternion] | [];
@@ -2138,6 +2156,8 @@ export class Object3D<T extends SceneObjectBase = any> {
         default:
           throw new Error(`@ Volts.createPhysicsSolver: Solver "${args.solver}" is not implemented `);
       };
+
+      // Resolve collisions
 
       // if (obj.pos.y < args.floor) {
       //   obj.pos.y = args.floor;
