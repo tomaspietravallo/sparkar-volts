@@ -1447,19 +1447,26 @@ Vector.prototype.rotate = function <D extends number>(a: number): Vector<D> {
 
 export class Matrix {
   values: number[][];
+
   constructor(...args: number[][] ) {
     this.values = args;
     if (!args.every((arr) => arr.length === args.length)) {
       throw new Error(`@ Volts.Matrix arguments do not correspond to Square matrix. args: ${args}`);
     };
   }
+
+  static identity (dim = 3): Matrix {
+    return new Matrix( ...new Array(dim).fill(null).map((_, i) => new Array(dim).fill(null).map((_, j) => i === j ? 1 : 0)) );
+  }
+
   toString() {
-    return this.values.toString();
+    return JSON.stringify(this.values);
+  }
+
   }
 }
 
 //#endregion
-
 
 //#region Quaternion
 
