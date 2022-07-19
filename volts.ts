@@ -2016,20 +2016,34 @@ export class Object3D<T extends SceneObjectBase = any> {
   vel: Vector<3>;
   scl: Vector<3>;
   box: Vector<3>;
+  mass: number;
   awake: boolean;
   body: IfEquals<any, T, Promise<SceneObjectBase>, T>;
   material: MaterialBase | undefined;
   Solver: Solver;
   static colliders: { [key: string]: Object3D[] } = {};
 
-  constructor(body?: T) {
-    (this.pos = new Vector()),
-      (this.rot = new Quaternion()),
-      (this.acc = new Vector()),
-      (this.vel = new Vector()),
-      (this.scl = new Vector(1, 1, 1)),
-      (this.box = new Vector(0.05)),
-      (this.awake = true);
+  constructor(args: {
+    pos?: Vector<3>,
+    rot?: Quaternion,
+    acc?: Vector<3>,
+    vel?: Vector<3>,
+    scl?: Vector<3>,
+    box?: Vector<3>,
+    mass?: number,
+    awake?: boolean,
+    body?: T,
+  } = undefined ) {
+    if (typeof args !== 'object') args = {};
+      (this.pos = args.pos || new Vector()),
+      (this.rot = args.rot || new Quaternion()),
+      (this.acc = args.acc || new Vector()),
+      (this.vel = args.vel || new Vector()),
+      (this.scl = args.scl || new Vector(1, 1, 1)),
+      (this.box = args.box || new Vector(0.05)),
+      // mass of 0.0 disallowed for now
+      (this.mass = args.mass || 1.0),
+      (this.awake = !!args.awake);
 
     /**
      * The key idea behind this, is decoupling processing from rendering.
@@ -2043,16 +2057,16 @@ export class Object3D<T extends SceneObjectBase = any> {
      * 2. out of bounds array creating dynamic objects may help identify an issue,
      * and instancing without hassle can be useful while iterating
      */
-    this.body = body;
-    if (body !== null) {
+    this.body = args.body;
+    if (args.body !== null) {
       const p = new Promise<T>((resolve) => {
-        (body
-          ? typeof body === 'string'
-            ? Blocks.instantiate(body, { hidden: false })
-            : Promise.resolve(body)
+        (args.body
+          ? typeof args.body === 'string'
+            ? Blocks.instantiate(args.body, { hidden: false })
+            : Promise.resolve(args.body)
           : Scene.create('Plane')
-        ).then(async (plane: T) => {
-          (!body || !body.addChild) && (await Scene.root.addChild(plane));
+        ).then(async (plane) => {
+          (!args.body || !args.body.addChild) && (await Scene.root.addChild(plane));
           plane.transform.position = this.pos.signal;
           plane.transform.rotation = this.rot.signal;
           plane.transform.scale = this.scl.signal;
@@ -2063,7 +2077,7 @@ export class Object3D<T extends SceneObjectBase = any> {
           resolve(plane);
         });
       });
-      if (!body || typeof body === 'string') this.body = p;
+      if (!args.body || typeof args.body === 'string') this.body = p;
     }
   }
 
@@ -2085,6 +2099,11 @@ export class Object3D<T extends SceneObjectBase = any> {
 
   setPos(...newPos: VectorArgRest): Object3D {
     this.pos.values = Vector.convertToSameDimVector(3, ...newPos).values;
+    return this;
+  }
+
+  setVel(...newVel: VectorArgRest): Object3D {
+    this.vel.values = Vector.convertToSameDimVector(3, ...newVel).values;
     return this;
   }
 

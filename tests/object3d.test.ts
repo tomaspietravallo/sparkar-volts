@@ -8,7 +8,7 @@ jest.useFakeTimers();
 describe('constructor', () => {
   test('from scene obj', async () => {
     const obj = await Scene.root.findFirst('a-scene-obj');
-    expect(() => new Object3D(obj)).not.toThrow();
+    expect(() => new Object3D({body: obj})).not.toThrow();
   });
   test('dynamic plane instance body', async () => {
     const spy = jest
@@ -21,7 +21,7 @@ describe('constructor', () => {
   });
   test('dynamic Block instance body', async () => {
     const spy = jest.spyOn(Blocks, 'instantiate');
-    expect(() => new Object3D('JEST_DYNAMIC_INSTANCE')).not.toThrow();
+    expect(() => new Object3D({body: 'JEST_DYNAMIC_INSTANCE'})).not.toThrow();
     expect(spy).toHaveBeenCalledTimes(1);
     spy.mockReset();
     spy.mockRestore();
@@ -33,7 +33,7 @@ describe('reactive values', () => {
     const Instance = World.getInstance({ mode: 'DEV' });
     jest.advanceTimersByTime(100);
     const sceneObj: SceneObjectBase = await Scene.root.findFirst('a-scene-obj');
-    const obj = new Object3D(sceneObj);
+    const obj = new Object3D({body: sceneObj});
     obj.body.transform.position = Reactive.vector(1, 2, 3);
     obj.body.transform.rotation = Reactive.quaternion(1, 2, 3, 4);
     // await expect(obj.fetchLastPosition()).resolves.not.toThrow();
@@ -48,7 +48,7 @@ describe('reactive values', () => {
   });
   test('update', async () => {
     const sceneObj: SceneObjectBase = await Scene.root.findFirst('a-scene-obj');
-    const obj = new Object3D(sceneObj);
+    const obj = new Object3D({body: sceneObj});
     obj.pos = new Vector(1, 2, 3);
     obj.rot = new Quaternion(1, 0, 0, 0);
     obj.update({ pos: true, rot: true });
@@ -67,14 +67,14 @@ describe('utils', () => {
   test('lookAtOther', async () => {
     const sceneObjOne: SceneObjectBase = await Scene.root.findFirst('a-scene-obj');
     const sceneObjTwo: SceneObjectBase = await Scene.root.findFirst('a-scene-obj');
-    const first = new Object3D(sceneObjOne);
-    const second = new Object3D(sceneObjTwo);
+    const first = new Object3D({body: sceneObjOne});
+    const second = new Object3D({body: sceneObjTwo});
 
     expect(() => first.lookAtOther(second)).not.toThrow();
   });
   test('lookAtHeading', async () => {
     const sceneObjOne: SceneObjectBase = await Scene.root.findFirst('a-scene-obj');
-    const obj = new Object3D(sceneObjOne);
+    const obj = new Object3D({body: sceneObjOne});
     obj.vel = new Vector(0, 0, 1);
 
     expect(() => obj.lookAtHeading()).not.toThrow();
@@ -82,7 +82,7 @@ describe('utils', () => {
   });
   test('body promise', async () => {
     const sceneObj: SceneObjectBase = await Scene.root.findFirst('a-scene-obj');
-    const obj3d = new Object3D(sceneObj);
+    const obj3d = new Object3D({body: sceneObj});
     const dynamicInstance = new Object3D();
 
     expect(obj3d.body).toBe(sceneObj);
@@ -91,14 +91,14 @@ describe('utils', () => {
   });
   test('createDebugMaterial', async () => {
     const sceneObj: SceneObjectBase = await Scene.root.findFirst('a-scene-obj');
-    const obj3d = new Object3D(sceneObj);
+    const obj3d = new Object3D({body: sceneObj});
     expect(Object3D.createDebugMaterial()).resolves.not.toThrow();
   });
 
   test('destroyDynamicBody', () => {
-    expect(() => new Object3D('JEST_DYNAMIC_INSTANCE').destroyDynamicBody()).not.toThrow();
+    expect(() => new Object3D({body: 'JEST_DYNAMIC_INSTANCE'}).destroyDynamicBody()).not.toThrow();
     expect(() => new Object3D().destroyDynamicBody()).not.toThrow();
-    expect(() => new Object3D(null).destroyDynamicBody()).toThrow();
+    expect(() => new Object3D({body: null}).destroyDynamicBody()).toThrow();
   });
 });
 
