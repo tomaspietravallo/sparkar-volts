@@ -2011,9 +2011,10 @@ export enum MaterialClassNames {
 
 export class Object3D<T extends SceneObjectBase = any> {
   pos: Vector<3>;
-  rot: Quaternion;
-  acc: Vector<3>;
   vel: Vector<3>;
+  acc: Vector<3>;
+  rot: Quaternion;
+  ang_vel: Quaternion;
   scl: Vector<3>;
   box: Vector<3>;
   mass: number;
@@ -2025,9 +2026,10 @@ export class Object3D<T extends SceneObjectBase = any> {
 
   constructor(args: {
     pos?: Vector<3>,
-    rot?: Quaternion,
-    acc?: Vector<3>,
     vel?: Vector<3>,
+    acc?: Vector<3>,
+    rot?: Quaternion,
+    ang_vel?: Quaternion,
     scl?: Vector<3>,
     box?: Vector<3>,
     mass?: number,
@@ -2036,9 +2038,10 @@ export class Object3D<T extends SceneObjectBase = any> {
   } = undefined ) {
     if (typeof args !== 'object') args = {};
       (this.pos = args.pos || new Vector()),
-      (this.rot = args.rot || new Quaternion()),
-      (this.acc = args.acc || new Vector()),
       (this.vel = args.vel || new Vector()),
+      (this.acc = args.acc || new Vector()),
+      (this.rot = args.rot || new Quaternion()),
+      (this.ang_vel = args.ang_vel || new Quaternion()),
       (this.scl = args.scl || new Vector(1, 1, 1)),
       (this.box = args.box || new Vector(0.05)),
       // mass of 0.0 disallowed for now
@@ -2244,6 +2247,7 @@ export class Object3D<T extends SceneObjectBase = any> {
 
             // Average new and old acceleration, add to Velocity
             const nVel = obj.vel.copy().add(obj.acc.copy().add(nAcc).mul(0.5 * deltaMs));
+            obj.rot.mul( Quaternion.slerp(Quaternion.identity(), obj.ang_vel, deltaMs * 1000 / FRAME_MS ) )
 
             obj.pos.values = nPos.values;
             obj.vel.values = nVel.values;
@@ -2271,9 +2275,9 @@ export class Object3D<T extends SceneObjectBase = any> {
     // objA.rot.toEuler;
     // objB.rot.toEuler;
     //////////////////////////////////////////////
-    const IaInverse = Ia.inverse();
     const normal = n.normalize();
-
+    
+    const IaInverse = Ia.inverse();
     const angularVelChangeA =
     normal.copy()
     .cross(ra)
@@ -2281,8 +2285,8 @@ export class Object3D<T extends SceneObjectBase = any> {
 
     const vaLinDueToR = angularVelChangeA.copy().cross(ra);
     let scalar = 1/ma /* @todo warn: x/0 NaN */ + vaLinDueToR.dot(normal);
-    const IbInverse = Ib.inverse();
 
+    const IbInverse = Ib.inverse();
     const angularVelChangeB =
     normal.copy()
     .cross(rb)
@@ -2290,10 +2294,15 @@ export class Object3D<T extends SceneObjectBase = any> {
 
     const vbLinDueToR = angularVelChangeB.copy().cross(rb);
     scalar += 1/mb /* @todo warn: x/0 NaN */ + vbLinDueToR.dot(normal);
+
     const Jmod = (e+1) * (a.vel.copy().sub(b.vel)).mag() / scalar;
     const J = normal.mul(Jmod);
 
     a.vel.values = a.vel.copy().sub(J.mul(1/ma)).values;
+    a.ang_vel = Quaternion.fromEuler(new Vector(a.ang_vel.toEulerArray()).add(angularVelChangeA).values);
+
+    b.vel.values = b.vel.copy().sub(J.mul(1/mb)).values;
+    b.ang_vel = Quaternion.fromEuler(new Vector(b.ang_vel.toEulerArray()).add(angularVelChangeB).values);
   }
 }
 

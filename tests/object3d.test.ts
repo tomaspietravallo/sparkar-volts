@@ -34,6 +34,7 @@ describe('constructor', () => {
       vel: new Vector(2),
       acc: new Vector(3),
       rot: Quaternion.fromEuler(Math.PI, 0, 0),
+      ang_vel: Quaternion.identity(),
       scl: new Vector(2),
       mass: 10.0,
       awake: true,
