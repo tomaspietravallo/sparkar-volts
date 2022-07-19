@@ -41,7 +41,7 @@ npm i
 
 # v5.0.0
 
-- [ ] Add a verlet/physics solver
+- [ ] Add a verlet/physics solver. [See an example of the progress](https://gist.github.com/tomaspietravallo/3f4eeeb93f3f064f2261b4d6aecc9ecc)
 
 ```ts
 new Object3D().setPos(Vector.random()).usePhysics({
