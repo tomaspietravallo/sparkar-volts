@@ -226,7 +226,7 @@ describe('math operations', () => {
     expect(vec.y).toBeCloseTo(-1);
   });
   test('transform', () => {
-    expect(new Vector(1,2,3).transform(new Matrix([1,2,3], [4,5,6], [7,8,9])).values).toEqual([14,32,50])
+    expect(new Vector(1,2,3).transform(new Matrix([[1,2,3], [4,5,6], [7,8,9]])).values).toEqual([14,32,50])
   });
 });
 

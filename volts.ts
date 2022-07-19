@@ -1454,7 +1454,7 @@ Vector.prototype.rotate = function <D extends number>(a: number): Vector<D> {
 export class Matrix {
   values: number[][];
 
-  constructor( args: number[][] ) {
+  constructor(args: number[][]) {
     this.values = args;
     if (!args.every((arr) => arr.length === args.length)) {
       throw new Error(`@ Volts.Matrix arguments do not correspond to Square matrix. args: ${args}`);
