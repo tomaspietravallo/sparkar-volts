@@ -1013,6 +1013,7 @@ interface NDVectorInstance<D extends number> {
   toString(toFixed?: number): string;
   toArray(): number[];
   swizzle<s extends string>(string: swizzle<s>): Vector<D>;
+  transform(matrix: Matrix): Vector<D>;
   get x(): number;
   set x(x: number);
   get signal(): D extends 2 ? Vec2Signal : D extends 3 ? PointSignal : D extends 4 ? Vec4Signal : ScalarSignal;
@@ -1381,6 +1382,10 @@ Vector.prototype.toArray = function () {
 Vector.prototype.swizzle = function <D extends number, s extends string>(string: swizzle<s>): Vector<D> {
   return new Vector(string.split('').map((char: VectorComponents) => this[char]));
 };
+Vector.prototype.transform = function<D extends number>(this: Vector<D>, matrix: Matrix): Vector<D> {
+  this.values = this.values.map((v, r) => matrix.values[r].map((e, i) => e * this.values[i]).reduce((acc, val) => acc + val, 0) );
+  return this
+}
 Vector.prototype.setSignalComponents = function (): void {
   this.rx && this.rx.set(this.values[0]);
   this.ry && this.ry.set(this.values[1]);

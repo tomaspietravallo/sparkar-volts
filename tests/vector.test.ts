@@ -1,4 +1,4 @@
-import { Vector, World, privates } from '../volts';
+import { Vector, World, privates, Matrix } from '../volts';
 import Reactive from './__mocks__/Reactive';
 import { Camera } from './__mocks__/Scene';
 
@@ -224,6 +224,9 @@ describe('math operations', () => {
     expect(vec.heading()).toBeCloseTo(Math.PI / -2);
     expect(vec.x).toBeCloseTo(0);
     expect(vec.y).toBeCloseTo(-1);
+  });
+  test('transform', () => {
+    expect(new Vector(1,2,3).transform(new Matrix([1,2,3], [4,5,6], [7,8,9])).values).toEqual([14,32,50])
   });
 });
 
