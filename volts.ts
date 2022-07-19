@@ -2251,13 +2251,49 @@ export class Object3D<T extends SceneObjectBase = any> {
             i++
           }
       }
-      case 'impulse':
-        return function(deltaMs) {
-          
-        }
       default:
         throw new Error(`@ Volts.createPhysicsSolver: Solver "${args.solver}" is not implemented `);
     }
+  }
+
+  static solveCollision(a: Object3D, b: Object3D) {
+    const e = 1.0; // coefficient of restitution
+    const ma = a.mass; // mass A - Obj3D
+    const mb = b.mass; // mass B - FLOOR
+    // Identities for now
+    const Ia = Matrix.identity(3);// new Matrix(); // Inertia tensor of body A
+    const Ib = Matrix.identity(3);// Inertia tensor of body B
+    const mid = a.pos.copy().add(b.pos).div(2);
+    const ra = mid.copy().sub(a.pos); // Point of collision relative to A
+    const rb = mid.copy().sub(b.pos); // POC relative to B
+    // using velocities because of the frames of reference (?)
+    const n = a.vel.copy().sub(b.vel); // normal to the collision
+    // objA.rot.toEuler;
+    // objB.rot.toEuler;
+    //////////////////////////////////////////////
+    const IaInverse = Ia.inverse();
+    const normal = n.normalize();
+
+    const angularVelChangeA =
+    normal.copy()
+    .cross(ra)
+    .transform(IaInverse);
+
+    const vaLinDueToR = angularVelChangeA.copy().cross(ra);
+    let scalar = 1/ma /* @todo warn: x/0 NaN */ + vaLinDueToR.dot(normal);
+    const IbInverse = Ib.inverse();
+
+    const angularVelChangeB =
+    normal.copy()
+    .cross(rb)
+    .transform(IbInverse)
+
+    const vbLinDueToR = angularVelChangeB.copy().cross(rb);
+    scalar += 1/mb /* @todo warn: x/0 NaN */ + vbLinDueToR.dot(normal);
+    const Jmod = (e+1) * (a.vel.copy().sub(b.vel)).mag() / scalar;
+    const J = normal.mul(Jmod);
+
+    a.vel.values = a.vel.copy().sub(J.mul(1/ma)).values;
   }
 }
 
