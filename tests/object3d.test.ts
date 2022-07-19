@@ -26,6 +26,19 @@ describe('constructor', () => {
     spy.mockReset();
     spy.mockRestore();
   });
+  test('all || conditions', () => {
+    expect(() => new Object3D()).not.toThrow();
+    expect(() => new Object3D({
+      body: undefined,
+      pos: new Vector(1),
+      vel: new Vector(2),
+      acc: new Vector(3),
+      rot: Quaternion.fromEuler(Math.PI, 0, 0),
+      scl: new Vector(2),
+      mass: 10.0,
+      awake: true,
+    })).not.toThrow();
+  })
 });
 
 describe('reactive values', () => {
@@ -163,5 +176,9 @@ describe('physics', () => {
     obj.vel.values.forEach((v, i) => expect(v).toBeCloseTo([0,-10,1][i]));
     obj.acc.values.forEach((v, i) => expect(v).toBeCloseTo([0,-10,0][i]));
   });
+
+  test('solveCollision', () => {
+    expect(() => Object3D.solveCollision(new Object3D(), new Object3D())).not.toThrow();
+  })
 
 })
