@@ -15,5 +15,8 @@ describe('OBB - Oriented Bounding Box', () => {
     test('getInterval', () => {
         const obb = new OBB();
         expect(() => obb.getInterval(new Vector()) ).not.toThrow();
+        const interval = obb.getInterval(new Vector(0,1,0));
+        expect(interval.max).toBeCloseTo(+1);
+        expect(interval.min).toBeCloseTo(-1);
     })
 })
