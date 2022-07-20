@@ -1806,6 +1806,14 @@ export class Quaternion {
     angles[2] = Math.atan2(siny_cosp, cosy_cosp);
     return angles;
   }
+  public toMatrix(): Matrix {
+    const v = this.values;
+    return new Matrix([
+    [1.0 - 2.0 * ((v[2]**2) + (v[3]**2)), 2.0 * (v[1]*v[2] - v[3]*v[0]), 2.0 * (v[1]*v[3] + v[2]*v[0])],
+    [2.0 * (v[1]*v[2] + v[3]*v[0]), 1.0 - 2.0 * ((v[1]**2) + (v[3]**2)), 2.0 * (v[2]*v[3] - v[1]*v[0])],
+    [2.0 * (v[1]*v[3] - v[2]*v[0]), 2.0 * (v[2]*v[3] + v[1]*v[0]), 1.0 - 2.0 * ((v[1]**2) + (v[2]**2))]
+    ]);
+  }
   public toString(toFixed = 5): string {
     //@ts-expect-error
     return `Quaternion${this.rs ? ' (WRS)' : ''}: [${this.values.map((v) => v.toFixed(toFixed))}]`;
