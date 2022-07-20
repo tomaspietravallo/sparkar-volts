@@ -1990,6 +1990,74 @@ export class State<Data extends { [key: string]: Vector<any> | Quaternion | numb
 
 //#endregion
 
+//#region ConvexHull
+type Interval = { min: number, max: number }
+export class OBB {
+  position: Vector<3>;
+  size: Vector<3>;
+  orientation: Matrix;
+  constructor(args: { position?: Vector<3>, size?: Vector<3>, orientation?: Matrix } = {}) {
+    if (!args) args = {}
+    this.position = args.position || new Vector();
+    this.size = args.size || new Vector(1);
+    this.orientation = args.orientation || Matrix.identity(3);
+  }
+
+  closestToPoint(point: Vector<3>): Vector<3> {
+    let result = this.position.copy();
+    let dir = point.copy().sub(this.position);
+    for (let i = 0; i < 3; i++) {
+      const orientation = this.orientation.values[i];
+      let axis = new Vector(orientation[0], orientation[1], orientation[2]);
+  
+      let distance = axis.dot(dir);
+  
+      if (distance > this.size.values[i]) {
+        distance = this.size.values[i];
+      } else if (distance < -this.size.values[i]) {
+        distance = -this.size.values[i];
+      }
+  
+      result.add(axis.mul(distance));
+    }
+    return result;
+  }
+
+  getInterval(axis: Vector<3>) {
+    const vertex: Vector<3>[] = new Array(8);
+
+    const C = [...this.position.values];	// OBB Center
+    const E = [...this.size.values];		// OBB Extents
+    const o = this.orientation.values.flat();
+    const A = [			// OBB Axis
+      new Vector(o[0], o[1], o[2]),
+      new Vector(o[3], o[4], o[5]),
+      new Vector(o[6], o[7], o[8]),
+    ];
+  
+    vertex[0] = new Vector(C).add(A[0].copy().mul(E[0])).add(A[1].copy().mul(E[1])).add(A[2].copy().mul( E[2]));
+    vertex[1] = new Vector(C).sub(A[0].copy().mul(E[0])).add(A[1].copy().mul(E[1])).add(A[2].copy().mul( E[2]));
+    vertex[2] = new Vector(C).add(A[0].copy().mul(E[0])).sub(A[1].copy().mul(E[1])).add(A[2].copy().mul( E[2]));
+    vertex[3] = new Vector(C).add(A[0].copy().mul(E[0])).add(A[1].copy().mul(E[1])).sub(A[2].copy().mul( E[2]));
+    vertex[4] = new Vector(C).sub(A[0].copy().mul(E[0])).sub(A[1].copy().mul(E[1])).sub(A[2].copy().mul( E[2]));
+    vertex[5] = new Vector(C).add(A[0].copy().mul(E[0])).sub(A[1].copy().mul(E[1])).sub(A[2].copy().mul( E[2]));
+    vertex[6] = new Vector(C).sub(A[0].copy().mul(E[0])).add(A[1].copy().mul(E[1])).sub(A[2].copy().mul( E[2]));
+    vertex[7] = new Vector(C).sub(A[0].copy().mul(E[0])).sub(A[1].copy().mul(E[1])).add(A[2].copy().mul( E[2]));
+  
+    const result = { min: null, max: null } as Interval;
+    result.min = result.max = axis.dot(vertex[0]);
+  
+    for (let i = 1; i < 8; i++) {
+      const projection = axis.dot(vertex[i]);
+      result.min = (projection < result.min) ? projection : result.min;
+      result.max = (projection > result.max) ? projection : result.max;
+    }
+  
+    return result;
+  }
+}
+//#endregion
+
 //#region Object3D
 type Solver = (deltaMs: number) => void;
 /** @description Does NOT contain all possible settings, just default ones  */
@@ -2024,7 +2092,7 @@ export class Object3D<T extends SceneObjectBase = any> {
   rot: Quaternion;
   ang_vel: Quaternion;
   scl: Vector<3>;
-  box: Vector<3>;
+  box: OBB;
   mass: number;
   awake: boolean;
   body: IfEquals<any, T, Promise<SceneObjectBase>, T>;
