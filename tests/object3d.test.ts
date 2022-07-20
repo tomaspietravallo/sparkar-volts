@@ -27,7 +27,8 @@ describe('constructor', () => {
     spy.mockRestore();
   });
   test('all || conditions', () => {
-    expect(() => new Object3D()).not.toThrow();
+    // @ts-expect-error
+    expect(() => new Object3D(false)).not.toThrow();
     expect(() => new Object3D({
       body: undefined,
       pos: new Vector(1),
