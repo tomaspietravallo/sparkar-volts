@@ -1337,7 +1337,7 @@ Vector.prototype.div = function <D extends number>(this: Vector<D>, ...args: Vec
 };
 Vector.prototype.dot = function <D extends number>(this: Vector<D>, ...args: VectorArgRest): number {
   const b = Vector.convertToSameDimVector(this.dimension, ...args).values;
-  return this.values.map((x, i) => this.values[i] * b[i]).reduce((acc, val) => acc + val);
+  return this.values.map((x, i) => x * b[i]).reduce((acc, val) => acc + val, 0);
 };
 Vector.prototype.distance = function <D extends number>(this: Vector<D>, ...other: VectorArgRest): number {
   const b = Vector.convertToSameDimVector(this.dimension, ...other);
