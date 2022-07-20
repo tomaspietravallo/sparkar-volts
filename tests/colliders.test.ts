@@ -10,7 +10,10 @@ describe('OBB - Oriented Bounding Box', () => {
     test('closestPoint', () => {
         const obb = new OBB();
         obb.closestToPoint(new Vector(0,0,-10)).values.forEach((v, i) => expect(v).toBeCloseTo([0,0,-1][i]));
-        obb.closestToPoint(new Vector(1,1,1)).values.forEach((v, i) => expect(v).toBeCloseTo([1,1,1][i]))
+        obb.closestToPoint(new Vector(1,1,1)).values.forEach((v, i) => expect(v).toBeCloseTo([1,1,1][i]));
+
+        const smallObb = new OBB({ size: new Vector(0.1) });
+        smallObb.closestToPoint(new Vector(1,1,1)).values.forEach((v,i) => expect(v).toBeCloseTo([0.1, 0.1, 0.1][i]) )
     });
     test('getInterval', () => {
         const obb = new OBB();
