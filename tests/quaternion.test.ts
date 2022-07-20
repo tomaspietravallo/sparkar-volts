@@ -1,4 +1,4 @@
-import { Quaternion, Vector } from '../volts';
+import { Quaternion, Vector, Matrix } from '../volts';
 import Reactive, { scalarSignalSource } from './__mocks__/Reactive';
 
 describe('quaternion construction', () => {
@@ -86,10 +86,18 @@ describe('quaternion utils', () => {
     const Q = new Quaternion(1, 0, 0, 0);
     expect(Q.toArray()).toEqual([1, 0, 0, 0]);
   });
+  // @todo Add test if sin >= 90º (see func definition)
   test('toEulerArray', () => {
     const Q = new Quaternion(1, 0, 0, 0);
     expect(Q.toEulerArray()).toEqual([0, 0, 0]);
   });
+  test('toMatrix', () => {
+    expect.assertions(18);
+    const matrix = Quaternion.identity().toMatrix().values.flat();
+    const exp = Matrix.identity(3).values.flat();
+    matrix.forEach((v,i) => expect(v).toBeCloseTo(exp[i]) );
+    matrix.forEach((v,i) => expect(typeof v).toEqual('number') )
+  })
   test('setSignalComponents', () => {
     const Q = new Quaternion(1, 0, 0, 0);
     expect(() => Q.setSignalComponents()).not.toThrow();
@@ -205,4 +213,18 @@ describe('consistency test', () => {
     Quaternion.lookAt(A, B).values.map((v, i) => expect(v).toBeCloseTo([0, 1, 0, Math.PI][i]));
     Quaternion.lookAt(B, A).values.map((v, i) => expect(v).toBeCloseTo(Quaternion.identity().values[i]));
   });
+
+  // Source of truth:
+  // https://www.andre-gaschler.com/rotationconverter/
+  // https://quaternions.online
+  test('euler - quat - matrix', () => {
+    const q = new Quaternion(1,2,3,4).normalize();
+    q.values.forEach((v,i) => expect(v).toBeCloseTo([ 0.1825742, 0.3651484, 0.5477226, 0.7302967 ][i]));
+    
+    const euler = q.toEulerArray();
+    euler.forEach((v, i) => expect(v).toBeCloseTo([ 1.4288993, -0.3398369, 2.3561945 ][i]) );
+
+    const matrix_truth = [ -0.6666667,  0.1333333,  0.7333333, 0.6666667, -0.3333333,  0.6666667, 0.3333333,  0.9333333,  0.1333333 ];
+    q.toMatrix().values.flat().forEach((v, i) => expect(v).toBeCloseTo(matrix_truth[i]) )
+  })
 });
