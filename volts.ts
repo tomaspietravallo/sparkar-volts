@@ -2003,6 +2003,9 @@ export class OBB {
     this.orientation = args.orientation || Matrix.identity(3);
   }
 
+  /**
+   * @todo Optimize
+   */
   closestToPoint(point: Vector<3>): Vector<3> {
     let result = this.position.copy();
     let dir = point.copy().sub(this.position);
@@ -2023,6 +2026,9 @@ export class OBB {
     return result;
   }
 
+  /**
+   * @todo **Needs optimization**
+   */
   getInterval(axis: Vector<3>) {
     const vertex: Vector<3>[] = new Array(8);
 
