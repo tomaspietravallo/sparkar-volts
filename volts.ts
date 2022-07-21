@@ -2061,6 +2061,39 @@ export class OBB {
   
     return result;
   }
+
+  /**
+   * @todo **Optimize**
+   */
+  againstOBB(other: OBB) {
+    const to = this.orientation.values.flat();
+    const oo = other.orientation.values.flat();
+  
+    const testAxis = [
+      new Vector(to[0], to[1], to[2]),
+      new Vector(to[3], to[4], to[5]),
+      new Vector(to[6], to[7], to[8]),
+      new Vector(oo[0], oo[1], oo[2]),
+      new Vector(oo[3], oo[4], oo[5]),
+      new Vector(oo[6], oo[7], oo[8])
+    ];
+
+    for (let i = 0; i < 3; i++) { // Fill out rest of axis
+      testAxis[6 + i * 3 + 0] = testAxis[i].cross(testAxis[0]);
+      testAxis[6 + i * 3 + 1] = testAxis[i].cross(testAxis[1]);
+      testAxis[6 + i * 3 + 2] = testAxis[i].cross(testAxis[2]);
+    }
+  
+    for (let i = 0; i < 15; i++) {
+      const a = this.getInterval(testAxis[i]);
+      const b = other.getInterval(testAxis[i]);
+      const overlaps = ((b.min <= a.max) && (a.min <= b.max));
+      if (!overlaps) {
+        return false;
+      }
+    }
+    return true
+  }
 }
 //#endregion
 
