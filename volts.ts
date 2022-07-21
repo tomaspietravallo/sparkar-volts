@@ -1,12 +1,11 @@
 //#region imports
-import Scene from 'Scene';
-import Diagnostics from 'Diagnostics';
-import Reactive from 'Reactive';
-import Time from 'Time';
 import Blocks from 'Blocks';
 import CameraInfo from 'CameraInfo';
+import Diagnostics from 'Diagnostics';
 import Materials from 'Materials';
-import { timeStamp } from 'console';
+import Reactive from 'Reactive';
+import Scene from 'Scene';
+import Time from 'Time';
 
 // 👇 may be dynamically imported using `require`
 let Persistence: {
@@ -178,7 +177,7 @@ interface TimedEvent {
 //#region constants
 const PI = 3.14159265359;
 const TWO_PI = 6.28318530718;
-const FRAME_MS = 1000/30;
+const FRAME_MS = 1000 / 30;
 //#endregion
 
 //#region utils
@@ -1382,10 +1381,12 @@ Vector.prototype.toArray = function () {
 Vector.prototype.swizzle = function <D extends number, s extends string>(string: swizzle<s>): Vector<D> {
   return new Vector(string.split('').map((char: VectorComponents) => this[char]));
 };
-Vector.prototype.transform = function<D extends number>(this: Vector<D>, matrix: Matrix): Vector<D> {
-  this.values = this.values.map((v, r) => matrix.values[r].map((e, i) => e * this.values[i]).reduce((acc, val) => acc + val, 0) );
-  return this
-}
+Vector.prototype.transform = function <D extends number>(this: Vector<D>, matrix: Matrix): Vector<D> {
+  this.values = this.values.map((v, r) =>
+    matrix.values[r].map((e, i) => e * this.values[i]).reduce((acc, val) => acc + val, 0),
+  );
+  return this;
+};
 Vector.prototype.setSignalComponents = function (): void {
   this.rx && this.rx.set(this.values[0]);
   this.ry && this.ry.set(this.values[1]);
@@ -1458,21 +1459,22 @@ export class Matrix {
     this.values = args;
     if (!args.every((arr) => arr.length === args.length)) {
       throw new Error(`@ Volts.Matrix arguments do not correspond to Square matrix. args: ${args}`);
-    };
+    }
   }
 
-  static identity (dim = 3): Matrix {
-    return new Matrix( new Array(dim).fill(null).map((_, i) => new Array(dim).fill(null).map((_, j) => i === j ? 1 : 0)) );
+  static identity(dim = 3): Matrix {
+    return new Matrix(
+      new Array(dim).fill(null).map((_, i) => new Array(dim).fill(null).map((_, j) => (i === j ? 1 : 0))),
+    );
   }
 
-  toString() {
+  toString(): string {
     return JSON.stringify(this.values);
   }
 
   inverse(): Matrix {
-    const
-    N = this.values.length,
-    mat = Matrix.identity(N);
+    const N = this.values.length,
+      mat = Matrix.identity(N);
     // sets the all in the diagonal != 0, if not possible, matrix has det=0
     for (let c = 0; c < N; c++) {
       // Along the diagonal
@@ -1493,12 +1495,13 @@ export class Matrix {
               mat.values[c][k] = mat.values[labsc][k];
               mat.values[labsc][k] = tmp;
             }
-          };
+          }
         }
       }
 
       // this loop zeroes out all but the diagonal
-      for (let r = 0; r < N; r++) { // r=0, c=2,
+      for (let r = 0; r < N; r++) {
+        // r=0, c=2,
         if (r !== c) {
           // avoids over-zero NaNs because [c][c] was determined not to be zero (?)
           const d = this.values[r][c] / this.values[c][c];
@@ -1526,14 +1529,15 @@ export class Matrix {
 
   transpose(): Matrix {
     // Square matrices only (?)
-    this.values = this.values.map((r, ri) => r.map((_, ci) => this.values[ci][ri] ) );
+    this.values = this.values.map((r, ri) => r.map((_, ci) => this.values[ci][ri]));
     return this;
   }
 
   mulVector<D extends number>(vec: Vector<D>): Vector<D> {
-    return new Vector(vec.values.map((v, r) => this.values[r].map((e, i) => e * vec.values[i]).reduce((acc, val) => acc + val, 0) ))
+    return new Vector(
+      vec.values.map((v, r) => this.values[r].map((e, i) => e * vec.values[i]).reduce((acc, val) => acc + val, 0)),
+    );
   }
-
 }
 
 //#endregion
@@ -1809,9 +1813,9 @@ export class Quaternion {
   public toMatrix(): Matrix {
     const v = this.values;
     return new Matrix([
-    [1.0 - 2.0 * ((v[2]**2) + (v[3]**2)), 2.0 * (v[1]*v[2] - v[3]*v[0]), 2.0 * (v[1]*v[3] + v[2]*v[0])],
-    [2.0 * (v[1]*v[2] + v[3]*v[0]), 1.0 - 2.0 * ((v[1]**2) + (v[3]**2)), 2.0 * (v[2]*v[3] - v[1]*v[0])],
-    [2.0 * (v[1]*v[3] - v[2]*v[0]), 2.0 * (v[2]*v[3] + v[1]*v[0]), 1.0 - 2.0 * ((v[1]**2) + (v[2]**2))]
+      [1.0 - 2.0 * (v[2] ** 2 + v[3] ** 2), 2.0 * (v[1] * v[2] - v[3] * v[0]), 2.0 * (v[1] * v[3] + v[2] * v[0])],
+      [2.0 * (v[1] * v[2] + v[3] * v[0]), 1.0 - 2.0 * (v[1] ** 2 + v[3] ** 2), 2.0 * (v[2] * v[3] - v[1] * v[0])],
+      [2.0 * (v[1] * v[3] - v[2] * v[0]), 2.0 * (v[2] * v[3] + v[1] * v[0]), 1.0 - 2.0 * (v[1] ** 2 + v[2] ** 2)],
     ]);
   }
   public toString(toFixed = 5): string {
@@ -1953,7 +1957,6 @@ export class State<Data extends { [key: string]: Vector<any> | Quaternion | numb
       writable: false,
       configurable: false,
     });
-
   }
 
   protected setPersistenceAPI(): void {
@@ -1991,13 +1994,13 @@ export class State<Data extends { [key: string]: Vector<any> | Quaternion | numb
 //#endregion
 
 //#region ConvexHull
-type Interval = { min: number, max: number }
+type Interval = { min: number; max: number };
 export class OBB {
   position: Vector<3>;
   size: Vector<3>;
   orientation: Matrix;
-  constructor(args: { position?: Vector<3>, size?: Vector<3>, orientation?: Matrix } = {}) {
-    if (!args) args = {}
+  constructor(args: { position?: Vector<3>; size?: Vector<3>; orientation?: Matrix } = {}) {
+    if (!args) args = {};
     this.position = args.position || new Vector();
     this.size = args.size || new Vector(1);
     this.orientation = args.orientation || Matrix.identity(3);
@@ -2007,20 +2010,20 @@ export class OBB {
    * @todo Optimize
    */
   closestToPoint(point: Vector<3>): Vector<3> {
-    let result = this.position.copy();
-    let dir = point.copy().sub(this.position);
+    const result = this.position.copy();
+    const dir = point.copy().sub(this.position);
     for (let i = 0; i < 3; i++) {
       const orientation = this.orientation.values[i];
-      let axis = new Vector(orientation[0], orientation[1], orientation[2]);
-  
+      const axis = new Vector(orientation[0], orientation[1], orientation[2]);
+
       let distance = axis.dot(dir);
-  
+
       if (distance > this.size.values[i]) {
         distance = this.size.values[i];
       } else if (distance < -this.size.values[i]) {
         distance = -this.size.values[i];
       }
-  
+
       result.add(axis.mul(distance));
     }
     return result;
@@ -2029,78 +2032,99 @@ export class OBB {
   /**
    * @todo **Needs optimization**
    */
-  getInterval(axis: Vector<3>) {
+  getInterval(axis: Vector<3>): Interval {
     const vertex: Vector<3>[] = new Array(8);
 
-    const C = [...this.position.values];	// OBB Center
-    const E = [...this.size.values];		// OBB Extents
+    const C = [...this.position.values]; // OBB Center
+    const E = [...this.size.values]; // OBB Extents
     const o = this.orientation.values.flat();
-    const A = [			// OBB Axis
+    const A = [
+      // OBB Axis
       new Vector(o[0], o[1], o[2]),
       new Vector(o[3], o[4], o[5]),
       new Vector(o[6], o[7], o[8]),
     ];
-  
-    vertex[0] = new Vector(C).add(A[0].copy().mul(E[0])).add(A[1].copy().mul(E[1])).add(A[2].copy().mul( E[2]));
-    vertex[1] = new Vector(C).sub(A[0].copy().mul(E[0])).add(A[1].copy().mul(E[1])).add(A[2].copy().mul( E[2]));
-    vertex[2] = new Vector(C).add(A[0].copy().mul(E[0])).sub(A[1].copy().mul(E[1])).add(A[2].copy().mul( E[2]));
-    vertex[3] = new Vector(C).add(A[0].copy().mul(E[0])).add(A[1].copy().mul(E[1])).sub(A[2].copy().mul( E[2]));
-    vertex[4] = new Vector(C).sub(A[0].copy().mul(E[0])).sub(A[1].copy().mul(E[1])).sub(A[2].copy().mul( E[2]));
-    vertex[5] = new Vector(C).add(A[0].copy().mul(E[0])).sub(A[1].copy().mul(E[1])).sub(A[2].copy().mul( E[2]));
-    vertex[6] = new Vector(C).sub(A[0].copy().mul(E[0])).add(A[1].copy().mul(E[1])).sub(A[2].copy().mul( E[2]));
-    vertex[7] = new Vector(C).sub(A[0].copy().mul(E[0])).sub(A[1].copy().mul(E[1])).add(A[2].copy().mul( E[2]));
-  
+
+    vertex[0] = new Vector(C).add(A[0].copy().mul(E[0])).add(A[1].copy().mul(E[1])).add(A[2].copy().mul(E[2]));
+    vertex[1] = new Vector(C).sub(A[0].copy().mul(E[0])).add(A[1].copy().mul(E[1])).add(A[2].copy().mul(E[2]));
+    vertex[2] = new Vector(C).add(A[0].copy().mul(E[0])).sub(A[1].copy().mul(E[1])).add(A[2].copy().mul(E[2]));
+    vertex[3] = new Vector(C).add(A[0].copy().mul(E[0])).add(A[1].copy().mul(E[1])).sub(A[2].copy().mul(E[2]));
+    vertex[4] = new Vector(C).sub(A[0].copy().mul(E[0])).sub(A[1].copy().mul(E[1])).sub(A[2].copy().mul(E[2]));
+    vertex[5] = new Vector(C).add(A[0].copy().mul(E[0])).sub(A[1].copy().mul(E[1])).sub(A[2].copy().mul(E[2]));
+    vertex[6] = new Vector(C).sub(A[0].copy().mul(E[0])).add(A[1].copy().mul(E[1])).sub(A[2].copy().mul(E[2]));
+    vertex[7] = new Vector(C).sub(A[0].copy().mul(E[0])).sub(A[1].copy().mul(E[1])).add(A[2].copy().mul(E[2]));
+
     const result = { min: null, max: null } as Interval;
     result.min = result.max = axis.dot(vertex[0]);
-  
+
     for (let i = 1; i < 8; i++) {
       const projection = axis.dot(vertex[i]);
-      result.min = (projection < result.min) ? projection : result.min;
-      result.max = (projection > result.max) ? projection : result.max;
+      result.min = projection < result.min ? projection : result.min;
+      result.max = projection > result.max ? projection : result.max;
     }
-  
+
     return result;
   }
 
   /**
    * @todo **Optimize**
    */
-  againstOBB(other: OBB) {
+  againstOBB(other: OBB): { overlap: number; axis: Vector<3> } | false {
     const to = this.orientation.values.flat();
     const oo = other.orientation.values.flat();
-  
+
     const testAxis = [
       new Vector(to[0], to[1], to[2]),
       new Vector(to[3], to[4], to[5]),
       new Vector(to[6], to[7], to[8]),
       new Vector(oo[0], oo[1], oo[2]),
       new Vector(oo[3], oo[4], oo[5]),
-      new Vector(oo[6], oo[7], oo[8])
+      new Vector(oo[6], oo[7], oo[8]),
     ];
 
-    for (let i = 0; i < 3; i++) { // Fill out rest of axis
+    for (let i = 0; i < 3; i++) {
+      // Fill out rest of axis
       testAxis[6 + i * 3 + 0] = testAxis[i].cross(testAxis[0]);
       testAxis[6 + i * 3 + 1] = testAxis[i].cross(testAxis[1]);
       testAxis[6 + i * 3 + 2] = testAxis[i].cross(testAxis[2]);
     }
-  
+
+    // throw new Error(`${testAxis[0].cross(testAxis[0])}  \n\n${testAxis}`);
+
+    let min = Number.POSITIVE_INFINITY,
+      axis = null;
+
     for (let i = 0; i < 15; i++) {
+      if (testAxis[i].mag() === 0) continue;
       const a = this.getInterval(testAxis[i]);
       const b = other.getInterval(testAxis[i]);
-      const overlaps = ((b.min <= a.max) && (a.min <= b.max));
+      const overlaps = b.min <= a.max && a.min <= b.max;
+
       if (!overlaps) {
         return false;
       }
+
+      const axisOverlap = b.max <= a.min ? b.max - a.min : a.max - b.min;
+
+      if (axisOverlap < min) {
+        min = axisOverlap;
+        axis = testAxis[i];
+      }
     }
-    return true
+    return { overlap: min, axis };
   }
 }
 //#endregion
 
 //#region Object3D
-type Solver = (deltaMs: number) => void;
 /** @description Does NOT contain all possible settings, just default ones  */
-export const DefaultPhysicsSettings = { solver: 'verlet', steps: 1, drag: 1.0, gravity: -9.8, group: 0xffff } as Parameters<typeof Object3D["prototype"]["usePhysics"]>[0];
+export const DefaultPhysicsSettings = {
+  solver: 'verlet',
+  steps: 1,
+  drag: 1.0,
+  gravity: -9.8,
+  group: 0xffff,
+} as Parameters<typeof Object3D['prototype']['usePhysics']>[0];
 
 export enum SceneObjectClassNames {
   'Plane' = 'Plane',
@@ -2136,23 +2160,25 @@ export class Object3D<T extends SceneObjectBase = any> {
   awake: boolean;
   body: IfEquals<any, T, Promise<SceneObjectBase>, T>;
   material: MaterialBase | undefined;
-  Solver: Solver;
-  static colliders: { [key: string]: Object3D[] } = {};
+  physics: Parameters<typeof Object3D['prototype']['usePhysics']>[0];
+  protected static colliders: { [key: string]: Object3D[] } = {};
 
-  constructor(args: {
-    pos?: Vector<3>,
-    vel?: Vector<3>,
-    acc?: Vector<3>,
-    rot?: Quaternion,
-    ang_vel?: Quaternion,
-    scl?: Vector<3>,
-    box?: Vector<3>,
-    mass?: number,
-    awake?: boolean,
-    body?: T,
-  } = undefined ) {
+  constructor(
+    args: {
+      pos?: Vector<3>;
+      vel?: Vector<3>;
+      acc?: Vector<3>;
+      rot?: Quaternion;
+      ang_vel?: Quaternion;
+      scl?: Vector<3>;
+      box?: Vector<3>;
+      mass?: number;
+      awake?: boolean;
+      body?: T;
+    } = undefined,
+  ) {
     if (typeof args !== 'object') args = {};
-      (this.pos = args.pos || new Vector()),
+    (this.pos = args.pos || new Vector()),
       (this.vel = args.vel || new Vector()),
       (this.acc = args.acc || new Vector()),
       (this.rot = args.rot || new Quaternion()),
@@ -2209,8 +2235,7 @@ export class Object3D<T extends SceneObjectBase = any> {
     return this;
   }
 
-  update({ pos, rot, solver, delta }: { pos?: boolean; rot?: boolean, solver?: boolean, delta?: number } = {}): void {
-    if (solver && this.Solver) this.Solver(delta || FRAME_MS);
+  update({ pos, rot }: { pos?: boolean; rot?: boolean } = {}): void {
     if (pos) this.pos.setSignalComponents();
     if (rot) this.rot.setSignalComponents();
   }
@@ -2235,17 +2260,19 @@ export class Object3D<T extends SceneObjectBase = any> {
     return this;
   }
 
-  usePhysics(args: {
-    solver?: 'verlet' | 'impulse',
-    steps?: number,
-    drag?: number,
-    gravity?: number,
-    floor?: number,
-    group?: number,
-  } = DefaultPhysicsSettings): Object3D {
-    this.Solver = Object3D.createPhysicsSolver(this, args);
+  usePhysics(
+    args: {
+      solver?: 'verlet' | 'impulse';
+      steps?: number;
+      drag?: number;
+      gravity?: number;
+      floor?: number;
+      group?: number;
+    } = DefaultPhysicsSettings,
+  ): Object3D {
+    Object3D.createPhysicsSolver(this, args);
     (Object3D.colliders[args.group] = Object3D.colliders[args.group] || []).push(this);
-    return this
+    return this;
   }
 
   bindMesh(sceneObjectBase: SceneObjectBase): Object3D {
@@ -2325,7 +2352,7 @@ export class Object3D<T extends SceneObjectBase = any> {
     // @ts-expect-error
     this.body.then ? this.body.then((b) => set(b)) : set(this.body);
   }
-  
+
   static async createDebugMaterial(hue?: number): Promise<MaterialBase> {
     if (hue === undefined) hue = 0;
     return Materials.create(MaterialClassNames.DefaultMaterial, {
@@ -2337,87 +2364,150 @@ export class Object3D<T extends SceneObjectBase = any> {
     });
   }
 
-  static createPhysicsSolver( obj: Object3D, args: Parameters<typeof Object3D["prototype"]["usePhysics"]>[0] = {} ): Solver {
+  static createPhysicsSolver(
+    obj: Object3D,
+    args: Parameters<typeof Object3D['prototype']['usePhysics']>[0] = {},
+  ): void {
     const keys = Object.keys(DefaultPhysicsSettings);
     for (let index = 0; index < keys.length; index++) {
       const e = keys[index] as keyof typeof DefaultPhysicsSettings;
       // @ts-expect-error
       if (args[e] === undefined) args[e] = DefaultPhysicsSettings[e];
     }
-    
-    switch (args.solver) {
-      case 'verlet':
-        return function(deltaMs) {
-          let i = 0; deltaMs /= args.steps; deltaMs *= 0.001;
-          // Set acceleration for frame 0, fixes the UA- part of UARM
-          obj.acc = new Vector(0, args.gravity, 0);
-          while (i < args.steps) {
-            // x + vx * dt + 0.5*dt**2*ax
-            const nPos =
-            obj.pos.copy()
-            .add(obj.vel.copy().mul(deltaMs))
-            .add(obj.acc.copy().mul((deltaMs ** 2) * 0.5));
-
-            const nAcc = new Vector(0, args.gravity, 0);
-
-            // Average new and old acceleration, add to Velocity
-            const nVel = obj.vel.copy().add(obj.acc.copy().add(nAcc).mul(0.5 * deltaMs));
-            obj.rot.mul( Quaternion.slerp(Quaternion.identity(), obj.ang_vel, deltaMs * 1000 / FRAME_MS ) )
-
-            obj.pos.values = nPos.values;
-            obj.vel.values = nVel.values;
-            obj.acc.values = nAcc.values;
-            i++
-          }
-      }
-      default:
-        throw new Error(`@ Volts.createPhysicsSolver: Solver "${args.solver}" is not implemented `);
-    }
+    obj.physics = args;
   }
 
-  static solveCollision(a: Object3D, b: Object3D) {
+  static solveCollision(a: Object3D, b: Object3D, poc: Vector<3>): void {
     const e = 1.0; // coefficient of restitution
-    const ma = a.mass; // mass A - Obj3D
-    const mb = b.mass; // mass B - FLOOR
-    // Identities for now
-    const Ia = Matrix.identity(3);// new Matrix(); // Inertia tensor of body A
-    const Ib = Matrix.identity(3);// Inertia tensor of body B
-    const mid = a.pos.copy().add(b.pos).div(2);
+    const ma = a.mass;
+    const mb = b.mass;
+    // Inertia - Identities for now
+    // const Ia = Matrix.identity(3);// new Matrix(); // Inertia tensor of body A
+    // const Ib = Matrix.identity(3);// Inertia tensor of body B
+    const mid = poc.copy();
     const ra = mid.copy().sub(a.pos); // Point of collision relative to A
     const rb = mid.copy().sub(b.pos); // POC relative to B
     // using velocities because of the frames of reference (?)
     const n = a.vel.copy().sub(b.vel); // normal to the collision
-    // objA.rot.toEuler;
-    // objB.rot.toEuler;
     //////////////////////////////////////////////
     const normal = n.normalize();
-    
-    const IaInverse = Ia.inverse();
-    const angularVelChangeA =
-    normal.copy()
-    .cross(ra)
-    .transform(IaInverse);
+    //////////////////////////////////////////////////////////////
+    ////////////// COR/Momentum solving //////////////////////////
+    //////////////////////////////////////////////////////////////
 
-    const vaLinDueToR = angularVelChangeA.copy().cross(ra);
-    let scalar = 1/ma /* @todo warn: x/0 NaN */ + vaLinDueToR.dot(normal);
+    const vA = a.vel
+      .copy()
+      .mul(ma)
+      .add(b.vel.copy().mul(mb))
+      .add(
+        b.vel
+          .copy()
+          .sub(a.vel)
+          .mul(mb * e),
+      )
+      .div(ma + mb);
 
-    const IbInverse = Ib.inverse();
-    const angularVelChangeB =
-    normal.copy()
-    .cross(rb)
-    .transform(IbInverse)
+    const vB = b.vel
+      .copy()
+      .mul(mb)
+      .add(a.vel.copy().mul(ma))
+      .add(
+        a.vel
+          .copy()
+          .sub(b.vel)
+          .mul(ma * e),
+      )
+      .div(ma + mb);
 
-    const vbLinDueToR = angularVelChangeB.copy().cross(rb);
-    scalar += 1/mb /* @todo warn: x/0 NaN */ + vbLinDueToR.dot(normal);
+    a.vel.values = vA.values;
+    b.vel.values = vB.values;
 
-    const Jmod = (e+1) * (a.vel.copy().sub(b.vel)).mag() / scalar;
-    const J = normal.mul(Jmod);
+    // @todo Add calculation for inertia tensors
+    // const IaInverse = Ia.inverse();
+    const angularVelChangeA = normal.copy().cross(ra);
+    // .transform(IaInverse);
 
-    a.vel.values = a.vel.copy().sub(J.mul(1/ma)).values;
-    a.ang_vel = Quaternion.fromEuler(new Vector(a.ang_vel.toEulerArray()).add(angularVelChangeA).values);
+    // const IbInverse = Ib.inverse();
+    const angularVelChangeB = normal.copy().cross(rb);
+    // .transform(IbInverse)
 
-    b.vel.values = b.vel.copy().sub(J.mul(1/mb)).values;
-    b.ang_vel = Quaternion.fromEuler(new Vector(b.ang_vel.toEulerArray()).add(angularVelChangeB).values);
+    // This could be more efficient 🙂
+    a.ang_vel = Quaternion.fromEuler(new Vector(a.ang_vel.toEulerArray()).sub(angularVelChangeA).values);
+    b.ang_vel = Quaternion.fromEuler(new Vector(b.ang_vel.toEulerArray()).sub(angularVelChangeB).values);
+  }
+
+  /**
+   * @description Updates the physics body
+   * @param delta Milliseconds
+   * @param steps Integer amount of steps
+   */
+  static updatePhysics(delta: number, steps: number): void {
+    const keys = Object.keys(Object3D.colliders);
+    let i = 0;
+    delta /= steps;
+    delta *= 0.001;
+    while (i < steps) {
+      for (let k = 0; k < keys.length; k++) {
+        const group = Object3D.colliders[keys[k]];
+        for (let oi = 0; oi < group.length; oi++) {
+          const obj = group[oi];
+          // Set acceleration for frame 0, fixes the UA- part of UARM
+          obj.acc = new Vector(0, obj.physics.gravity, 0);
+          // x + vx * dt + 0.5*dt**2*ax
+          const nPos = obj.pos
+            .copy()
+            .add(obj.vel.copy().mul(delta))
+            .add(obj.acc.copy().mul(delta ** 2 * 0.5));
+
+          const nAcc = new Vector(0, obj.physics.gravity, 0);
+
+          // Average new and old acceleration, add to Velocity
+          const nVel = obj.vel.copy().add(
+            obj.acc
+              .copy()
+              .add(nAcc)
+              .mul(0.5 * delta),
+          );
+
+          obj.rot.mul(Quaternion.slerp(Quaternion.identity(), obj.ang_vel, (delta * 1000) / FRAME_MS));
+
+          obj.pos.values = nPos.values;
+          obj.vel.values = nVel.values;
+          obj.acc.values = nAcc.values;
+
+          i++;
+        }
+
+        const objA = group[0];
+        const objB = group[1];
+
+        const obbA = new OBB({
+          position: objA.pos.copy(),
+          size: new Vector(0.05),
+          orientation: objA.rot.toMatrix().inverse(),
+        });
+        
+        const obbB = new OBB({
+          position: objB.pos.copy(),
+          size: new Vector(0.05),
+          orientation: objB.rot.toMatrix().inverse(),
+        });
+
+        const collision = obbA.againstOBB(obbB);
+
+        if (collision) {
+          const { overlap, axis } = collision as { overlap: number; axis: Vector<3> };
+          // overlap += 0.001;
+
+          objA.pos.add(axis.copy().mul(objA.pos.copy().normalize().dot(axis) * overlap * 5));
+          objB.pos.add(axis.copy().mul(objB.pos.copy().normalize().dot(axis) * overlap * 5));
+
+          const poc = obbA.closestToPoint(objB.pos).add(obbB.closestToPoint(objA.pos)).div(2);
+          Object3D.solveCollision(objA, objB, poc);
+        }
+      }
+      i++;
+    }
   }
 }
 

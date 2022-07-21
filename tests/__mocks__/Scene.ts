@@ -10,7 +10,7 @@ export class SceneObjectBase {
   name: string;
   transform: { position: Reactive.VectorSignal; rotation: Reactive.Quaternion };
   identifier: string;
-  material: { identifier: string, getDiffuse: () => object };
+  material: { identifier: string; getDiffuse: () => object };
   hidden: BoolSignal;
   constructor(name: string) {
     this.name = name;
@@ -24,7 +24,12 @@ export class SceneObjectBase {
     };
     this.identifier = 'a-unique-identifier';
     this.hidden = Reactive.boolSignal(false);
-    this.material = { identifier: 'id-xxx-material-JEST', getDiffuse: () => { return { identifier: 'id-fromMaterial-texture-JEST' }} }
+    this.material = {
+      identifier: 'id-xxx-material-JEST',
+      getDiffuse: () => {
+        return { identifier: 'id-fromMaterial-texture-JEST' };
+      },
+    };
   }
   async addChild(child: SceneObjectBase): Promise<void> {
     if (!child) throw new Error(`No child was provided @ mock.Scene.SceneObjectBase.addChild`);
