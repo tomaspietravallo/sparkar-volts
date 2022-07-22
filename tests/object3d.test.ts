@@ -124,15 +124,19 @@ describe('utils', () => {
  * Tests marked with CASIO have been double checked with UARM/MRUV formulas and a calculator
  */
 describe('physics', () => {
+  test('clearAllColliders', () => {
+    expect(() => Object3D.clearAllColliders() ).not.toThrow();
+  });
+
   test('createPhysicsSolver', () => {
+    Object3D.clearAllColliders()
     expect(() => Object3D.createPhysicsSolver(new Object3D())).not.toThrow();
     expect(() => Object3D.createPhysicsSolver(new Object3D({}), { gravity: -10 })).not.toThrow();
-    expect(() =>
-      Object3D.createPhysicsSolver(new Object3D({ body: null }), { group: 0xffff, drag: 1.0 }),
-    ).not.toThrow();
+    expect(() => Object3D.createPhysicsSolver(new Object3D({ body: null }), { group: 0xffff, drag: 1.0, gravity: -10.0 })).not.toThrow();
   });
 
   test('usePhysics', () => {
+    Object3D.clearAllColliders()
     const obj = new Object3D();
     // test || [].push
     expect(() => obj.usePhysics()).not.toThrow();
@@ -149,7 +153,8 @@ describe('physics', () => {
 
   test('static object', () => {
     expect.assertions(9);
-    const obj = new Object3D().usePhysics({ solver: 'verlet', steps: 1, drag: 1.0, gravity: 0.0 });
+    Object3D.clearAllColliders()
+    const obj = new Object3D().usePhysics({ drag: 1.0, gravity: 0.0 });
     // 1000ms == 1s
     Object3D.updatePhysics(1000, 1);
     obj.update({ pos: true, rot: true });
@@ -160,7 +165,8 @@ describe('physics', () => {
 
   test('constant speed - CASIO', () => {
     expect.assertions(9);
-    const obj = new Object3D().usePhysics({ solver: 'verlet', steps: 1, drag: 1.0, gravity: 0.0 });
+    Object3D.clearAllColliders()
+    const obj = new Object3D().usePhysics({ drag: 1.0, gravity: 0.0 });
     obj.vel = new Vector(0, 0, 1);
     // 1000ms == 1s
     Object3D.updatePhysics(1000, 1);
@@ -172,12 +178,10 @@ describe('physics', () => {
 
   test('parabolic trajectory - CASIO', () => {
     expect.assertions(9);
-    const obj = new Object3D().usePhysics({ solver: 'verlet', steps: 10, drag: 1.0, gravity: -10.0 });
-    obj.vel = new Vector(0, 0, 1);
-    obj.acc = new Vector(0, -10, 0);
+    Object3D.clearAllColliders()
+    const obj = new Object3D({ vel: new Vector(0,0,1) }).usePhysics({ drag: 1.0, gravity: -10.0 });
     // 1000ms == 1s
-    // @todo remove using more steps
-    Object3D.updatePhysics(1000, 1);
+    Object3D.updatePhysics(1000, 10);
     obj.update({ pos: true, rot: true });
     obj.pos.values.forEach((v, i) => expect(v).toBeCloseTo([0, -5, 1][i]));
     obj.vel.values.forEach((v, i) => expect(v).toBeCloseTo([0, -10, 1][i]));
@@ -185,6 +189,18 @@ describe('physics', () => {
   });
 
   test('solveCollision', () => {
+    Object3D.clearAllColliders()
     expect(() => Object3D.solveCollision(new Object3D(), new Object3D(), new Vector())).not.toThrow();
   });
+
+  test('test: 1kg vs 1kg collision', () => {
+    Object3D.clearAllColliders()
+    const a = new Object3D({ pos: new Vector(-0.25,0.0,0), vel: new Vector(+0.5,0,0) }).usePhysics({ gravity: 0.0, drag: 1.0 });
+    const b = new Object3D({ pos: new Vector(+0.25,0.0,0), vel: new Vector(-0.5,0,0) }).usePhysics({ gravity: 0.0, drag: 1.0 });
+    for (let index = 0; index < 20; index++) {
+      Object3D.updatePhysics(30, 5);
+    }
+    expect(a.vel.x).toBeCloseTo(-0.5);
+    expect(b.vel.x).toBeCloseTo(+0.5);
+  })
 });
