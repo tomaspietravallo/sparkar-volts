@@ -2010,13 +2010,12 @@ export class OBB {
    * @todo Optimize
    */
   closestToPoint(point: Vector<3>): Vector<3> {
-    const result = this.position.copy();
-    const dir = point.copy().sub(this.position);
+    let result = this.position.values;
+    const dir = [ point.values[0] - this.position.values[0], point.values[1] - this.position.values[1], point.values[2] - this.position.values[2] ];
     for (let i = 0; i < 3; i++) {
-      const orientation = this.orientation.values[i];
-      const axis = new Vector(orientation[0], orientation[1], orientation[2]);
+      const axis = this.orientation.values[i];
 
-      let distance = axis.dot(dir);
+      let distance = axis[0] * dir[0] + axis[1] * dir[1] + axis[2] * dir[2];
 
       if (distance > this.size.values[i]) {
         distance = this.size.values[i];
@@ -2024,41 +2023,84 @@ export class OBB {
         distance = -this.size.values[i];
       }
 
-      result.add(axis.mul(distance));
+      result = [
+        result[0] + axis[0] * distance,
+        result[1] + axis[1] * distance,
+        result[2] + axis[2] * distance
+      ];
     }
-    return result;
+    return new Vector(result);
   }
 
   /**
    * @todo **Needs optimization**
    */
-  getInterval(axis: Vector<3>): Interval {
-    const vertex: Vector<3>[] = new Array(8);
+  getInterval(axis: number[]): Interval {
+    const vertex: number[][] = new Array(8);
 
-    const C = [...this.position.values]; // OBB Center
-    const E = [...this.size.values]; // OBB Extents
-    const o = this.orientation.values.flat();
+    const C = this.position.values; // OBB Center
+    const E = this.size.values; // OBB Extents
+    const o = this.orientation.values;
     const A = [
       // OBB Axis
-      new Vector(o[0], o[1], o[2]),
-      new Vector(o[3], o[4], o[5]),
-      new Vector(o[6], o[7], o[8]),
+      o[0],
+      o[1],
+      o[2],
     ];
 
-    vertex[0] = new Vector(C).add(A[0].copy().mul(E[0])).add(A[1].copy().mul(E[1])).add(A[2].copy().mul(E[2]));
-    vertex[1] = new Vector(C).sub(A[0].copy().mul(E[0])).add(A[1].copy().mul(E[1])).add(A[2].copy().mul(E[2]));
-    vertex[2] = new Vector(C).add(A[0].copy().mul(E[0])).sub(A[1].copy().mul(E[1])).add(A[2].copy().mul(E[2]));
-    vertex[3] = new Vector(C).add(A[0].copy().mul(E[0])).add(A[1].copy().mul(E[1])).sub(A[2].copy().mul(E[2]));
-    vertex[4] = new Vector(C).sub(A[0].copy().mul(E[0])).sub(A[1].copy().mul(E[1])).sub(A[2].copy().mul(E[2]));
-    vertex[5] = new Vector(C).add(A[0].copy().mul(E[0])).sub(A[1].copy().mul(E[1])).sub(A[2].copy().mul(E[2]));
-    vertex[6] = new Vector(C).sub(A[0].copy().mul(E[0])).add(A[1].copy().mul(E[1])).sub(A[2].copy().mul(E[2]));
-    vertex[7] = new Vector(C).sub(A[0].copy().mul(E[0])).sub(A[1].copy().mul(E[1])).add(A[2].copy().mul(E[2]));
+    vertex[0] = [
+      C[0] + A[0][0] * E[0] + A[0][1] * E[0] + A[0][2] * E[0],
+      C[1] + A[1][0] * E[1] + A[1][1] * E[1] + A[1][2] * E[1],
+      C[2] + A[2][0] * E[2] + A[2][1] * E[2] + A[2][2] * E[2],
+    ]
+
+    vertex[1] = [
+      C[0] - A[0][0] * E[0] + A[0][1] * E[0] + A[0][2] * E[0],
+      C[1] - A[1][0] * E[1] + A[1][1] * E[1] + A[1][2] * E[1],
+      C[2] - A[2][0] * E[2] + A[2][1] * E[2] + A[2][2] * E[2],
+    ]
+
+    vertex[2] = [
+      C[0] + A[0][0] * E[0] - A[0][1] * E[0] + A[0][2] * E[0],
+      C[1] + A[1][0] * E[1] - A[1][1] * E[1] + A[1][2] * E[1],
+      C[2] + A[2][0] * E[2] - A[2][1] * E[2] + A[2][2] * E[2],
+    ]
+    
+    vertex[3] = [
+      C[0] + A[0][0] * E[0] + A[0][1] * E[0] - A[0][2] * E[0],
+      C[1] + A[1][0] * E[1] + A[1][1] * E[1] - A[1][2] * E[1],
+      C[2] + A[2][0] * E[2] + A[2][1] * E[2] - A[2][2] * E[2],
+    ]
+
+    vertex[4] = [
+      C[0] - A[0][0] * E[0] - A[0][1] * E[0] - A[0][2] * E[0],
+      C[1] - A[1][0] * E[1] - A[1][1] * E[1] - A[1][2] * E[1],
+      C[2] - A[2][0] * E[2] - A[2][1] * E[2] - A[2][2] * E[2],
+    ]
+
+    vertex[5] = [
+      C[0] + A[0][0] * E[0] - A[0][1] * E[0] - A[0][2] * E[0],
+      C[1] + A[1][0] * E[1] - A[1][1] * E[1] - A[1][2] * E[1],
+      C[2] + A[2][0] * E[2] - A[2][1] * E[2] - A[2][2] * E[2],
+    ]
+
+    vertex[6] = [
+      C[0] - A[0][0] * E[0] + A[0][1] * E[0] - A[0][2] * E[0],
+      C[1] - A[1][0] * E[1] + A[1][1] * E[1] - A[1][2] * E[1],
+      C[2] - A[2][0] * E[2] + A[2][1] * E[2] - A[2][2] * E[2],
+    ]
+
+    vertex[7] = [
+      C[0] - A[0][0] * E[0] - A[0][1] * E[0] + A[0][2] * E[0],
+      C[1] - A[1][0] * E[1] - A[1][1] * E[1] + A[1][2] * E[1],
+      C[2] - A[2][0] * E[2] - A[2][1] * E[2] + A[2][2] * E[2],
+    ]
 
     const result = { min: null, max: null } as Interval;
-    result.min = result.max = axis.dot(vertex[0]);
+    result.min = result.max = axis[0] * vertex[0][0] + axis[1] * vertex[0][1] + axis[2] * vertex[0][2];
 
     for (let i = 1; i < 8; i++) {
-      const projection = axis.dot(vertex[i]);
+      const projection = axis[0] * vertex[i][0] + axis[1] * vertex[i][1] + axis[2] * vertex[i][2]
       result.min = projection < result.min ? projection : result.min;
       result.max = projection > result.max ? projection : result.max;
     }
@@ -2070,32 +2112,47 @@ export class OBB {
    * @todo **Optimize**
    */
   againstOBB(other: OBB): { overlap: number; axis: Vector<3> } | false {
-    const to = this.orientation.values.flat();
-    const oo = other.orientation.values.flat();
+    const to = this.orientation.values;
+    const oo = other.orientation.values;
 
     const testAxis = [
-      new Vector(to[0], to[1], to[2]),
-      new Vector(to[3], to[4], to[5]),
-      new Vector(to[6], to[7], to[8]),
-      new Vector(oo[0], oo[1], oo[2]),
-      new Vector(oo[3], oo[4], oo[5]),
-      new Vector(oo[6], oo[7], oo[8]),
+      to[0],
+      to[1],
+      to[2],
+      oo[0],
+      oo[1],
+      oo[2],
     ];
 
     for (let i = 0; i < 3; i++) {
-      // Fill out rest of axis
-      testAxis[6 + i * 3 + 0] = testAxis[i].cross(testAxis[0]);
-      testAxis[6 + i * 3 + 1] = testAxis[i].cross(testAxis[1]);
-      testAxis[6 + i * 3 + 2] = testAxis[i].cross(testAxis[2]);
+      // Cross products, inlined, array version of Vector.cross
+      testAxis[6 + i * 3 + 0] = [
+        testAxis[i][1] * testAxis[3][2] - testAxis[i][2] * testAxis[3][1],
+        testAxis[i][2] * testAxis[3][0] - testAxis[i][0] * testAxis[3][2],
+        testAxis[i][0] * testAxis[3][1] - testAxis[i][1] * testAxis[3][0]
+      ];
+      
+      testAxis[6 + i * 3 + 1] = [
+        testAxis[i][1] * testAxis[4][2] - testAxis[i][2] * testAxis[4][1],
+        testAxis[i][2] * testAxis[4][0] - testAxis[i][0] * testAxis[4][2],
+        testAxis[i][0] * testAxis[4][1] - testAxis[i][1] * testAxis[4][0]
+      ];
+      
+      testAxis[6 + i * 3 + 2] = [
+        testAxis[i][1] * testAxis[5][2] - testAxis[i][2] * testAxis[5][1],
+        testAxis[i][2] * testAxis[5][0] - testAxis[i][0] * testAxis[5][2],
+        testAxis[i][0] * testAxis[5][1] - testAxis[i][1] * testAxis[5][0]
+      ];
     }
-
-    // throw new Error(`${testAxis[0].cross(testAxis[0])}  \n\n${testAxis}`);
 
     let min = Number.POSITIVE_INFINITY,
       axis = null;
 
     for (let i = 0; i < 15; i++) {
-      if (testAxis[i].mag() === 0) continue;
+      if (
+        testAxis[i][0] === 0 &&
+        testAxis[i][1] === 0 &&
+        testAxis[i][2] === 0) continue;
       const a = this.getInterval(testAxis[i]);
       const b = other.getInterval(testAxis[i]);
       const overlaps = b.min <= a.max && a.min <= b.max;
@@ -2111,7 +2168,7 @@ export class OBB {
         axis = testAxis[i];
       }
     }
-    return { overlap: min, axis };
+    return { overlap: min, axis: new Vector(axis) };
   }
 }
 //#endregion

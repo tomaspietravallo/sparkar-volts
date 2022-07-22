@@ -19,8 +19,16 @@ describe('OBB - Oriented Bounding Box', () => {
   });
   test('getInterval', () => {
     const obb = new OBB();
-    expect(() => obb.getInterval(new Vector())).not.toThrow();
-    const interval = obb.getInterval(new Vector(0, 1, 0));
+    expect(() => obb.getInterval([0,0,0])).not.toThrow();
+    let interval = obb.getInterval([0, 1, 0]);
+    expect(interval.max).toBeCloseTo(+1);
+    expect(interval.min).toBeCloseTo(-1);
+
+    interval = obb.getInterval([1, 0, 0]);
+    expect(interval.max).toBeCloseTo(+1);
+    expect(interval.min).toBeCloseTo(-1);
+
+    interval = obb.getInterval([0, 0, 1]);
     expect(interval.max).toBeCloseTo(+1);
     expect(interval.min).toBeCloseTo(-1);
   });
@@ -59,3 +67,25 @@ describe('OBB - Oriented Bounding Box', () => {
     }
   });
 });
+
+describe('performance (run local only)', () => {
+  test.skip('againstOBB', () => {
+    
+    // 356.11ms to compute 500 OBB
+    // 32.18ms to compute 500 OBB (optimized)
+    // 22.98ms to compute 500 OBB (optimized)
+    // Goes as far down as 8ms if the OBBs aren't on top of each other
+    let it: any = process.hrtime(); it = it[0] * 1000 + it[1] / 1000000;
+
+    for (let i = 0; i < 500; i++) {
+      const a = new OBB({ position: new Vector(0,0,0) });
+      const b = new OBB({ position: new Vector(0,0,0) });
+
+      a.againstOBB(b);;
+    };
+
+    let ft: any = process.hrtime(); ft = ft[0] * 1000 + ft[1] / 1000000;
+    // Use this to purposefully prompt an error displaying the amount it took
+    expect(ft - it).toBeLessThan(0);
+  })
+})
