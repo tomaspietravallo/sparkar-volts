@@ -2119,8 +2119,6 @@ export class OBB {
 //#region Object3D
 /** @description Does NOT contain all possible settings, just default ones  */
 export const DefaultPhysicsSettings = {
-  solver: 'verlet',
-  steps: 1,
   drag: 1.0,
   gravity: -9.8,
   group: 0xffff,
@@ -2262,8 +2260,6 @@ export class Object3D<T extends SceneObjectBase = any> {
 
   usePhysics(
     args: {
-      solver?: 'verlet' | 'impulse';
-      steps?: number;
       drag?: number;
       gravity?: number;
       floor?: number;
@@ -2475,47 +2471,48 @@ export class Object3D<T extends SceneObjectBase = any> {
           obj.pos.values = nPos.values;
           obj.vel.values = nVel.values;
           obj.acc.values = nAcc.values;
-
-          i++;
         }
 
-        // @todo O(n^2) - needs optimizing 
+        // @todo O(n^2) - needs optimizing
         for (let j = 0; j < group.length; j++) {
           for (let k = 0; k < group.length; k++) {
-            if (j === k) continue
+            if (j === k) continue;
             const objA = group[j];
             const objB = group[k];
-    
+
             const obbA = new OBB({
               position: objA.pos.copy(),
               size: new Vector(0.05),
               orientation: objA.rot.toMatrix().inverse(),
             });
-            
+
             const obbB = new OBB({
               position: objB.pos.copy(),
               size: new Vector(0.05),
               orientation: objB.rot.toMatrix().inverse(),
             });
-    
+
             const collision = obbA.againstOBB(obbB);
-    
+
             if (collision) {
               const { overlap, axis } = collision as { overlap: number; axis: Vector<3> };
               // overlap += 0.001;
-    
+
               objA.pos.add(axis.copy().mul(objA.pos.copy().normalize().dot(axis) * overlap * 5));
               objB.pos.add(axis.copy().mul(objB.pos.copy().normalize().dot(axis) * overlap * 5));
-    
+
               const poc = obbA.closestToPoint(objB.pos).add(obbB.closestToPoint(objA.pos)).div(2);
               Object3D.solveCollision(objA, objB, poc);
             }
           }
         }
-
       }
       i++;
     }
+  }
+
+  static clearAllColliders(): void {
+    Object3D.colliders = {};
   }
 }
 
