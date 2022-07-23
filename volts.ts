@@ -1762,6 +1762,14 @@ export class Quaternion {
     this.z = w1 * z2 + z1 * w2 + x1 * y2 - y1 * x2;
     return this;
   }
+  public inverse(): Quaternion {
+    const q = this.calcNorm();
+    this.values[0] /= q;
+    this.values[1] /= -q;
+    this.values[2] /= -q;
+    this.values[3] /= -q;
+    return this
+  }
   public copy(): Quaternion {
     return new Quaternion([...this.values]);
   }
@@ -2006,9 +2014,6 @@ export class OBB {
     this.orientation = args.orientation || Matrix.identity(3);
   }
 
-  /**
-   * @todo Optimize
-   */
   closestToPoint(point: Vector<3>): Vector<3> {
     let result = this.position.values;
     const dir = [ point.values[0] - this.position.values[0], point.values[1] - this.position.values[1], point.values[2] - this.position.values[2] ];
@@ -2032,12 +2037,23 @@ export class OBB {
     return new Vector(result);
   }
 
-  /**
-   * @todo **Needs optimization**
-   */
   getInterval(axis: number[]): Interval {
-    const vertex: number[][] = new Array(8);
+    const vertex = this.getVertex();
 
+    const result = { min: null, max: null } as Interval;
+    result.min = result.max = axis[0] * vertex[0][0] + axis[1] * vertex[0][1] + axis[2] * vertex[0][2];
+
+    for (let i = 1; i < 8; i++) {
+      const projection = axis[0] * vertex[i][0] + axis[1] * vertex[i][1] + axis[2] * vertex[i][2]
+      result.min = projection < result.min ? projection : result.min;
+      result.max = projection > result.max ? projection : result.max;
+    }
+
+    return result;
+  }
+
+  getVertex(): number[][] {
+    const vertex = new Array(8);
     const C = this.position.values; // OBB Center
     const E = this.size.values; // OBB Extents
     const o = this.orientation.values;
@@ -2094,23 +2110,11 @@ export class OBB {
       C[0] - A[0][0] * E[0] - A[0][1] * E[0] + A[0][2] * E[0],
       C[1] - A[1][0] * E[1] - A[1][1] * E[1] + A[1][2] * E[1],
       C[2] - A[2][0] * E[2] - A[2][1] * E[2] + A[2][2] * E[2],
-    ]
+    ];
 
-    const result = { min: null, max: null } as Interval;
-    result.min = result.max = axis[0] * vertex[0][0] + axis[1] * vertex[0][1] + axis[2] * vertex[0][2];
-
-    for (let i = 1; i < 8; i++) {
-      const projection = axis[0] * vertex[i][0] + axis[1] * vertex[i][1] + axis[2] * vertex[i][2]
-      result.min = projection < result.min ? projection : result.min;
-      result.max = projection > result.max ? projection : result.max;
-    }
-
-    return result;
+    return vertex;
   }
 
-  /**
-   * @todo **Optimize**
-   */
   againstOBB(other: OBB): { overlap: number; axis: Vector<3> } | false {
     const to = this.orientation.values;
     const oo = other.orientation.values;
@@ -2229,7 +2233,7 @@ export class Object3D<T extends SceneObjectBase = any> {
       box?: Vector<3>;
       mass?: number;
       awake?: boolean;
-      body?: T;
+      body?: T | null | string;
     } = undefined,
   ) {
     if (typeof args !== 'object') args = {};
@@ -2256,6 +2260,7 @@ export class Object3D<T extends SceneObjectBase = any> {
      * 2. out of bounds array creating dynamic objects may help identify an issue,
      * and instancing without hassle can be useful while iterating
      */
+    // @ts-expect-error
     this.body = args.body;
     if (args.body !== null) {
       const p = new Promise<T>((resolve) => {
@@ -2265,6 +2270,7 @@ export class Object3D<T extends SceneObjectBase = any> {
             : Promise.resolve(args.body)
           : Scene.create('Plane')
         ).then(async (plane) => {
+          // @ts-expect-error
           (!args.body || !args.body.addChild) && (await Scene.root.addChild(plane));
           plane.transform.position = this.pos.signal;
           plane.transform.rotation = this.rot.signal;
@@ -2276,6 +2282,7 @@ export class Object3D<T extends SceneObjectBase = any> {
           resolve(plane);
         });
       });
+      // @ts-expect-error
       if (!args.body || typeof args.body === 'string') this.body = p;
     }
   }
@@ -2339,10 +2346,10 @@ export class Object3D<T extends SceneObjectBase = any> {
    * @description Destroys the body of the associated dynamic instance.
    */
   destroyDynamicBody(): void {
-    // @ts-ignore
+    // @ts-expect-error
     if (this.body && this.body.then) {
-      // @ts-ignore
       return this.body
+      // @ts-expect-error
         .then((b: SceneObjectBase) => {
           Scene.root.removeChild(b);
           Scene.destroy(b);
@@ -2370,12 +2377,14 @@ export class Object3D<T extends SceneObjectBase = any> {
     // @ts-expect-error
     this.body.then
       ? this.body
+          // @ts-expect-error
           .then((b) => (b.material = material))
           .catch(() => {
             throw new Error(
               `Failed to set material for Object3D this is most likely because it has no body, or is a BlockInstance`,
             );
           })
+      // @ts-expect-error
       : (this.body.material = material);
     this.material = material;
     return this;
@@ -2425,14 +2434,13 @@ export class Object3D<T extends SceneObjectBase = any> {
     const keys = Object.keys(DefaultPhysicsSettings);
     for (let index = 0; index < keys.length; index++) {
       const e = keys[index] as keyof typeof DefaultPhysicsSettings;
-      // @ts-expect-error
       if (args[e] === undefined) args[e] = DefaultPhysicsSettings[e];
     }
     obj.physics = args;
   }
 
-  static solveCollision(a: Object3D, b: Object3D, poc: Vector<3>): void {
-    const e = 1.0; // coefficient of restitution
+  static solveCollision(a: Object3D, b: Object3D, poc: Vector<3>, e: number): void {
+    // coefficient of restitution
     const ma = a.mass;
     const mb = b.mass;
     // Inertia - Identities for now
@@ -2476,14 +2484,18 @@ export class Object3D<T extends SceneObjectBase = any> {
     a.vel.values = vA.values;
     b.vel.values = vB.values;
 
+
+
     // @todo Add calculation for inertia tensors
     // const IaInverse = Ia.inverse();
-    const angularVelChangeA = normal.copy().cross(ra);
+    const angularVelChangeA = normal.copy().cross(ra).mul(0.9);
     // .transform(IaInverse);
 
     // const IbInverse = Ib.inverse();
-    const angularVelChangeB = normal.copy().cross(rb);
+    const angularVelChangeB = normal.copy().cross(rb).mul(0.9);
     // .transform(IbInverse)
+
+    // @todo Add conservation of energy in rotations (?)
 
     // This could be more efficient 🙂
     a.ang_vel = Quaternion.fromEuler(new Vector(a.ang_vel.toEulerArray()).sub(angularVelChangeA).values);
@@ -2494,14 +2506,22 @@ export class Object3D<T extends SceneObjectBase = any> {
    * @description Updates the physics body
    * @param delta Milliseconds
    * @param steps Integer amount of steps
+   * @todo Optimize
    */
   static updatePhysics(delta: number, steps: number): void {
     const keys = Object.keys(Object3D.colliders);
     let i = 0;
     delta /= steps;
     delta *= 0.001;
+
+    // const groundObj = new Object3D({body: null}).usePhysics({ gravity: 0.0, drag: 1.0, group: 0xf100757a71c });
+    // const groundOBB = new OBB({ position: new Vector(0,-0.105,0), size: new Vector(5,0.01,5) });
+
+    const collisions = {};
+
     while (i < steps) {
       for (let k = 0; k < keys.length; k++) {
+        collisions[keys[k]] = collisions[keys[k]] || [];
         const group = Object3D.colliders[keys[k]];
         for (let oi = 0; oi < group.length; oi++) {
           const obj = group[oi];
@@ -2523,6 +2543,7 @@ export class Object3D<T extends SceneObjectBase = any> {
               .mul(0.5 * delta),
           );
 
+          // obj.ang_vel = Quaternion.fromEuler(new Vector(obj.ang_vel.toEulerArray()).mul(0.95).values);
           obj.rot.mul(Quaternion.slerp(Quaternion.identity(), obj.ang_vel, (delta * 1000) / FRAME_MS));
 
           obj.pos.values = nPos.values;
@@ -2532,10 +2553,11 @@ export class Object3D<T extends SceneObjectBase = any> {
 
         // @todo O(n^2) - needs optimizing
         for (let j = 0; j < group.length; j++) {
-          for (let k = 0; k < group.length; k++) {
-            if (j === k) continue;
-            const objA = group[j];
-            const objB = group[k];
+          const objA = group[j];
+          collisions[keys[k]][j] = collisions[keys[k]][j] || [];
+          for (let h = 0; h < group.length; h++) {
+            if (j === h) continue;
+            const objB = group[h];
 
             const obbA = new OBB({
               position: objA.pos.copy(),
@@ -2549,19 +2571,25 @@ export class Object3D<T extends SceneObjectBase = any> {
               orientation: objB.rot.toMatrix().inverse(),
             });
 
-            const collision = obbA.againstOBB(obbB);
+            const collisionData = obbA.againstOBB(obbB);
 
-            if (collision) {
-              const { overlap, axis } = collision as { overlap: number; axis: Vector<3> };
-              // overlap += 0.001;
+            if (collisionData && collisions[keys[k]][j].indexOf(k) === -1) {
+              const { overlap, axis } = collisionData as { overlap: number; axis: Vector<3> };
+              axis.normalize();
+              const mid = objA.pos.copy().add(objB.pos).div(2);
 
-              objA.pos.add(axis.copy().mul(objA.pos.copy().normalize().dot(axis) * overlap * 5));
-              objB.pos.add(axis.copy().mul(objB.pos.copy().normalize().dot(axis) * overlap * 5));
+              objA.pos.add(objA.pos.copy().sub(mid).normalize().mul(obbA.size.x * 0.03));
+              objA.rot.mul(Quaternion.slerp(Quaternion.identity(), objA.ang_vel, (delta * 1000) / FRAME_MS).inverse());
+
+              objB.pos.add(objB.pos.copy().sub(mid).normalize().mul(obbA.size.x * 0.03));
+              objA.rot.mul(Quaternion.slerp(Quaternion.identity(), objB.ang_vel, (delta * 1000) / FRAME_MS).inverse());
+              collisions[keys[k]][j].push(k);
 
               const poc = obbA.closestToPoint(objB.pos).add(obbB.closestToPoint(objA.pos)).div(2);
-              Object3D.solveCollision(objA, objB, poc);
+              Object3D.solveCollision(objA, objB, poc, 0.0)
             }
           }
+
         }
       }
       i++;
