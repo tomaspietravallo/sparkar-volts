@@ -2586,7 +2586,7 @@ export class Object3D<T extends SceneObjectBase = any> {
               collisions[keys[k]][j].push(k);
 
               const poc = obbA.closestToPoint(objB.pos).add(obbB.closestToPoint(objA.pos)).div(2);
-              Object3D.solveCollision(objA, objB, poc, 0.0)
+              Object3D.solveCollision(objA, objB, poc, 1.0)
             }
           }
 

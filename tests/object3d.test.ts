@@ -190,7 +190,7 @@ describe('physics', () => {
 
   test('solveCollision', () => {
     Object3D.clearAllColliders()
-    expect(() => Object3D.solveCollision(new Object3D(), new Object3D(), new Vector())).not.toThrow();
+    expect(() => Object3D.solveCollision(new Object3D(), new Object3D(), new Vector(), 1.0)).not.toThrow();
   });
 
   test('test: 1kg vs 1kg collision', () => {
